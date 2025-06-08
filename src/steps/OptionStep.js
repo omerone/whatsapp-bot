@@ -1,0 +1,90 @@
+class OptionStep {
+    static async process(step, session, input, flowEngine) {
+
+        
+        // If we have input, try to process the selection
+        if (input) {
+            const normalizedInput = input.trim().toLowerCase();
+            
+            // Find the matching option
+            let selectedOption = null;
+            let selectedKey = null;
+
+            for (const [key, value] of Object.entries(step.options)) {
+                const options = key.split('||').map(opt => opt.trim().toLowerCase());
+                
+                // Check if input matches any of the options (case insensitive)
+                if (options.includes(normalizedInput)) {
+                    selectedOption = value;
+                    selectedKey = key;
+                    break;
+                }
+
+                // Check for partial matches (if input contains or is contained in any option)
+                for (const option of options) {
+                    if (option === normalizedInput || 
+                        (option.length > 2 && normalizedInput.includes(option)) ||
+                        (normalizedInput.length > 2 && option.includes(normalizedInput))) {
+                        selectedOption = value;
+                        selectedKey = key;
+                        break;
+                    }
+                }
+                
+                if (selectedOption) break;
+            }
+
+            if (selectedOption && step.branches[selectedOption]) {
+                // Store the selection
+                if (step.key) {
+                    session.data[step.key] = selectedOption;
+                }
+                
+                console.log(`✅ OptionStep: User input "${input}" matched option "${selectedKey}" → "${selectedOption}" → "${step.branches[selectedOption]}"`);
+                
+                // Move to the selected branch
+                session.currentStep = step.branches[selectedOption];
+                return flowEngine.processStepInternal(session.userId);
+            } else {
+                // Create a comprehensive list of valid options for the error message
+                const validOptions = Object.keys(step.options)
+                    .map(key => {
+                        const options = key.split('||').map(opt => opt.trim());
+                        return options.length > 1 ? `${options[0]} (${options.slice(1).join(', ')})` : options[0];
+                    })
+                    .join(' | ');
+
+                console.log(`❌ OptionStep: User input "${input}" didn't match any option in step "${step.id}"`);
+                
+                // Invalid selection with custom message if available
+                const errorMessage = step.noMatchMessage || `בחירה לא תקינה, אנא בחר מהאפשרויות הבאות: ${validOptions}`;
+                
+                return {
+                    messages: [errorMessage],
+                    waitForUser: true
+                };
+            }
+        }
+
+        // If we're just starting this step or had an invalid selection
+        let messageToSend = step.message || await flowEngine.loadMessageFile(step.messageFile);
+
+        // הוספת לוגיקה להחלפת placeholders
+        if (messageToSend && session.data) {
+            for (const keyInSession in session.data) {
+                if (session.data.hasOwnProperty(keyInSession)) {
+                    const placeholder = `{${keyInSession}}`;
+                    // שימוש ב-RegExp גלובלי כדי להחליף את כל המופעים של ה-placeholder
+                    messageToSend = messageToSend.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\\]]/g, '\\$&'), 'g'), session.data[keyInSession]);
+                }
+            }
+        }
+
+        return {
+            messages: [messageToSend],
+            waitForUser: true
+        };
+    }
+}
+
+module.exports = OptionStep;

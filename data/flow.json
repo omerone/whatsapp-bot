@@ -1,0 +1,348 @@
+{
+  "תסריט החברה": "עבור משאבים LTD",
+
+  "rules": {
+    "ignoreContacts": true,
+    "ignoreArchived": true,
+    "ignoreGroups": true,
+    "ignoreStatus": true,
+    "blockScheduledClients": {
+      "enabled": true,
+      "blockPastAndPresent": true,
+      "blockFutureAndPresent": false,
+      "allowRescheduling": true,
+      "rescheduleOnlyFuture": true
+    },
+    "activationKeywords": {
+        "enabled": false,
+        "keywords": ["תספורת"],
+        "resetAfterHours": 24
+    },
+    "freezeClients": {
+      "enabled": true,
+      "defaultDurationMinutes": 60,
+      "sendExplanationMessage": true,
+      "maxFreezeCount": 3,
+      "explanationMessageText": "תחזור אלינו בעוד {duration} דקות. תודה על הסבלנות! 🙏",
+      "stepSpecificDurations": {
+        "not_suitable": 1440,
+        "human_support": 60,
+        "remove_candidate": 10080
+      },
+      "preventDuplicateMessages": true,
+      "logFreezeActions": true
+    },
+    "resetConfig": {
+      "enabled": true,
+      "keyword": "תפריט",
+      "targetStep": "main_menu",
+      "unfreezeOnReset": true,
+      "deleteAppointmentOnReset": true,
+      "allowResetForBlockedClients": false,
+      "logResetActions": true
+    }
+  },
+
+  "integrations": {
+    "enabled": true,
+    "googleWorkspace": {
+      "enabled": true,
+      "sheets": {
+        "enabled": true,
+        "sheetId": "1fVUvM0Zaj-G1oIzW0NHBOxktssEto_OZFn1JPZ44Nf0",
+        "columns": {
+          "meeting_date": 1,
+          "meeting_time": 2,
+          "full_name": 3,
+          "city_name": 4,
+          "phone": 5,
+          "mobility": 6
+        },
+        "filterByDateTime": true,
+        "preventDuplicates": true,
+        "updateExistingRows": true
+      },
+      "calendar": {
+        "enabled": true,
+        "calendarId": "805b96a7ab3f3a51f68ca9f451ffaa7c40f25b550b73a3d570242761818d3468@group.calendar.google.com",
+        "eventDurationMinutes": 60,
+        "timeZone": "Asia/Jerusalem",
+        "eventTitle": "פגישה עם {full_name}",
+        "eventDescription": "פגישה עם {full_name}\nטלפון: {phone}\nעיר: {city_name}\nניידות: {mobility}",
+        "maxParticipantsPerSlot": 3,
+        "preventDuplicates": true
+      }
+    },
+    "notifications": {
+      "enabled": true,
+      "meetingScheduled": {
+        "enabled": true,
+        "recipients": [
+          "120363419789724883@g.us"
+        ],
+        "messageTemplateFile": "meeting_scheduled_notification.txt"
+      }
+    },
+    "reminders": {
+      "enabled": false,
+      "configurations": [
+        {
+          "id": "reminder_12h_before",
+          "offset": "-12h",
+          "timeOfDay": "19:00",
+          "messageFile": "reminder_12h_before.txt",
+          "source": "google_sheet",
+          "enabled": false
+        },
+        {
+          "id": "reminder_1h_before",
+          "offset": "-1h",
+          "messageFile": "reminder_1h_before.txt",
+          "source": "google_sheet",
+          "enabled": true
+        }
+      ]
+    },
+    "iPlan": {
+      "enabled": false,
+      "apiUrl": "",
+      "apiKey": "",
+      "companyId": "",
+      "syncMeetings": true,
+      "syncContacts": false,
+      "syncTasks": false
+    }
+  },
+
+
+  
+  "start": "intro",
+  
+  "steps": {
+    "intro": {
+      "id": "intro",
+      "type": "message",
+      "userResponseWaiting": false,
+      "next": "main_menu",
+      "messageFile": "intro.txt"
+    },
+    
+    "main_menu": {
+      "id": "main_menu",
+      "type": "options",
+      "userResponseWaiting": true,
+      "options": {
+        "1 || פגישה || לקבוע פגישה || קביעת פגישה": "book",
+        "2 || שאלות || מידע || פרטים": "questions",
+        "3 || נציג || נציג אנושי || לדבר עם נציג": "human",
+        "4 || הסרה || הסר || ביטול": "remove"
+      },
+      "branches": {
+        "book": "start_booking_flow",
+        "questions": "faq1",
+        "human": "human_support",
+        "remove": "remove_candidate"
+      },
+      "messageFile": "main_menu.txt"
+    },
+
+    "start_booking_flow": {
+      "id": "start_booking_flow",
+      "type": "message",
+      "userResponseWaiting": false,
+      "next": "ask_name",
+      "messageFile": "start_booking_flow.txt"
+    },
+
+    "faq1": {
+      "id": "faq1",
+      "type": "options",
+      "userResponseWaiting": true,
+      "options": {
+        "1 || פגישה || לקבוע פגישה": "book",
+        "2 || המשך למידע נוסף": "next_faq",
+        "3 || נציג || נציג אנושי": "human",
+        "9 || הסרה || ביטול": "remove"
+      },
+      "branches": {
+        "book": "start_booking_flow",
+        "next_faq": "faq2",
+        "human": "human_support",
+        "remove": "remove_candidate"
+      },
+      "messageFile": "faq1.txt"
+    },
+
+    "faq2": {
+      "id": "faq2",
+      "type": "options",
+      "userResponseWaiting": true,
+      "options": {
+        "1 || פגישה || לקבוע פגישה": "book",
+        "2 || חזרה לתפריט": "menu",
+        "3 || נציג || נציג אנושי": "human",
+        "9 || הסרה || ביטול": "remove"
+      },
+      "branches": {
+        "book": "start_booking_flow",
+        "menu": "main_menu",
+        "human": "human_support",
+        "remove": "remove_candidate"
+      },
+      "messageFile": "faq2.txt"
+    },
+
+    "human_support": {
+      "id": "human_support",
+      "type": "message",
+      "userResponseWaiting": false,
+      "messageFile": "human_support.txt",
+      "freeze": true
+    },
+
+    "remove_candidate": {
+      "id": "remove_candidate",
+      "type": "message",
+      "userResponseWaiting": false,
+      "messageFile": "remove_candidate.txt",
+      "freeze": true
+    },
+
+    "ask_name": {
+      "id": "ask_name",
+      "type": "question",
+      "userResponseWaiting": true,
+      "message": "*מה שמך המלא?*",
+      "key": "full_name",
+      "validation": {
+        "type": "Name"
+      },
+      "next": "confirm_full_name"
+    },
+
+    "confirm_full_name": {
+      "id": "confirm_full_name",
+      "type": "options",
+      "userResponseWaiting": true,
+      "message": "האם השם המלא שלך הוא *{full_name}*?\n1 - כן\n2 - לא, אעדכן את השם",
+      "options": {
+        "1 || כן || נכון || בסדר || אישור": "confirmed",
+        "2 || לא || לא נכון || תיקון || שגוי": "retype_name"
+      },
+      "branches": {
+        "confirmed": "ask_city",
+        "retype_name": "ask_name_again"
+      },
+      "noMatchMessage": "אנא השב '1' או 'כן' אם השם נכון, או '2' או 'לא' כדי לעדכן את שמך."
+    },
+
+    "ask_name_again": {
+      "id": "ask_name_again",
+      "type": "question",
+      "key": "full_name",
+      "userResponseWaiting": true,
+      "message": "*אנא ציין שוב את שמך המלא:*",
+      "validation": {
+        "type": "Name"
+      },
+      "next": "confirm_full_name"
+    },
+
+    "ask_city": {
+      "id": "ask_city",
+      "type": "question",
+      "userResponseWaiting": true,
+      "message": "*מהי עיר מגוריך?*",
+      "key": "city_name",
+      "validation": {
+        "type": "Location"
+      },
+      "cityValidationConfig": {
+        "messages": {
+          "קלט_ריק": "לא הזנת עיר. אנא נסה שנית.",
+          "עיר_לא_זמינה": "כתבת את העיר {cityName}, אך לצערנו איננו פועלים בה כרגע. \n במידה וזו טעות הזן את עיר מגוריך.",
+          "הצעה_עיר_לא_זמינה": "זיהינו את העיר *{suggestedCity}*, אך איננו פועלים בה כרגע. \nבמידה וזו טעות הזן את עיר מגוריך.",
+          "עיר_לא_מוכרת": "לא הצלחנו לזהות את העיר שהזנת ({originalInput}). אנא נסה/י שנית או הקש/י שם עיר מוכרת.",
+          "הוראת_חזרה": "לחזרה להתחלה שלח את המילה ״תפריט״"
+        }
+      },
+      "next": "ask_vehicle"
+    },
+
+    "ask_vehicle": {
+      "id": "ask_vehicle",
+      "type": "options",
+      "userResponseWaiting": true,
+      "message": "*מה רמת הניידות שלך?*\n1 - רכב\n2 - אופנוע\n3 - לא נייד",
+      "key": "mobility",
+      "options": {
+        "1 || רכב || מכונית || אוטו || car": "car",
+        "2 || אופנוע || אופניים || בייק || bike": "bike",
+        "3 || לא נייד || ללא || אין || none": "none"
+      },
+      "branches": {
+        "car": "show_available_days",
+        "bike": "show_available_days",
+        "none": "not_suitable"
+      }
+    },
+    
+    "show_available_days": {
+      "id": "show_available_days",
+      "type": "date",
+      "messageHeader": "*📅 אנא בחר יום לפגישה מתוך:*",
+      "userResponseWaiting": true,
+      "limit": 5,
+      "resolution": "days",
+      "startFromToday": false,
+      "next": "show_available_times",
+      "options": { 
+        "חזור": "main_menu",
+        "חודש אחר": "show_available_dates"
+      },
+      "footerMessage": "\n(כדי לראות ימים בחודש אחר, רשום *חודש אחר*)\n(כדי לחזור לתפריט הראשי, רשום *חזור*)"
+    },
+
+    "show_available_dates": {
+      "id": "show_available_dates",
+      "type": "date",
+      "messageHeader": "*📅 אנא בחר חודש לפגישה מתוך:*",
+      "userResponseWaiting": true,
+      "limit": 3,
+      "resolution": "months",
+      "next": "show_available_days",
+      "options": { "חזור": "main_menu" },
+      "footerMessage": "\n(כדי לחזור לתפריט הראשי, רשום *חזור*)"
+    },
+
+    "show_available_times": {
+      "id": "show_available_times",
+      "type": "date",
+      "messageHeader": "*🕒 אנא בחר שעה לפגישה מתוך:*",
+      "userResponseWaiting": true,
+      "limit": 20,
+      "resolution": "hours",
+      "next": "final_confirmation",
+      "options": { 
+        "חזור": "show_available_days",
+        "יום אחר": "show_available_days"
+      },
+      "footerMessage": "\n(כדי לבחור יום אחר, רשום *יום אחר*)\n(כדי לחזור לבחירת יום, רשום *חזור*)"
+    },
+
+    "final_confirmation": {
+      "id": "final_confirmation",
+      "type": "message",
+      "userResponseWaiting": false,
+      "messageFile": "final_confirmation.txt"
+    },
+
+    "not_suitable": {
+      "id": "not_suitable",
+      "type": "message",
+      "userResponseWaiting": false,
+      "messageFile": "not_suitable.txt",
+      "freeze": true
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+    "ignore": [
+        ".wwebjs_auth/**",
+        ".wwebjs_cache/**",
+        "data/scenarios/**/.wwebjs_*/**",
+        "data/scenarios/**/group_ids.json",
+        "data/scenarios/**/leads.json"
+    ],
+    "watch": [
+        "src/**/*",
+        "data/flow.json",
+        "data/scenarios/**/messages/*"
+    ],
+    "exec": "node ./src/index.js"
+} 

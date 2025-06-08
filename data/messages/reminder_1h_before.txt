@@ -1,0 +1,8 @@
+שלום {full_name},
+
+זוהי תזכורת קצרה לפגישה שלך איתנו היום בתאריך {meeting_date} בשעה {meeting_time} (בעוד כשעה).
+
+בבקשה לא לאחר 😁
+
+תודה,
+צוות משאבים LTD 

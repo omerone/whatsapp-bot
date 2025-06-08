@@ -1,0 +1,8 @@
+📢 זומן לראיון עבודה:
+
+👤 שם: {full_name}
+📍 עיר: {city_name}
+📞 טלפון: {phone}
+🚗 ניידות: {mobility}
+🗓 תאריך: {meeting_date}
+🕒 שעה: {meeting_time} 
