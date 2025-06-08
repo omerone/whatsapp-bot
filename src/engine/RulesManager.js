@@ -25,8 +25,17 @@ class RulesManager {
             // Check if this is the reset keyword (check both old and new locations)
             const oldResetConfig = this.integrationManager?.flowEngine?.flow?.resetConfig;
             const newResetConfig = this.rules?.resetConfig;
-            const resetKeyword = (newResetConfig?.enabled && newResetConfig?.keyword) || oldResetConfig?.keyword;
+            const resetConfig = newResetConfig?.enabled ? newResetConfig : oldResetConfig;
+            const resetKeyword = resetConfig?.keyword;
             const isResetKeyword = resetKeyword && message.body === resetKeyword;
+
+            // Always allow reset keyword if enabled
+            if (isResetKeyword && resetConfig?.enabled) {
+                if (resetConfig?.logResetActions) {
+                    console.log(`[RulesManager] Reset keyword detected from ${message.from}: "${message.body}"`);
+                }
+                return true;
+            }
 
             // Check if client is frozen (but allow reset keyword)
             if (!isResetKeyword && await this.isClientFrozen(message.from)) {
@@ -53,9 +62,9 @@ class RulesManager {
             if (lead?.blocked) {
                 // If it's reset keyword, check if reset is allowed for blocked clients
                 if (isResetKeyword) {
-                    const allowResetForBlocked = newResetConfig?.allowResetForBlockedClients;
+                    const allowResetForBlocked = resetConfig?.allowResetForBlockedClients;
                     if (!allowResetForBlocked) {
-                        if (newResetConfig?.logResetActions) {
+                        if (resetConfig?.logResetActions) {
                             console.log(`[RulesManager] Blocked client ${message.from} (reason: ${lead.blocked_reason}) tried to reset but allowResetForBlockedClients is false`);
                         }
                         return false;

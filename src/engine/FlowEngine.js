@@ -176,6 +176,44 @@ class FlowEngine {
         return session;
     }
 
+    async handleResetKeyword(userId) {
+        const session = await this.getSession(userId);
+        const resetConfig = this.flow.rules?.resetConfig || this.flow.resetConfig;
+
+        if (!resetConfig?.enabled) {
+            return null;
+        }
+
+        // Reset session data
+        session.data = {};
+        session.currentStep = resetConfig.targetStep || 'main_menu';
+        session.isFirstMessage = false;
+        session.isNewConversation = false;
+        session.ignoreNextInput = false;
+
+        // Update lead
+        await this.leadsManager.createOrUpdateLead(userId, {
+            current_step: session.currentStep,
+            data: session.data,
+            is_schedule: false,
+            meeting: null,
+            last_sent_message: { sender: 'bot' },
+            relevant: true,
+            last_interaction: new Date().toLocaleString('he-IL')
+        });
+
+        // Load and return the main menu message
+        const menuStep = this.flow.steps[session.currentStep];
+        const menuMessage = menuStep.messageFile ? 
+            await this.loadMessageFile(menuStep.messageFile) : 
+            menuStep.message;
+
+        return {
+            messages: [menuMessage],
+            waitForUser: true
+        };
+    }
+
     async processStep(userId, userInput = null, isFirstMessage = false) {
         if (!this.initialized) {
             throw new Error('FlowEngine not initialized');
@@ -184,6 +222,12 @@ class FlowEngine {
         const session = await this.getSession(userId);
         
         try {
+            // Check for reset keyword first
+            const resetConfig = this.flow.rules?.resetConfig || this.flow.resetConfig;
+            if (resetConfig?.enabled && userInput === resetConfig.keyword) {
+                return await this.handleResetKeyword(userId);
+            }
+
             // Handle first message from user - process intro sequence first
             if (session.isFirstMessage || isFirstMessage) {
                 session.isFirstMessage = false;
@@ -196,9 +240,13 @@ class FlowEngine {
                     // Process the intro step without the user's input
                     const introResponse = await this.processStepInternal(userId, '');
                     
-                    // After intro, automatically move to main_menu
+                    // After intro, move to main_menu but don't process it yet
+                    // Just prepare the messages
                     session.currentStep = 'main_menu';
-                    const menuResponse = await this.processStepInternal(userId, '');
+                    const menuStep = this.flow.steps[session.currentStep];
+                    const menuMessage = menuStep.messageFile ? 
+                        await this.loadMessageFile(menuStep.messageFile) : 
+                        menuStep.message;
                     
                     // Update the session and lead after processing
                     await this.leadsManager.createOrUpdateLead(userId, {
@@ -213,7 +261,7 @@ class FlowEngine {
                     
                     // Return combined responses
                     return {
-                        messages: [...(introResponse.messages || []), ...(menuResponse.messages || [])],
+                        messages: [...(introResponse.messages || []), menuMessage],
                         waitForUser: true // Now we wait for real user input
                     };
                 }
