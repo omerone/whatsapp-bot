@@ -134,7 +134,8 @@ class FlowEngine {
                     data: lead.data || {},
                     lastInteraction: new Date(),
                     retryCount: 0,
-                    isFirstMessage: false
+                    isFirstMessage: false,
+                    isNewConversation: false
                 };
             } else {
                 // This is a new conversation initiated by the client
@@ -145,7 +146,8 @@ class FlowEngine {
                     lastInteraction: new Date(),
                     retryCount: 0,
                     isFirstMessage: true,
-                    isNewConversation: true
+                    isNewConversation: true,
+                    ignoreNextInput: false // Flag to ignore next input for new conversations
                 };
             }
             
@@ -174,7 +176,7 @@ class FlowEngine {
         return session;
     }
 
-    async processStep(userId, userInput = null) {
+    async processStep(userId, userInput = null, isFirstMessage = false) {
         if (!this.initialized) {
             throw new Error('FlowEngine not initialized');
         }
@@ -183,7 +185,7 @@ class FlowEngine {
         
         try {
             // Handle first message from user - process intro sequence first
-            if (session.isFirstMessage) {
+            if (session.isFirstMessage || isFirstMessage) {
                 session.isFirstMessage = false;
                 
                 // Always start from intro for new conversations
@@ -192,7 +194,11 @@ class FlowEngine {
                     session.data = {}; // Clear any potentially stale session data
                     
                     // Process the intro step without the user's input
-                    const response = await this.processStepInternal(userId, '');
+                    const introResponse = await this.processStepInternal(userId, '');
+                    
+                    // After intro, automatically move to main_menu
+                    session.currentStep = 'main_menu';
+                    const menuResponse = await this.processStepInternal(userId, '');
                     
                     // Update the session and lead after processing
                     await this.leadsManager.createOrUpdateLead(userId, {
@@ -205,8 +211,19 @@ class FlowEngine {
                         last_interaction: new Date().toLocaleString('he-IL')
                     });
                     
-                    return response;
+                    // Return combined responses
+                    return {
+                        messages: [...(introResponse.messages || []), ...(menuResponse.messages || [])],
+                        waitForUser: true // Now we wait for real user input
+                    };
                 }
+                
+                // If this is the first message but not a new conversation,
+                // just ignore the input and continue with normal flow
+                return {
+                    messages: [],
+                    waitForUser: true
+                };
             }
             
             // Normal message processing

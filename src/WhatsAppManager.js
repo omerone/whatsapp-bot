@@ -166,7 +166,8 @@ class WhatsAppManager {
                     if (isNewConversation && !botInitiatedConversation) {
                         // This is a genuinely new conversation initiated by the client
                         // Start the flow without processing their first message
-                        let response = await this.flowEngine.processStep(message.from, '');
+                        console.log(`[${now.toLocaleString('he-IL')}] התעלמות מהודעה ראשונה מלקוח חדש: ${message.from}`);
+                        let response = await this.flowEngine.processStep(message.from, '', true);
                         if (response && response.messages && response.messages.length > 0) {
                             for (const msg of response.messages) {
                                 if (!msg) continue;
