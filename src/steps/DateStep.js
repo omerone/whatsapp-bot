@@ -23,7 +23,7 @@ class DateStep {
             }
 
             if (input) {
-                const validationResult = await this.validateDateChoice(input, session, step);
+                const validationResult = await this.validateDateChoice(input, session, step, flowEngine);
                 if (!validationResult.valid) {
                     return {
                         messages: [validationResult.error],
@@ -399,7 +399,7 @@ class DateStep {
         return { datesToShow: timesToShow, formattedDates };
     }
 
-    static async validateDateChoice(input, session, step) {
+    static async validateDateChoice(input, session, step, flowEngine) {
         if (input && input.trim() === 'חזור') {
             if (step && step.options && step.options['חזור']) {
                 return { valid: true, action: 'navigate', targetStep: step.options['חזור'] };
@@ -412,15 +412,32 @@ class DateStep {
         if (!session.availableDates || session.availableDates.length === 0) {
             return { valid: false, error: 'אין אפשרויות זמינות לבחירה. נסה לכתוב "תפריט".' };
         }
-        const selectedIndex = parseInt(input);
-        if (isNaN(selectedIndex) || selectedIndex < 1 || selectedIndex > session.availableDates.length) {
-            return {
-                valid: false,
-                error: `אנא בחר מספר בין 1 ל-${session.availableDates.length}`
-            };
+
+        let selectedIndex;
+        let selectedValue;
+
+        // Handle time selection by actual time value (e.g. "10:00")
+        if (session.currentResolution === 'hours' && input.match(/^\d{1,2}:\d{2}$/)) {
+            selectedValue = input;
+            selectedIndex = session.availableDates.findIndex(time => time === input) + 1;
+            if (selectedIndex === 0) { // Not found
+                return {
+                    valid: false,
+                    error: `השעה ${input} אינה זמינה. אנא בחר מספר בין 1 ל-${session.availableDates.length}`
+                };
+            }
+        } else {
+            // Handle selection by index
+            selectedIndex = parseInt(input);
+            if (isNaN(selectedIndex) || selectedIndex < 1 || selectedIndex > session.availableDates.length) {
+                return {
+                    valid: false,
+                    error: `אנא בחר מספר בין 1 ל-${session.availableDates.length}`
+                };
+            }
+            selectedValue = session.availableDates[selectedIndex - 1];
         }
 
-        const selectedValue = session.availableDates[selectedIndex - 1];
         if (!selectedValue) {
             return { valid: false, error: 'הבחירה אינה זמינה. אנא בחר שוב.' };
         }
@@ -443,6 +460,50 @@ class DateStep {
                     time: selectedValue
                 };
                 session.is_schedule = true;
+
+                // Handle integrations when moving to final_confirmation
+                if (step.next === 'final_confirmation') {
+                    const userId = session.userId;
+                    const lead = await flowEngine.leadsManager.getLead(userId);
+                    
+                    // Prepare meeting data for integrations
+                    const meetingData = {
+                        meeting_date: session.selectedDate,
+                        meeting_time: session.selectedTime,
+                        full_name: lead?.data?.full_name || '',
+                        city_name: lead?.data?.city_name || '',
+                        phone: userId.split('@')[0],
+                        mobility: lead?.data?.mobility || ''
+                    };
+
+                    // First update lead data to ensure it's saved
+                    await flowEngine.leadsManager.updateLeadData(userId, {
+                        full_name: meetingData.full_name,
+                        city_name: meetingData.city_name,
+                        mobility: meetingData.mobility
+                    });
+
+                    // Then mark as scheduled with meeting details
+                    await flowEngine.leadsManager.markLeadScheduled(userId, {
+                        date: session.selectedDate,
+                        time: session.selectedTime
+                    });
+
+                    // Handle all integrations (Google Sheets, Calendar, notifications)
+                    if (flowEngine.integrationManager) {
+                        try {
+                            console.log(`✅ Processing meeting: ${userId}-${session.selectedDate}-${session.selectedTime}`);
+                            await flowEngine.integrationManager.handleMeetingScheduled(meetingData, lead);
+                        } catch (error) {
+                            console.error('Error handling integrations:', error);
+                            // Continue with the flow even if integrations fail
+                        }
+                    }
+                }
+
+                if (step.next) {
+                    return { valid: true, action: 'navigate', targetStep: step.next };
+                }
                 break;
         }
         return { valid: true, value: selectedValue };

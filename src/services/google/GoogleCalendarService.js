@@ -1,5 +1,6 @@
 const { google } = require('googleapis');
 const path = require('path');
+const fs = require('fs');
 
 class GoogleCalendarService {
     constructor(config) {
@@ -15,26 +16,28 @@ class GoogleCalendarService {
                 return false;
             }
 
-            // Load Google credentials from centralized credentials directory
-            const credentialsPath = path.join(__dirname, '..', 'credentials', 'google-calendar-credentials.json');
+            // Load Google credentials from the same file as Google Sheets
+            const credentialsPath = path.join(__dirname, '..', 'credentials', 'google-sheets-credentials.json');
+            
+            // Check if credentials file exists
+            try {
+                await fs.access(credentialsPath);
+            } catch (error) {
+                console.error(`GoogleCalendarService: Using Google Sheets credentials from ${credentialsPath}`);
+                console.error('Please make sure the file exists and has the correct calendar permissions.');
+                return false;
+            }
+
+            // Initialize calendar client with Google Sheets credentials
             const auth = new google.auth.GoogleAuth({
                 keyFile: credentialsPath,
                 scopes: ['https://www.googleapis.com/auth/calendar']
             });
 
-            const authClient = await auth.getClient();
-            this.calendar = google.calendar({ version: 'v3', auth: authClient });
-
-            // Test the connection
-            await this.calendar.calendarList.list();
-            
-    
-            this.initialized = true;
+            this.client = google.calendar({ version: 'v3', auth });
             return true;
-
         } catch (error) {
-            console.error('GoogleCalendarService: Failed to initialize:', error.message);
-            this.initialized = false;
+            console.error('GoogleCalendarService: Failed to initialize:', error);
             return false;
         }
     }

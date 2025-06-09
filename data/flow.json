@@ -355,7 +355,7 @@
       "type": "message",
       "userResponseWaiting": false,
       "messageFile": "final_confirmation.txt",
-      "freeze": true
+      "block": true
     },
 
     "not_suitable": {

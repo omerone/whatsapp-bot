@@ -352,6 +352,13 @@ class FlowEngine {
                 await this.leadsManager.updateLastMessage(userId, 'bot');
             }
 
+            // Handle block property if present
+            if (step.block === true) {
+                console.log(`[FlowEngine] 🚫 Blocking client ${userId} at step ${step.id}`);
+                await this.leadsManager.blockLead(userId);
+                return result;
+            }
+
             // Handle auto-continuation for steps that don't wait for user
             if (result.waitForUser === false && !session.ignoreNextInput) {
                 // Continue to next step

@@ -11,29 +11,26 @@ class MessageStep {
                 }
 
                 // Replace variables in the message if they exist
-                if (session.meeting) {
-                    // Get the day name in Hebrew
-                    const [day, month, year] = session.meeting.date.split('/');
-                    const date = new Date(year, month - 1, day);
-                    const dayName = date.toLocaleDateString('he-IL', { weekday: 'long' });
-                    
-                    // Support both {{}} and {} formats
-                    message = message.replace(/\{\{dayName\}\}/g, dayName);
-                    message = message.replace(/\{dayName\}/g, dayName);
-                    message = message.replace(/\{\{selectedDate\}\}/g, session.meeting.date);
-                    message = message.replace(/\{selectedDate\}/g, session.meeting.date);
-                    message = message.replace(/\{\{selectedTime\}\}/g, session.meeting.time);
-                    message = message.replace(/\{selectedTime\}/g, session.meeting.time);
-                }
-
-                // הוספת לוגיקה גנרית להחלפת placeholders מ-session.data
-                if (message && session.data) {
+                if (session.data) {
+                    // הוספת לוגיקה גנרית להחלפת placeholders
                     for (const keyInSession in session.data) {
                         if (session.data.hasOwnProperty(keyInSession)) {
                             const placeholder = `{${keyInSession}}`;
                             message = message.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\\]]/g, '\\$&'), 'g'), session.data[keyInSession]);
                         }
                     }
+                }
+
+                // Replace meeting-specific variables
+                if (session.meeting) {
+                    // Get the day name in Hebrew
+                    const [day, month, year] = session.meeting.date.split('/');
+                    const date = new Date(year, month - 1, day);
+                    const dayName = date.toLocaleDateString('he-IL', { weekday: 'long' });
+                    
+                    message = message.replace(/\{dayName\}/g, dayName);
+                    message = message.replace(/\{selectedDate\}/g, session.meeting.date);
+                    message = message.replace(/\{selectedTime\}/g, session.meeting.time);
                 }
 
                 messages.push(message);
@@ -53,27 +50,32 @@ class MessageStep {
                 throw new Error('Step has neither messageFile nor message');
             }
 
-            // If this is not a waiting step and has a next step, just move to the next step
-            // but don't process it immediately - let it be processed on the next interaction
+            // Handle freeze flag
+            if (step.freeze) {
+                // Freeze the client
+                await flowEngine.freezeClient(session.userId, step.id);
+                // Return messages but don't move to next step
+                return {
+                    messages,
+                    waitForUser: true
+                };
+            }
+
+            // If this is not a waiting step and has a next step
             if (!step.userResponseWaiting && step.next) {
                 session.currentStep = step.next;
                 return {
                     messages,
-                    waitForUser: false // This will cause the next step to be processed immediately after
+                    waitForUser: false
                 };
             }
 
-            // If this is a waiting step and we received input, move to next step
-            if (step.userResponseWaiting && input && step.next) {
-    
-                session.currentStep = step.next;
-                return await flowEngine.processStepInternal(session.userId);
-            }
-
+            // Default case - return messages and wait for user
             return {
                 messages,
-                waitForUser: step.userResponseWaiting
+                waitForUser: step.userResponseWaiting !== false
             };
+
         } catch (error) {
             console.error('Error in MessageStep:', error);
             return {
