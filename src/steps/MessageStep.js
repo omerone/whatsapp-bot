@@ -1,19 +1,6 @@
 class MessageStep {
     static async process(step, session, input, flowEngine) {
         try {
-            // Special handling for final_confirmation step
-            if (step.id === 'final_confirmation') {
-                const lead = await flowEngine.leadsManager.getLead(session.userId);
-                // Only skip if the lead was PREVIOUSLY blocked or scheduled
-                // This allows the first final_confirmation message to go through
-                if (lead && lead.current_step === 'final_confirmation' && (lead.blocked || lead.is_schedule)) {
-                    return {
-                        messages: [],
-                        waitForUser: false
-                    };
-                }
-            }
-
             const messages = [];
 
             // Load message from file if specified
@@ -62,6 +49,18 @@ class MessageStep {
                 messages.push(directMessage);
             } else if (!step.messageFile) {
                 throw new Error('Step has neither messageFile nor message');
+            }
+
+            // Special handling for final_confirmation step
+            if (step.id === 'final_confirmation') {
+                const lead = await flowEngine.leadsManager.getLead(session.userId);
+                // Only block duplicate messages if the lead is already blocked
+                if (lead?.blocked) {
+                    return {
+                        messages: [],
+                        waitForUser: false
+                    };
+                }
             }
 
             // Handle freeze flag
