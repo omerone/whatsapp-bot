@@ -6,6 +6,7 @@ class LeadsManager {
         this.leadsFilePath = leadsFilePath;
         this.leads = {};
         this.initialized = false;
+        this.VALID_SENDER_TYPES = ['bot', 'client', 'none'];
     }
 
     formatDate(date) {
@@ -115,7 +116,7 @@ class LeadsManager {
             data: {},
             is_schedule: false,
             meeting: null,
-            last_sent_message: "none",
+            last_sent_message: 'none',
             last_client_message: "",
             relevant: true,
             last_interaction: this.formatDate(now),
@@ -273,17 +274,22 @@ class LeadsManager {
     }
 
     async updateLastMessage(phoneNumber, sender, messageInfo = null) {
-        const now = new Date();
-        if (sender === 'client') {
-            return await this.updateLeadStatus(phoneNumber, {
-                last_sent_message: sender,
-                last_client_message: messageInfo || ''
-            });
-        } else {
-            return await this.updateLeadStatus(phoneNumber, {
-                last_sent_message: sender
-            });
+        if (!this.VALID_SENDER_TYPES.includes(sender)) {
+            console.error(`Invalid sender type: ${sender}. Must be one of: ${this.VALID_SENDER_TYPES.join(', ')}`);
+            sender = 'none';
         }
+
+        const now = new Date();
+        const updateData = {
+            last_sent_message: sender,
+            last_interaction: this.formatDate(now)
+        };
+
+        if (sender === 'client' && messageInfo) {
+            updateData.last_client_message = messageInfo;
+        }
+
+        return await this.updateLeadStatus(phoneNumber, updateData);
     }
 
     isLeadActive(phoneNumber) {

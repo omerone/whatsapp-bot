@@ -30,6 +30,8 @@ class ValidatorRegistry {
             const fileNameWithoutExt = fileName.replace(/\.js$/i, '');
             this.fileNames.set(fileNameWithoutExt.toLowerCase(), name.toLowerCase());
         }
+
+        console.log(`✅ Validator '${name}' registered successfully${aliases.length ? ` with aliases: ${aliases.join(', ')}` : ''}${fileName ? ` (file: ${fileName})` : ''}`);
     }
 
     /**

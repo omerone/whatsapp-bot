@@ -6,13 +6,6 @@
     "ignoreArchived": true,
     "ignoreGroups": true,
     "ignoreStatus": true,
-    "blockScheduledClients": {
-      "enabled": true,
-      "blockPastAndPresent": true,
-      "blockFutureAndPresent": false,
-      "allowRescheduling": true,
-      "rescheduleOnlyFuture": true
-    },
     "activationKeywords": {
         "enabled": false,
         "keywords": ["תספורת"],
@@ -38,7 +31,7 @@
       "targetStep": "main_menu",
       "unfreezeOnReset": true,
       "deleteAppointmentOnReset": true,
-      "allowResetForBlockedClients": false,
+      "allowResetForBlockedClients": true,
       "logResetActions": true
     }
   },

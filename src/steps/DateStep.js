@@ -494,6 +494,9 @@ class DateStep {
                         try {
                             console.log(`✅ Processing meeting: ${userId}-${session.selectedDate}-${session.selectedTime}`);
                             await flowEngine.integrationManager.handleMeetingScheduled(meetingData, lead);
+                            
+                            // Set a flag to prevent duplicate processing
+                            session.integrationsProcessed = true;
                         } catch (error) {
                             console.error('Error handling integrations:', error);
                             // Continue with the flow even if integrations fail
