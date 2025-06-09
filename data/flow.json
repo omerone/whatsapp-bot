@@ -281,12 +281,42 @@
         "3 || לא נייד || ללא || אין || none": "none"
       },
       "branches": {
-        "car": "show_available_days",
-        "bike": "show_available_days",
+        "car": "show_available_months",
+        "bike": "show_available_months",
         "none": "not_suitable"
       }
     },
+
+    "show_available_months": {
+      "id": "show_available_months",
+      "type": "date",
+      "messageHeader": "*📅 אנא בחר חודש לפגישה מתוך:*",
+      "userResponseWaiting": true,
+      "limit": 12,
+      "resolution": "months",
+      "next": "show_available_weeks",
+      "options": { "חזור": "main_menu" },
+      "footerMessage": "\n(כדי לחזור לתפריט הראשי, רשום *חזור*)",
+      "enabled": true,
+      "skipIfDisabled": "show_available_weeks"
+    },
     
+    "show_available_weeks": {
+      "id": "show_available_weeks",
+      "type": "date",
+      "messageHeader": "*📅 אנא בחר שבוע לפגישה מתוך:*",
+      "userResponseWaiting": true,
+      "limit": 5,
+      "resolution": "weeks",
+      "next": "show_available_days",
+      "options": { 
+        "חזור": "show_available_months"
+      },
+      "footerMessage": "\n(כדי לראות חודשים אחרים, רשום *חודש אחר*)\n(כדי לחזור לתפריט הראשי, רשום *חזור*)",
+      "enabled": true,
+      "skipIfDisabled": "show_available_days"
+    },
+
     "show_available_days": {
       "id": "show_available_days",
       "type": "date",
@@ -297,22 +327,13 @@
       "startFromToday": false,
       "next": "show_available_times",
       "options": { 
-        "חזור": "main_menu",
+        "חזור": "show_available_weeks",
+        "שבוע אחר": "show_available_weeks",
         "חודש אחר": "show_available_dates"
       },
-      "footerMessage": "\n(כדי לראות ימים בחודש אחר, רשום *חודש אחר*)\n(כדי לחזור לתפריט הראשי, רשום *חזור*)"
-    },
-
-    "show_available_dates": {
-      "id": "show_available_dates",
-      "type": "date",
-      "messageHeader": "*📅 אנא בחר חודש לפגישה מתוך:*",
-      "userResponseWaiting": true,
-      "limit": 3,
-      "resolution": "months",
-      "next": "show_available_days",
-      "options": { "חזור": "main_menu" },
-      "footerMessage": "\n(כדי לחזור לתפריט הראשי, רשום *חזור*)"
+      "footerMessage": "\n(כדי לראות ימים בשבוע אחר, רשום *שבוע אחר*)\n(כדי לראות ימים בחודש אחר, רשום *חודש אחר*)\n(כדי לחזור לתפריט הראשי, רשום *חזור*)",
+      "enabled": true,
+      "skipIfDisabled": "show_available_times"
     },
 
     "show_available_times": {
@@ -324,17 +345,17 @@
       "resolution": "hours",
       "next": "final_confirmation",
       "options": { 
-        "חזור": "show_available_days",
-        "יום אחר": "show_available_days"
+        "חזור": "show_available_days"
       },
-      "footerMessage": "\n(כדי לבחור יום אחר, רשום *יום אחר*)\n(כדי לחזור לבחירת יום, רשום *חזור*)"
+      "footerMessage": "כדי לראות ימים"
     },
 
     "final_confirmation": {
       "id": "final_confirmation",
       "type": "message",
       "userResponseWaiting": false,
-      "messageFile": "final_confirmation.txt"
+      "messageFile": "final_confirmation.txt",
+      "freeze": true
     },
 
     "not_suitable": {

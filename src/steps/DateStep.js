@@ -4,6 +4,24 @@ const path = require('path');
 class DateStep {
     static async process(step, session, input, flowEngine) {
         try {
+            // Check if this resolution is enabled in the global config
+            const dateResolutionConfig = flowEngine.flow.rules?.dateResolutionConfig;
+            if (dateResolutionConfig) {
+                const currentResolution = step.resolution;
+                const resolutionConfig = dateResolutionConfig[currentResolution + 's']; // adding 's' for plural (days, weeks, months)
+                
+                if (resolutionConfig && !resolutionConfig.enabled && step.skipIfDisabled) {
+                    // If this resolution is disabled, skip to the next enabled step
+                    session.currentStep = step.skipIfDisabled;
+                    return flowEngine.processStepInternal(session.userId, null);
+                }
+
+                // Override limit from global config if available
+                if (resolutionConfig?.limit) {
+                    step.limit = resolutionConfig.limit;
+                }
+            }
+
             if (input) {
                 const validationResult = await this.validateDateChoice(input, session, step);
                 if (!validationResult.valid) {

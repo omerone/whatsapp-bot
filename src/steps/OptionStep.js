@@ -1,7 +1,5 @@
 class OptionStep {
     static async process(step, session, input, flowEngine) {
-
-        
         // If we have input, try to process the selection
         if (input) {
             const normalizedInput = input.trim().toLowerCase();
@@ -30,7 +28,7 @@ class OptionStep {
                         break;
                     }
                 }
-                
+             
                 if (selectedOption) break;
             }
 
@@ -41,6 +39,9 @@ class OptionStep {
                 }
                 
                 console.log(`✅ OptionStep: User input "${input}" matched option "${selectedKey}" → "${selectedOption}" → "${step.branches[selectedOption]}"`);
+                
+                // Update the lead with the client's message
+                await flowEngine.leadsManager.updateLastMessage(session.userId, 'client', input);
                 
                 // Move to the selected branch
                 session.currentStep = step.branches[selectedOption];
@@ -55,6 +56,9 @@ class OptionStep {
                     .join(' | ');
 
                 console.log(`❌ OptionStep: User input "${input}" didn't match any option in step "${step.id}"`);
+                
+                // Update the lead with the invalid input
+                await flowEngine.leadsManager.updateLastMessage(session.userId, 'client', input);
                 
                 // Invalid selection with custom message if available
                 const errorMessage = step.noMatchMessage || `בחירה לא תקינה, אנא בחר מהאפשרויות הבאות: ${validOptions}`;

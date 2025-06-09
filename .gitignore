@@ -63,3 +63,4 @@ jspm_packages/
 
 # Credentials files
 src/services/credentials/*.json
+data/leads.json

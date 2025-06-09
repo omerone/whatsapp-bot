@@ -28,17 +28,18 @@ class WhatsAppManager {
                 ],
                 headless: true
             },
-            restartOnAuthFail: true
         });
 
         this.setupEventHandlers();
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
         this.isInitialized = false;
-        this.knownUsers = new Set();
-        this.lastMessageSent = new Map(); // Track last message sent to each user
-        this.processingMessages = new Set(); // Track messages being processed to prevent duplicates
-        this.lastSentMessages = new Map(); // Track last N messages sent to prevent duplicates
+        this.processedMessages = new Set(); // Track all processed message IDs
+        this.lastOutgoingMessages = new Map(); // Track last outgoing message per user
+
+        // Bind event handlers in constructor
+        this.handleMessage = this.handleMessage.bind(this);
+        this.handleDisconnect = this.handleDisconnect.bind(this);
     }
 
     setFlowEngine(flowEngine) {
@@ -128,138 +129,174 @@ class WhatsAppManager {
     }
 
     async initialize() {
-        return new Promise(async (resolve, reject) => {
-            try {
-                // Add timeout to prevent hanging forever
-                const timeout = setTimeout(() => {
-                    console.log('⚠️ WhatsApp: אתחול נכשל אחרי 60 שניות - בדוק חיבור לאינטרנט');
-                    reject(new Error('WhatsApp initialization timeout after 60 seconds'));
-                }, 60000);
-                
-                this.client.once('ready', () => {
-                    clearTimeout(timeout);
-                    resolve(true);
-                });
+        if (this.isInitialized) return;
 
-                this.client.once('auth_failure', () => {
-                    console.log('❌ WhatsApp: אימות נכשל - יש לסרוק קוד QR מחדש');
-                    clearTimeout(timeout);
-                    reject(new Error('Authentication failure during initialization'));
-                });
+        return new Promise((resolve, reject) => {
+            // Add timeout to prevent hanging forever
+            const timeout = setTimeout(() => {
+                console.log('⚠️ WhatsApp: אתחול נכשל אחרי 60 שניות - בדוק חיבור לאינטרנט');
+                reject(new Error('WhatsApp initialization timeout after 60 seconds'));
+            }, 60000);
 
-                this.client.once('disconnected', (reason) => {
-                    console.log(`❌ WhatsApp: התנתקות במהלך אתחול: ${reason}`);
-                    clearTimeout(timeout);
-                    reject(new Error(`Client disconnected during initialization: ${reason}`));
-                });
+            // Set up event handlers
+            this.client.once('ready', () => {
+                clearTimeout(timeout);
+                this.isInitialized = true;
+                console.log('WhatsApp client initialized successfully');
+                resolve(true);
+            });
 
-                await this.client.initialize();
+            this.client.once('auth_failure', () => {
+                clearTimeout(timeout);
+                console.log('❌ WhatsApp: אימות נכשל - יש לסרוק קוד QR מחדש');
+                reject(new Error('Authentication failure during initialization'));
+            });
 
-            } catch (error) {
+            this.client.once('disconnected', (reason) => {
+                clearTimeout(timeout);
+                console.log(`❌ WhatsApp: התנתקות במהלך אתחול: ${reason}`);
+                reject(new Error(`Client disconnected during initialization: ${reason}`));
+            });
+
+            // Set up message and disconnect handlers
+            this.client.on('message', this.handleMessage);
+            this.client.on('disconnected', this.handleDisconnect);
+
+            // Start initialization
+            this.client.initialize().catch((error) => {
+                clearTimeout(timeout);
                 console.error('WhatsAppManager: שגיאה ב-client.initialize():', error);
                 reject(error);
-            }
+            });
         });
+    }
+
+    async handleDisconnect(reason) {
+        console.log(`[WhatsAppManager] 🔌 Client disconnected:`, reason);
+        
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+            this.reconnectAttempts++;
+            console.log(`[WhatsAppManager] 🔄 Attempting to reconnect (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+            
+            try {
+                await this.initialize();
+                console.log('[WhatsAppManager] ✅ Reconnected successfully');
+                this.reconnectAttempts = 0;
+            } catch (error) {
+                console.error('[WhatsAppManager] ❌ Reconnection failed:', error);
+            }
+        } else {
+            console.error('[WhatsAppManager] ❌ Max reconnection attempts reached');
+        }
+    }
+
+    async handleMessage(message) {
+        console.log(`\n[WhatsAppManager] 📨 Received message from ${message.from}:`, {
+            body: message.body,
+            messageId: message.id._serialized,
+            timestamp: new Date().toLocaleString('he-IL')
+        });
+        
+        try {
+            // Skip empty messages
+            if (!message.body && !message.hasMedia) {
+                console.log(`[WhatsAppManager] 🚫 Skipping empty message ${message.id._serialized}`);
+                return;
+            }
+
+            // Skip if message was already processed
+            if (this.processedMessages.has(message.id._serialized)) {
+                console.log(`[WhatsAppManager] 🔄 Message ${message.id._serialized} already processed, skipping`);
+                return;
+            }
+
+            // Mark message as processed
+            this.processedMessages.add(message.id._serialized);
+            console.log(`[WhatsAppManager] ✓ Marked message as processed:`, message.id._serialized);
+
+            // Check if we should process this message according to rules
+            if (!this.rulesManager) {
+                console.warn('[WhatsAppManager] ⚠️ RulesManager not initialized, initializing now');
+                this.initializeRulesManager();
+            }
+
+            const shouldProcess = await this.rulesManager.shouldProcessMessage(message, this.client);
+            console.log(`[WhatsAppManager] 🔍 Rules check result:`, {
+                shouldProcess,
+                messageId: message.id._serialized,
+                from: message.from
+            });
+
+            if (!shouldProcess) {
+                return;
+            }
+
+            // Get last outgoing message info
+            const lead = await this.flowEngine.leadsManager.getLead(message.from);
+            console.log(`[WhatsAppManager] 📋 Lead status:`, {
+                currentStep: lead?.current_step,
+                lastSentMessage: lead?.last_sent_message,
+                lastClientMessage: lead?.last_client_message,
+                isScheduled: lead?.is_schedule,
+                blocked: lead?.blocked,
+                lastInteraction: lead?.last_interaction
+            });
+            
+            const lastOutgoingMessage = lead?.last_sent_message || 'none';
+            console.log(`[WhatsAppManager] 📤 Last outgoing message: ${lastOutgoingMessage}`);
+
+            // Process message through FlowEngine
+            console.log(`[WhatsAppManager] 🔄 Processing message through FlowEngine`);
+            const isFirstMessage = !lead || !lead.current_step;
+            console.log(`[WhatsAppManager] 📝 Message context:`, {
+                isFirstMessage,
+                currentStep: lead?.current_step,
+                hasLead: !!lead
+            });
+            
+            const response = await this.flowEngine.processStep(message.from, message.body, isFirstMessage);
+
+            // Send response messages if any
+            if (response && response.messages && response.messages.length > 0) {
+                console.log(`[WhatsAppManager] 📤 Preparing to send ${response.messages.length} messages`);
+                
+                // Send messages with delay between them
+                for (let i = 0; i < response.messages.length; i++) {
+                    const msg = response.messages[i];
+                    try {
+                        console.log(`[WhatsAppManager] 📩 Sending message ${i + 1}/${response.messages.length}`);
+                        await this.client.sendMessage(message.from, msg);
+                        console.log(`[WhatsAppManager] ✅ Message ${i + 1} sent successfully: ${msg.substring(0, 50)}...`);
+                        
+                        // Add delay between messages
+                        if (i < response.messages.length - 1) {
+                            console.log(`[WhatsAppManager] ⏳ Waiting 1 second before next message`);
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                        }
+                    } catch (error) {
+                        console.error(`[WhatsAppManager] ❌ Error sending message ${i + 1}:`, error);
+                    }
+                }
+                
+                console.log(`[WhatsAppManager] 📬 Finished sending all messages`);
+            } else {
+                console.log(`[WhatsAppManager] 📭 No messages to send in response`);
+            }
+
+        } catch (error) {
+            console.error('[WhatsAppManager] ❌ Error in handleMessage:', error);
+        }
     }
 
     async sendMessage(userId, message) {
         if (!message) return;
 
-        // Get last N messages sent to this user
-        const lastMessages = this.lastSentMessages.get(userId) || [];
-        
-        // Check if this exact message was sent in the last 3 messages
-        if (lastMessages.some(m => m.content === message)) {
-            console.log(`[${new Date().toLocaleString('he-IL')}] מניעת שליחת הודעה כפולה: ${message.substring(0, 50)}...`);
-            return;
-        }
-
-        // Send the message
-        await this.client.sendMessage(userId, message);
-
-        // Update tracking of last messages
-        lastMessages.unshift({ content: message, timestamp: Date.now() });
-        if (lastMessages.length > 3) lastMessages.pop(); // Keep only last 3 messages
-        this.lastSentMessages.set(userId, lastMessages);
-
-        // Update last message sent tracking
-        this.lastMessageSent.set(userId, {
-            content: message,
-            timestamp: Date.now(),
-            sender: 'bot'
-        });
-    }
-
-    async handleMessage(message) {
         try {
-            if (!this.isInitialized) return;
-
-            // Ignore if message is from a group
-            if (message.from.includes('@g.us')) return;
-
-            // Generate unique message ID
-            const messageId = `${message.from}-${message.timestamp}`;
-
-            // Check if we're already processing this message
-            if (this.processingMessages.has(messageId)) {
-                console.log(`[WhatsAppManager] Duplicate message detected, ignoring: ${messageId}`);
-                return;
-            }
-
-            // Mark message as being processed
-            this.processingMessages.add(messageId);
-
-            // Clean up old processing messages (older than 1 minute)
-            setTimeout(() => {
-                this.processingMessages.delete(messageId);
-            }, 60000);
-
-            // Check rules before processing (do this first)
-            const shouldProcess = await this.rulesManager.shouldProcessMessage(message, this.client);
-            if (!shouldProcess) {
-                this.processingMessages.delete(messageId);
-                return;
-            }
-
-            // Check if this is a new user
-            const isNewUser = !this.knownUsers.has(message.from);
-            if (isNewUser) {
-                this.knownUsers.add(message.from);
-                
-                // Get lead info to check if this is really a new conversation
-                const lead = await this.flowEngine.leadsManager.getLead(message.from);
-                const isNewConversation = !lead || !lead.current_step || lead.current_step === this.flowEngine.flow.start;
-                const botInitiatedConversation = lead && lead.last_sent_message && lead.last_sent_message.sender === 'bot';
-                
-                if (isNewConversation && !botInitiatedConversation) {
-                    // This is a genuinely new conversation initiated by the client
-                    const response = await this.flowEngine.processStep(message.from, message.body, true);
-                    if (response && response.messages) {
-                        for (const msg of response.messages) {
-                            await this.sendMessage(message.from, msg);
-                        }
-                    }
-                    this.processingMessages.delete(messageId);
-                    return;
-                }
-            }
-
-            // Process the message through the flow engine
-            const response = await this.flowEngine.processStep(message.from, message.body);
-            if (response && response.messages) {
-                for (const msg of response.messages) {
-                    await this.sendMessage(message.from, msg);
-                }
-            }
-
-            this.processingMessages.delete(messageId);
+            await this.client.sendMessage(userId, message);
+            await this.flowEngine.leadsManager.updateLastMessage(userId, 'bot');
         } catch (error) {
-            console.error('Error handling message:', error);
-            try {
-                await this.sendMessage(message.from, 'מצטערים, אירעה שגיאה. אנא נסה שוב או כתוב "תפריט" להתחלה מחדש.');
-            } catch (sendError) {
-                console.error('Error sending error message:', sendError);
-            }
+            console.error('Error sending message:', error);
+            throw error;
         }
     }
 }

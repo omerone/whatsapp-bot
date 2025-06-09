@@ -20,6 +20,17 @@ class LeadsManager {
         });
     }
 
+    isValidPhoneNumber(phoneNumber) {
+        // Remove any WhatsApp suffixes
+        const cleanNumber = phoneNumber.split('@')[0];
+        
+        // Check if it's a valid Israeli phone number format
+        // Should start with 972 or 0 followed by valid Israeli prefixes
+        const israeliPattern = /^(972|0)(5[0-9]|[23489])\d{7}$/;
+        
+        return israeliPattern.test(cleanNumber);
+    }
+
     async initialize() {
         try {
             await this.loadLeads();
@@ -69,7 +80,8 @@ class LeadsManager {
                     data: lead.data || {},
                     is_schedule: lead.is_schedule || false,
                     meeting: lead.meeting,
-                    last_sent_message: lead.last_sent_message,
+                    last_sent_message: lead.last_sent_message || "none",
+                    last_client_message: lead.last_client_message || "",
                     relevant: lead.relevant !== false, // Default to true if undefined
                     last_interaction: lead.last_interaction,
                     date_and_time_conversation_started: lead.date_and_time_conversation_started,
@@ -78,10 +90,6 @@ class LeadsManager {
                     // Spread any other properties from the lead object
                     ...lead 
                 };
-                // Ensure the explicitly defined properties above take precedence if they also exist in ...lead
-                // by re-assigning them if they were part of the original lead object.
-                // This handles cases where a property might be undefined in the explicit list but present in lead.
-                // However, a simpler approach might be to define defaults more carefully or ensure all expected fields are always present.
             }
             await fs.writeFile(this.leadsFilePath, JSON.stringify(leadsToSave, null, 2), 'utf8');
         } catch (error) {
@@ -95,13 +103,20 @@ class LeadsManager {
             throw new Error('LeadsManager not initialized');
         }
 
+        // Block status@broadcast and validate phone number
+        if (phoneNumber === 'status@broadcast' || !this.isValidPhoneNumber(phoneNumber)) {
+            console.log(`[LeadsManager] Blocked invalid phone number from being added to leads: ${phoneNumber}`);
+            return null;
+        }
+
         const now = new Date();
         const newLead = {
             current_step: null,
             data: {},
             is_schedule: false,
             meeting: null,
-            last_sent_message: null,
+            last_sent_message: "none",
+            last_client_message: "",
             relevant: true,
             last_interaction: this.formatDate(now),
             date_and_time_conversation_started: this.formatDate(now),
@@ -259,11 +274,16 @@ class LeadsManager {
 
     async updateLastMessage(phoneNumber, sender, messageInfo = null) {
         const now = new Date();
-        return await this.updateLeadStatus(phoneNumber, {
-            last_sent_message: {
-                sender
-            }
-        });
+        if (sender === 'client') {
+            return await this.updateLeadStatus(phoneNumber, {
+                last_sent_message: sender,
+                last_client_message: messageInfo || ''
+            });
+        } else {
+            return await this.updateLeadStatus(phoneNumber, {
+                last_sent_message: sender
+            });
+        }
     }
 
     isLeadActive(phoneNumber) {

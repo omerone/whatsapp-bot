@@ -109,6 +109,7 @@ class FlowEngine {
 
     async getSession(userId) {
         this.cleanupOldSessions();
+        console.log(`\n[FlowEngine] 🔄 Getting session for user ${userId}`);
 
         if (!this.initialized) {
             throw new Error('FlowEngine not initialized');
@@ -116,21 +117,27 @@ class FlowEngine {
 
         // Try to get existing session
         let session = this.sessions.get(userId);
+        console.log(`[FlowEngine] 📊 Current session:`, session ? 
+            `step=${session.currentStep}, isFirst=${session.isFirstMessage}, isNew=${session.isNewConversation}` : 'None');
 
         // If no session exists or it's expired
         if (!session || !this.leadsManager.isLeadActive(userId)) {
+            console.log(`[FlowEngine] 🆕 No active session found, creating new one`);
+            
             // Try to restore session from leads.json
             const lead = await this.leadsManager.getLead(userId);
+            console.log(`[FlowEngine] 📋 Lead data:`, lead ? 
+                `step=${lead.current_step}, blocked=${lead.blocked}, data=${JSON.stringify(lead.data)}` : 'New lead');
             
-            // Check if this is genuinely a continuing conversation
-            const isNewConversation = !lead || !lead.current_step || lead.current_step === this.flow.start;
-            const botInitiatedConversation = lead && lead.last_sent_message && lead.last_sent_message.sender === 'bot';
+            // Check if this is genuinely a new conversation
+            const isNewConversation = !lead || !lead.current_step;
             
-            if (!isNewConversation || botInitiatedConversation) {
-                // This is a continuing conversation or bot-initiated conversation
+            if (!isNewConversation) {
+                console.log(`[FlowEngine] 🔄 Restoring existing conversation`);
+                // This is a continuing conversation
                 session = {
                     userId,
-                    currentStep: lead.current_step || this.flow.start,
+                    currentStep: lead.current_step,
                     data: lead.data || {},
                     lastInteraction: new Date(),
                     retryCount: 0,
@@ -138,7 +145,8 @@ class FlowEngine {
                     isNewConversation: false
                 };
             } else {
-                // This is a new conversation initiated by the client
+                console.log(`[FlowEngine] 🌟 Starting new conversation`);
+                // This is a new conversation
                 session = {
                     userId,
                     currentStep: this.flow.start,
@@ -146,15 +154,16 @@ class FlowEngine {
                     lastInteraction: new Date(),
                     retryCount: 0,
                     isFirstMessage: true,
-                    isNewConversation: true,
-                    ignoreNextInput: false // Flag to ignore next input for new conversations
+                    isNewConversation: true
                 };
             }
             
             this.sessions.set(userId, session);
+            console.log(`[FlowEngine] 💾 Session created:`, session);
             
-            // If this is a new conversation, make sure to update the lead
+            // If this is a new conversation, create the lead
             if (session.isNewConversation) {
+                console.log(`[FlowEngine] 📝 Creating new lead for ${userId}`);
                 await this.leadsManager.createOrUpdateLead(userId, {
                     current_step: session.currentStep,
                     data: session.data,
@@ -169,6 +178,7 @@ class FlowEngine {
                 });
             }
         } else {
+            console.log(`[FlowEngine] ✅ Using existing session`);
             // Update last interaction time
             session.lastInteraction = new Date();
         }
@@ -215,70 +225,95 @@ class FlowEngine {
     }
 
     async processStep(userId, userInput = null, isFirstMessage = false) {
+        console.log(`\n[FlowEngine] 🔄 Processing step for ${userId}`, {
+            userInput,
+            isFirstMessage,
+            timestamp: new Date().toLocaleString('he-IL')
+        });
+
         if (!this.initialized) {
             throw new Error('FlowEngine not initialized');
         }
 
         const session = await this.getSession(userId);
+        console.log(`[FlowEngine] 📊 Current session state:`, {
+            currentStep: session.currentStep,
+            isFirstMessage: session.isFirstMessage,
+            isNewConversation: session.isNewConversation,
+            data: session.data
+        });
         
         try {
-            // Check for reset keyword first
-            const resetConfig = this.flow.rules?.resetConfig || this.flow.resetConfig;
-            if (resetConfig?.enabled && userInput === resetConfig.keyword) {
+            // Handle first message from user
+            if (isFirstMessage || session.isFirstMessage) {
+                console.log(`[FlowEngine] 🌟 Handling first message - ignoring content: ${userInput}`);
+                session.isFirstMessage = false;
+                session.isNewConversation = true;
+                session.currentStep = this.flow.start;
+                session.data = {};
+                
+                console.log(`[FlowEngine] 🔄 Session updated for first message:`, {
+                    currentStep: session.currentStep,
+                    isFirstMessage: session.isFirstMessage,
+                    isNewConversation: session.isNewConversation
+                });
+                
+                // Update the lead to track the client's message
+                await this.leadsManager.createOrUpdateLead(userId, {
+                    current_step: session.currentStep,
+                    data: session.data,
+                    is_schedule: false,
+                    meeting: null,
+                    last_sent_message: 'client',
+                    last_client_message: userInput,
+                    relevant: true,
+                    last_interaction: new Date().toLocaleString('he-IL')
+                });
+                
+                // Process the intro step - it will automatically flow to main_menu
+                console.log(`[FlowEngine] 📝 Processing intro step`);
+                const response = await this.processStepInternal(userId, null);
+                
+                // Update the lead after processing
+                await this.leadsManager.createOrUpdateLead(userId, {
+                    current_step: session.currentStep,
+                    data: session.data,
+                    is_schedule: false,
+                    meeting: null,
+                    last_sent_message: 'bot',
+                    relevant: true,
+                    last_interaction: new Date().toLocaleString('he-IL')
+                });
+                
+                return response;
+            }
+
+            // Check for reset keyword
+            const resetConfig = this.flow.rules?.resetConfig;
+            if (resetConfig?.enabled && userInput === resetConfig.keyword && !session.isFirstMessage) {
+                console.log(`[FlowEngine] 🔄 Processing reset keyword`);
                 return await this.handleResetKeyword(userId);
             }
 
-            // Handle first message from user - process intro sequence first
-            if (session.isFirstMessage || isFirstMessage) {
-                session.isFirstMessage = false;
-                
-                // Always start from intro for new conversations
-                if (session.isNewConversation) {
-                    session.currentStep = this.flow.start;
-                    session.data = {}; // Clear any potentially stale session data
-                    
-                    // Process the intro step without the user's input
-                    const introResponse = await this.processStepInternal(userId, '');
-                    
-                    // After intro, move to main_menu but don't process it yet
-                    // Just prepare the messages
-                    session.currentStep = 'main_menu';
-                    const menuStep = this.flow.steps[session.currentStep];
-                    const menuMessage = menuStep.messageFile ? 
-                        await this.loadMessageFile(menuStep.messageFile) : 
-                        menuStep.message;
-                    
-                    // Update the session and lead after processing
-                    await this.leadsManager.createOrUpdateLead(userId, {
-                        current_step: session.currentStep,
-                        data: session.data,
-                        is_schedule: false,
-                        meeting: null,
-                        last_sent_message: { sender: 'bot' },
-                        relevant: true,
-                        last_interaction: new Date().toLocaleString('he-IL')
-                    });
-                    
-                    // Return combined responses
-                    return {
-                        messages: [...(introResponse.messages || []), menuMessage],
-                        waitForUser: true // Now we wait for real user input
-                    };
-                }
-                
-                // If this is the first message but not a new conversation,
-                // just ignore the input and continue with normal flow
-                return {
-                    messages: [],
-                    waitForUser: true
-                };
+            // Normal message processing
+            console.log(`[FlowEngine] 📝 Processing normal message for step: ${session.currentStep}`);
+            const response = await this.processStepInternal(userId, userInput);
+            
+            // Update last client message after processing
+            if (userInput) {
+                await this.leadsManager.updateLastMessage(userId, 'client', userInput);
             }
             
-            // Normal message processing
-            return await this.processStepInternal(userId, userInput);
+            console.log(`[FlowEngine] 📬 Final response for normal message:`, {
+                messageCount: response.messages?.length,
+                waitForUser: response.waitForUser,
+                currentStep: session.currentStep
+            });
+            
+            return response;
             
         } catch (error) {
-            console.error('Error processing step:', error);
+            console.error('[FlowEngine] ❌ Error processing step:', error);
             return {
                 messages: ['מצטערים, אירעה שגיאה. אנא נסה שוב או כתוב "תפריט" להתחלה מחדש.']
             };
@@ -309,8 +344,16 @@ class FlowEngine {
                 throw new Error('Invalid step processing result');
             }
 
+            // Update lead with current step
+            await this.leadsManager.updateLeadStep(userId, session.currentStep);
+            
+            // Update last sent message type if we have messages to send
+            if (result && result.messages && result.messages.length > 0) {
+                await this.leadsManager.updateLastMessage(userId, 'bot');
+            }
+
             // Handle auto-continuation for steps that don't wait for user
-            if (result.waitForUser === false) {
+            if (result.waitForUser === false && !session.ignoreNextInput) {
                 // Continue to next step
                 const nextResult = await this.processStepInternal(userId, null);
                 if (nextResult && nextResult.messages) {
@@ -319,14 +362,6 @@ class FlowEngine {
                         waitForUser: nextResult.waitForUser
                     };
                 }
-            }
-
-            // Update lead with current step
-            await this.leadsManager.updateLeadStep(userId, session.currentStep);
-            
-            // Update last sent message type if we have messages to send
-            if (result && result.messages && result.messages.length > 0) {
-                await this.leadsManager.updateLastMessage(userId, 'bot', session.currentStep);
             }
 
             return result;
