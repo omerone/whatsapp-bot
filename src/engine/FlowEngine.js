@@ -109,32 +109,18 @@ class FlowEngine {
 
     async getSession(userId) {
         this.cleanupOldSessions();
-        console.log(`\n[FlowEngine] 🔄 Getting session for user ${userId}`);
 
         if (!this.initialized) {
             throw new Error('FlowEngine not initialized');
         }
 
-        // Try to get existing session
         let session = this.sessions.get(userId);
-        console.log(`[FlowEngine] 📊 Current session:`, session ? 
-            `step=${session.currentStep}, isFirst=${session.isFirstMessage}, isNew=${session.isNewConversation}` : 'None');
 
-        // If no session exists or it's expired
         if (!session || !this.leadsManager.isLeadActive(userId)) {
-            console.log(`[FlowEngine] 🆕 No active session found, creating new one`);
-            
-            // Try to restore session from leads.json
             const lead = await this.leadsManager.getLead(userId);
-            console.log(`[FlowEngine] 📋 Lead data:`, lead ? 
-                `step=${lead.current_step}, blocked=${lead.blocked}, data=${JSON.stringify(lead.data)}` : 'New lead');
-            
-            // Check if this is genuinely a new conversation
             const isNewConversation = !lead || !lead.current_step;
             
             if (!isNewConversation) {
-                console.log(`[FlowEngine] 🔄 Restoring existing conversation`);
-                // This is a continuing conversation
                 session = {
                     userId,
                     currentStep: lead.current_step,
@@ -145,8 +131,6 @@ class FlowEngine {
                     isNewConversation: false
                 };
             } else {
-                console.log(`[FlowEngine] 🌟 Starting new conversation`);
-                // This is a new conversation
                 session = {
                     userId,
                     currentStep: this.flow.start,
@@ -159,11 +143,8 @@ class FlowEngine {
             }
             
             this.sessions.set(userId, session);
-            console.log(`[FlowEngine] 💾 Session created:`, session);
             
-            // If this is a new conversation, create the lead
             if (session.isNewConversation) {
-                console.log(`[FlowEngine] 📝 Creating new lead for ${userId}`);
                 await this.leadsManager.createOrUpdateLead(userId, {
                     current_step: session.currentStep,
                     data: session.data,
@@ -178,8 +159,6 @@ class FlowEngine {
                 });
             }
         } else {
-            console.log(`[FlowEngine] ✅ Using existing session`);
-            // Update last interaction time
             session.lastInteraction = new Date();
         }
 
@@ -225,40 +204,19 @@ class FlowEngine {
     }
 
     async processStep(userId, userInput = null, isFirstMessage = false) {
-        console.log(`\n[FlowEngine] 🔄 Processing step for ${userId}`, {
-            userInput,
-            isFirstMessage,
-            timestamp: new Date().toLocaleString('he-IL')
-        });
-
         if (!this.initialized) {
             throw new Error('FlowEngine not initialized');
         }
 
         const session = await this.getSession(userId);
-        console.log(`[FlowEngine] 📊 Current session state:`, {
-            currentStep: session.currentStep,
-            isFirstMessage: session.isFirstMessage,
-            isNewConversation: session.isNewConversation,
-            data: session.data
-        });
         
         try {
-            // Handle first message from user
             if (isFirstMessage || session.isFirstMessage) {
-                console.log(`[FlowEngine] 🌟 Handling first message - ignoring content: ${userInput}`);
                 session.isFirstMessage = false;
                 session.isNewConversation = true;
                 session.currentStep = this.flow.start;
                 session.data = {};
                 
-                console.log(`[FlowEngine] 🔄 Session updated for first message:`, {
-                    currentStep: session.currentStep,
-                    isFirstMessage: session.isFirstMessage,
-                    isNewConversation: session.isNewConversation
-                });
-                
-                // Update the lead to track the client's message
                 await this.leadsManager.createOrUpdateLead(userId, {
                     current_step: session.currentStep,
                     data: session.data,
@@ -270,11 +228,8 @@ class FlowEngine {
                     last_interaction: new Date().toLocaleString('he-IL')
                 });
                 
-                // Process the intro step - it will automatically flow to main_menu
-                console.log(`[FlowEngine] 📝 Processing intro step`);
                 const response = await this.processStepInternal(userId, null);
                 
-                // Update the lead after processing
                 await this.leadsManager.createOrUpdateLead(userId, {
                     current_step: session.currentStep,
                     data: session.data,
@@ -288,27 +243,16 @@ class FlowEngine {
                 return response;
             }
 
-            // Check for reset keyword
             const resetConfig = this.flow.rules?.resetConfig;
             if (resetConfig?.enabled && userInput === resetConfig.keyword && !session.isFirstMessage) {
-                console.log(`[FlowEngine] 🔄 Processing reset keyword`);
                 return await this.handleResetKeyword(userId);
             }
 
-            // Normal message processing
-            console.log(`[FlowEngine] 📝 Processing normal message for step: ${session.currentStep}`);
             const response = await this.processStepInternal(userId, userInput);
             
-            // Update last client message after processing
             if (userInput) {
                 await this.leadsManager.updateLastMessage(userId, 'client', userInput);
             }
-            
-            console.log(`[FlowEngine] 📬 Final response for normal message:`, {
-                messageCount: response.messages?.length,
-                waitForUser: response.waitForUser,
-                currentStep: session.currentStep
-            });
             
             return response;
             

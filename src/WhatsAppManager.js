@@ -95,11 +95,12 @@ class WhatsAppManager {
                 try {
                     await new Promise(resolve => setTimeout(resolve, 5000 * this.reconnectAttempts));
                     await this.initialize();
-                } catch (error) {}
-            } else {
-                console.log(`[${now.toLocaleString('he-IL')}] נכשל בניסיון להתחבר מחדש. יש להפעיל את הבוט מחדש.`);
-                process.exit(1);
+                } catch (error) {
+                    console.error('Failed to reconnect:', error);
+                }
             }
+            console.log(`[${now.toLocaleString('he-IL')}] נכשל בניסיון להתחבר מחדש. יש להפעיל את הבוט מחדש.`);
+            process.exit(1);
         });
 
         this.client.on('auth_failure', async () => {
@@ -191,100 +192,56 @@ class WhatsAppManager {
     }
 
     async handleMessage(message) {
-        console.log(`\n[WhatsAppManager] 📨 Received message from ${message.from}:`, {
-            body: message.body,
-            messageId: message.id._serialized,
-            timestamp: new Date().toLocaleString('he-IL')
-        });
-        
         try {
-            // Skip empty messages
-            if (!message.body && !message.hasMedia) {
-                console.log(`[WhatsAppManager] 🚫 Skipping empty message ${message.id._serialized}`);
+            if (!message.body || message.body.trim() === '') {
                 return;
             }
 
-            // Skip if message was already processed
             if (this.processedMessages.has(message.id._serialized)) {
-                console.log(`[WhatsAppManager] 🔄 Message ${message.id._serialized} already processed, skipping`);
                 return;
             }
 
-            // Mark message as processed
             this.processedMessages.add(message.id._serialized);
-            console.log(`[WhatsAppManager] ✓ Marked message as processed:`, message.id._serialized);
 
-            // Check if we should process this message according to rules
-            if (!this.rulesManager) {
-                console.warn('[WhatsAppManager] ⚠️ RulesManager not initialized, initializing now');
-                this.initializeRulesManager();
+            if (!this.rulesManager || !this.flowEngine) {
+                console.error('WhatsAppManager: Required components not initialized');
+                return;
             }
 
             const shouldProcess = await this.rulesManager.shouldProcessMessage(message, this.client);
-            console.log(`[WhatsAppManager] 🔍 Rules check result:`, {
-                shouldProcess,
-                messageId: message.id._serialized,
-                from: message.from
-            });
-
             if (!shouldProcess) {
                 return;
             }
 
-            // Get last outgoing message info
-            const lead = await this.flowEngine.leadsManager.getLead(message.from);
-            console.log(`[WhatsAppManager] 📋 Lead status:`, {
-                currentStep: lead?.current_step,
-                lastSentMessage: lead?.last_sent_message,
-                lastClientMessage: lead?.last_client_message,
-                isScheduled: lead?.is_schedule,
-                blocked: lead?.blocked,
-                lastInteraction: lead?.last_interaction
-            });
-            
-            const lastOutgoingMessage = lead?.last_sent_message || 'none';
-            console.log(`[WhatsAppManager] 📤 Last outgoing message: ${lastOutgoingMessage}`);
+            const lead = this.flowEngine.leadsManager ? 
+                await this.flowEngine.leadsManager.getLead(message.from) : null;
 
-            // Process message through FlowEngine
-            console.log(`[WhatsAppManager] 🔄 Processing message through FlowEngine`);
+            const lastOutgoingMessage = this.lastOutgoingMessages.get(message.from);
             const isFirstMessage = !lead || !lead.current_step;
-            console.log(`[WhatsAppManager] 📝 Message context:`, {
-                isFirstMessage,
-                currentStep: lead?.current_step,
-                hasLead: !!lead
-            });
-            
-            const response = await this.flowEngine.processStep(message.from, message.body, isFirstMessage);
 
-            // Send response messages if any
+            const response = await this.flowEngine.processStep(
+                message.from,
+                message.body,
+                isFirstMessage
+            );
+
             if (response && response.messages && response.messages.length > 0) {
-                console.log(`[WhatsAppManager] 📤 Preparing to send ${response.messages.length} messages`);
-                
-                // Send messages with delay between them
                 for (let i = 0; i < response.messages.length; i++) {
                     const msg = response.messages[i];
                     try {
-                        console.log(`[WhatsAppManager] 📩 Sending message ${i + 1}/${response.messages.length}`);
                         await this.client.sendMessage(message.from, msg);
-                        console.log(`[WhatsAppManager] ✅ Message ${i + 1} sent successfully: ${msg.substring(0, 50)}...`);
-                        
-                        // Add delay between messages
+                        this.lastOutgoingMessages.set(message.from, msg);
                         if (i < response.messages.length - 1) {
-                            console.log(`[WhatsAppManager] ⏳ Waiting 1 second before next message`);
                             await new Promise(resolve => setTimeout(resolve, 1000));
                         }
                     } catch (error) {
-                        console.error(`[WhatsAppManager] ❌ Error sending message ${i + 1}:`, error);
+                        console.error('Error sending message:', error);
                     }
                 }
-                
-                console.log(`[WhatsAppManager] 📬 Finished sending all messages`);
-            } else {
-                console.log(`[WhatsAppManager] 📭 No messages to send in response`);
             }
 
         } catch (error) {
-            console.error('[WhatsAppManager] ❌ Error in handleMessage:', error);
+            console.error('Error handling message:', error);
         }
     }
 
