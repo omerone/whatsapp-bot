@@ -71,7 +71,7 @@
       },
       "calendar": {
         "enabled": true,
-        "calendarId": "484cd349c67e23d926a65281152a0b05d35bc9c040641122de54e6357c059490@group.calendar.google.com",
+        "calendarId": "6c1877e19bcec67cf66fc0235c0420790d1534e7abea9b1dd64bd44d0a440dae@group.calendar.google.com",
         "eventDurationMinutes": 60,
         "timeZone": "Asia/Jerusalem",
         "eventTitle": "פגישה עם {full_name}",

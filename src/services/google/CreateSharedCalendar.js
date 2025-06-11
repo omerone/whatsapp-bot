@@ -1,5 +1,6 @@
 const { google } = require('googleapis');
 const path = require('path');
+const fs = require('fs').promises;
 
 class CreateSharedCalendar {
     constructor() {
@@ -10,17 +11,20 @@ class CreateSharedCalendar {
         try {
             // Load credentials
             const credentialsPath = path.join(__dirname, '..', 'credentials', 'google-calendar-credentials.json');
-            
-            // Initialize calendar client
-            const auth = new google.auth.GoogleAuth({
-                keyFile: credentialsPath,
-                scopes: ['https://www.googleapis.com/auth/calendar']
-            });
+            const credentials = JSON.parse(await fs.readFile(credentialsPath, 'utf8'));
 
+            // Create JWT client
+            const auth = new google.auth.JWT(
+                credentials.client_email,
+                null,
+                credentials.private_key,
+                ['https://www.googleapis.com/auth/calendar']
+            );
+
+            // Create calendar client
             this.calendar = google.calendar({ version: 'v3', auth });
 
             // Create new calendar
-            console.log('Creating new calendar...');
             const calendarResponse = await this.calendar.calendars.insert({
                 requestBody: {
                     summary: calendarName,
@@ -29,14 +33,13 @@ class CreateSharedCalendar {
             });
 
             const calendarId = calendarResponse.data.id;
-            console.log(`Calendar created with ID: ${calendarId}`);
+            console.log('Created calendar:', calendarId);
 
-            // Share calendar with service account
-            console.log(`Sharing calendar with ${userEmail}...`);
+            // Set calendar sharing permissions
             await this.calendar.acl.insert({
                 calendarId: calendarId,
                 requestBody: {
-                    role: 'writer',
+                    role: 'owner',
                     scope: {
                         type: 'user',
                         value: userEmail
@@ -44,16 +47,21 @@ class CreateSharedCalendar {
                 }
             });
 
-            console.log('Calendar shared successfully!');
-            console.log('\nPlease update your flow.json with this calendar ID:');
-            console.log(JSON.stringify({
-                calendarId: calendarId
-            }, null, 2));
+            // Make calendar public
+            await this.calendar.acl.insert({
+                calendarId: calendarId,
+                requestBody: {
+                    role: 'reader',
+                    scope: {
+                        type: 'default'
+                    }
+                }
+            });
 
+            console.log('Calendar shared successfully with:', userEmail);
             return calendarId;
-
         } catch (error) {
-            console.error('Error creating shared calendar:', error.message);
+            console.error('Error creating shared calendar:', error);
             throw error;
         }
     }

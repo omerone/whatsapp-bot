@@ -1,19 +1,19 @@
 {
   "972506554100@c.us": {
-    "current_step": null,
+     "current_step": null,
     "data": {},
     "is_schedule": false,
     "meeting": null,
     "last_sent_message": "none",
     "last_client_message": "",
     "relevant": true,
-    "last_interaction": "11.6.2025, 12:36:51",
-    "date_and_time_conversation_started": "11.6.2025, 12:34:55",
+    "last_interaction": "11.6.2025, 14:38:57",
+    "date_and_time_conversation_started": "11.6.2025, 14:38:57",
     "blocked": true,
     "blocked_reason": "is_contact",
     "frozenUntil": null
   },
-  "972502927977@c.us": {
+  "972509013463@c.us": {
     "current_step": null,
     "data": {},
     "is_schedule": false,
@@ -21,10 +21,60 @@
     "last_sent_message": "none",
     "last_client_message": "",
     "relevant": true,
-    "last_interaction": "11.6.2025, 12:34:55",
-    "date_and_time_conversation_started": "11.6.2025, 12:34:55",
+    "last_interaction": "11.6.2025, 14:39:03",
+    "date_and_time_conversation_started": "11.6.2025, 14:39:02",
     "blocked": true,
     "blocked_reason": "is_contact",
     "frozenUntil": null
+  },
+  "972548305466@c.us": {
+    "current_step": null,
+    "data": {},
+    "is_schedule": false,
+    "meeting": null,
+    "last_sent_message": "none",
+    "last_client_message": "",
+    "relevant": true,
+    "last_interaction": "11.6.2025, 14:39:03",
+    "date_and_time_conversation_started": "11.6.2025, 14:39:03",
+    "blocked": true,
+    "blocked_reason": "is_contact",
+    "frozenUntil": null
+  },
+  "972526481319@c.us": {
+    "current_step": null,
+    "data": {},
+    "is_schedule": false,
+    "meeting": null,
+    "last_sent_message": "none",
+    "last_client_message": "",
+    "relevant": true,
+    "last_interaction": "11.6.2025, 14:39:03",
+    "date_and_time_conversation_started": "11.6.2025, 14:39:03",
+    "blocked": true,
+    "blocked_reason": "is_contact",
+    "frozenUntil": null
+  },
+  "972503533373@c.us": {
+    "current_step": "final_confirmation",
+    "data": {
+      "full_name": "עומר מעוז",
+      "city_name": "לוד",
+      "mobility": "car"
+    },
+    "is_schedule": true,
+    "meeting": {
+      "date": "30/06/2025",
+      "time": "09:00"
+    },
+    "last_sent_message": "client",
+    "last_client_message": "1",
+    "relevant": true,
+    "last_interaction": "11.6.2025, 14:41:13",
+    "date_and_time_conversation_started": "11.6.2025, 14:40:17",
+    "blocked": true,
+    "blocked_reason": null,
+    "frozenUntil": null,
+    "last_activation_time": "2025-06-11T11:40:17.339Z"
   }
 }
