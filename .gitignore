@@ -11,10 +11,13 @@ package-lock.json
 .env.local
 .env.*.local
 
+# Credentials
+src/services/credentials/*.json
+
 # Logs
 logs/
 *.log
-npm-debug.log*
+npm-debug.log
 yarn-debug.log
 yarn-error.log
 
@@ -62,7 +65,7 @@ jspm_packages/
 *.swo
 *.swn
 .DS_Store
-
+Thumbs.db
 
 # Testing
 coverage/
