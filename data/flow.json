@@ -52,6 +52,7 @@
 
   "integrations": {
     "enabled": true,
+
     "googleWorkspace": {
       "enabled": true,
       "sheets": {
@@ -69,6 +70,7 @@
         "preventDuplicates": true,
         "updateExistingRows": true
       },
+
       "calendar": {
         "enabled": true,
         "calendarId": "6c1877e19bcec67cf66fc0235c0420790d1534e7abea9b1dd64bd44d0a440dae@group.calendar.google.com",
@@ -80,6 +82,7 @@
         "preventDuplicates": true
       }
     },
+
     "notifications": {
       "enabled": true,
       "meetingScheduled": {
@@ -90,6 +93,7 @@
         "messageTemplateFile": "meeting_scheduled_notification.txt"
       }
     },
+    
     "reminders": {
       "enabled": false,
       "configurations": [
@@ -110,6 +114,7 @@
         }
       ]
     },
+    
     "iPlan": {
       "enabled": false,
       "apiUrl": "",

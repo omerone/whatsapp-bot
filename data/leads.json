@@ -1,6 +1,6 @@
 {
   "972506554100@c.us": {
-     "current_step": null,
+    "current_step": null,
     "data": {},
     "is_schedule": false,
     "meeting": null,
@@ -76,5 +76,19 @@
     "blocked_reason": null,
     "frozenUntil": null,
     "last_activation_time": "2025-06-11T11:40:17.339Z"
+  },
+  "972545912344@c.us": {
+    "current_step": null,
+    "data": {},
+    "is_schedule": false,
+    "meeting": null,
+    "last_sent_message": "none",
+    "last_client_message": "",
+    "relevant": true,
+    "last_interaction": "11.6.2025, 20:51:28",
+    "date_and_time_conversation_started": "11.6.2025, 20:51:28",
+    "blocked": true,
+    "blocked_reason": "is_contact",
+    "frozenUntil": null
   }
 }
