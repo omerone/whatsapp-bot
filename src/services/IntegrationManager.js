@@ -176,294 +176,131 @@ class IntegrationManager {
     }
 
     async handleMeetingScheduled(data, currentLead) {
+        console.log('\n[IntegrationManager] 📅 Processing new meeting scheduling:', {
+            name: data.full_name,
+            date: data.meeting_date,
+            time: data.meeting_time,
+            city: data.city_name,
+            mobility: data.mobility
+        });
+
+        // Log calendar service status
+        console.log('[IntegrationManager] 🔍 Calendar service status:', {
+            exists: !!this.services.calendar,
+            initialized: this.services.calendar?.initialized
+        });
+
         try {
-            // Create unique meeting ID for duplicate prevention
-            const meetingId = `${data.phone}-${data.meeting_date}-${data.meeting_time}`;
-            
-            // Skip if this meeting is already being processed
-            if (this.processingMeetings.has(meetingId)) {
-                console.log(`⚠️ DUPLICATE PREVENTED: Meeting ${meetingId} is already being processed!`);
-                return true;
-            }
-            
-            // COMPREHENSIVE duplicate prevention checks
-            
-            // Check 1: Calendar event already exists for this exact meeting
-            if (currentLead?.calendarEventId && 
-                currentLead?.meeting?.date === data.meeting_date && 
-                currentLead?.meeting?.time === data.meeting_time &&
-                currentLead?.is_schedule === true) {
-                console.log(`⚠️ DUPLICATE PREVENTED: Meeting already exists with calendar event ${currentLead.calendarEventId}!`);
-                return true;
-            }
+            // Initialize results object
+            const results = {
+                calendar: { success: false, error: null },
+                sheets: { success: false, error: null },
+                notifications: { success: false, error: null },
+                iplan: { success: false, error: null }
+            };
 
-            // Check 2: Phone number already has a scheduled appointment in Google Sheets
-            if (this.services.sheets) {
-                const hasExistingAppointment = await this.services.sheets.hasScheduledAppointment(data.phone, 'futureAndPresent');
-                if (hasExistingAppointment) {
-                    console.log(`⚠️ DUPLICATE PREVENTED: Phone ${data.phone} already has a scheduled appointment in Google Sheets!`);
-                    return true;
-                }
-            }
-
-            // Check 3: Same event already exists in Google Calendar with same details
-            if (this.services.calendar) {
-                const [day, month, year] = data.meeting_date.split('/');
-                const [hour, minute] = data.meeting_time.split(':');
-                const startDateTime = new Date(year, month - 1, day, hour, minute);
-                const endDateTime = new Date(startDateTime.getTime() + (60 * 60 * 1000)); // 1 hour duration
-                
+            // Google Calendar Integration
+            if (this.services.calendar && this.services.calendar.initialized) {
+                console.log('[IntegrationManager] 🔄 Creating Google Calendar event...');
                 try {
-                    const existingEvents = await this.services.calendar.calendar.events.list({
-                        calendarId: this.services.calendar.config.calendarId,
-                        timeMin: startDateTime.toISOString(),
-                        timeMax: endDateTime.toISOString(),
-                        singleEvents: true,
-                        orderBy: 'startTime'
-                    });
-
-                    const events = existingEvents.data.items || [];
-                    const expectedTitle = this.services.calendar.replacePlaceholders(this.services.calendar.config.eventTitle, data);
+                    const calendarResult = await this.services.calendar.createEvent(data);
+                    results.calendar = calendarResult;
                     
-                    for (const event of events) {
-                        if (event.summary === expectedTitle && event.description && event.description.includes(data.phone)) {
-                            console.log(`⚠️ DUPLICATE PREVENTED: Event already exists in calendar for ${data.full_name} on ${data.meeting_date} ${data.meeting_time}!`);
-                            return true;
+                    if (calendarResult.success) {
+                        console.log('[IntegrationManager] ✅ Calendar event created successfully:', {
+                            eventId: calendarResult.eventId,
+                            eventLink: calendarResult.eventLink,
+                            wasExisting: calendarResult.wasExisting
+                        });
+                        
+                        // Update lead with calendar event details
+                        if (currentLead) {
+                            currentLead.calendarEventId = calendarResult.eventId;
+                            currentLead.calendarEventLink = calendarResult.eventLink;
                         }
+                    } else {
+                        console.error('[IntegrationManager] ❌ Failed to create calendar event:', calendarResult.error);
                     }
                 } catch (error) {
-                    console.error('Error checking for duplicate calendar events:', error.message);
+                    console.error('[IntegrationManager] ❌ Error in calendar integration:', error.message);
+                    results.calendar.error = error.message;
                 }
+            } else {
+                console.log('[IntegrationManager] ℹ️ Google Calendar integration not initialized or disabled');
             }
 
-            // Add to processing set
-            this.processingMeetings.add(meetingId);
-            console.log(`✅ Processing meeting: ${meetingId}`);
-            
-            // Clean up processing flag after 30 seconds
-            setTimeout(() => {
-                this.processingMeetings.delete(meetingId);
-            }, 30000);
-
-            // Add to Google Sheets if enabled
-            if (this.services.sheets) {
-                const integrationData = {
-                    meeting_date: data.meeting_date,
-                    meeting_time: data.meeting_time,
-                    full_name: data.full_name,
-                    city_name: data.city_name,
-                    phone: data.phone,
-                    mobility: data.mobility
-                };
-
-                // Add any additional fields from lead data that match column configuration
-                if (this.services.sheets.config.columns) {
-                    const columns = this.services.sheets.config.columns;
-                    for (const [key, _] of Object.entries(columns)) {
-                        // For fields that are at the root of the lead object
-                        if (key in currentLead) {
-                            integrationData[key] = currentLead[key];
-                        }
-                        // For fields that are in the data object
-                        else if (currentLead?.data && key in currentLead.data) {
-                            integrationData[key] = currentLead.data[key];
-                        }
-                        // For fields that are defined in the flow but not yet in the data
-                        else if (this.flowKeys.includes(key)) {
-                            integrationData[key] = null; // Add placeholder for future data
-                        }
-                    }
-                }
-
-                const sheetsResult = await this.services.sheets.addRow(integrationData);
-                if (sheetsResult) {
-                    console.log(`📊 IntegrationManager: נתונים נוספו/עודכנו בגוגל שיטס עבור ${data.full_name}`);
-                }
-            }
-
-            // Add to Google Calendar if enabled
-            if (this.services.calendar) {
-                const calendarResult = await this.services.calendar.createEvent(data);
-                if (calendarResult.success) {
-                    if (calendarResult.wasExisting) {
-                        console.log(`📅 IntegrationManager: אירוע קיים נמצא בקלנדר עבור ${data.full_name}`);
-                    } else {
-                        console.log(`📅 IntegrationManager: אירוע חדש נוצר בקלנדר עבור ${data.full_name}`);
-                    }
-                    
-                    // Store the calendar event ID in the lead for future reference
-                    if (this.flowEngine?.leadsManager) {
-                        // Find the user ID more reliably
-                        const userId = data.phone + '@c.us'; // Reconstruct from phone number
-                        
-                        // Validate the userId before saving
-                        if (userId && userId !== 'undefined@c.us' && userId !== 'status@broadcast' && userId.includes('@c.us')) {
-                            await this.flowEngine.leadsManager.createOrUpdateLead(userId, {
-                                calendarEventId: calendarResult.eventId,
-                                calendarEventLink: calendarResult.eventLink
-                            });
-                        } else {
-                            console.warn(`IntegrationManager: Invalid userId for calendar event storage: ${userId}`);
-                        }
-                    }
-                } else {
-                    console.error('IntegrationManager: Failed to create calendar event:', calendarResult.error);
-                }
-            }
-
-            // Add to iPlan if enabled
-            if (this.services.iPlan) {
-                const iPlanResult = await this.services.iPlan.createMeeting(data);
-                if (iPlanResult.success) {
-                    console.log(`📋 IntegrationManager: Meeting created in iPlan for ${data.full_name}`);
-                    
-                    // Store the iPlan meeting ID in the lead for future reference
-                    if (this.flowEngine?.leadsManager) {
-                        const userId = data.phone + '@c.us';
-                        if (userId && userId !== 'undefined@c.us' && userId !== 'status@broadcast' && userId.includes('@c.us')) {
-                            await this.flowEngine.leadsManager.createOrUpdateLead(userId, {
-                                iPlanMeetingId: iPlanResult.meetingId
-                            });
-                        }
-                    }
-
-                    // Create contact in iPlan if enabled
-                    if (this.services.iPlan.config.syncContacts) {
-                        const contactResult = await this.services.iPlan.createContact(data);
-                        if (contactResult.success) {
-                            console.log(`📋 IntegrationManager: Contact created in iPlan for ${data.full_name}`);
-                        }
-                    }
-                } else {
-                    console.error('IntegrationManager: Failed to create iPlan meeting:', iPlanResult.error);
-                }
-            }
-
-            // --- הוספת לוגיקה לשליחת הודעת עדכון על פגישה ---
-            const { config: integrationsConfig, isNew: isNewStructure } = this._getIntegrationsConfig();
-            const notificationsConfig = this._getNotificationsConfig(isNewStructure, integrationsConfig);
-            
-            if (notificationsConfig && 
-                notificationsConfig.enabled &&
-                notificationsConfig.recipients &&
-                notificationsConfig.recipients.length > 0 &&
-                notificationsConfig.messageTemplateFile) {
-
-                const settings = notificationsConfig;
-                let messageContent = null;
+            // Google Sheets Integration
+            if (this.services.sheets && this.services.sheets.initialized) {
+                console.log('[IntegrationManager] 🔄 Adding meeting to Google Sheets...');
                 try {
-                    // הנתיב לקובץ ההודעות הוא בתוך תיקיית ההודעות שהוגדרה ל-FlowEngine
-                    const templateFileName = settings.messageTemplateFile;
-                    
-                    if (this.flowEngine && typeof this.flowEngine.loadMessageFile === 'function') {
-                        messageContent = await this.flowEngine.loadMessageFile(templateFileName);
-                        if (messageContent && messageContent.startsWith(' #1מצטערים')) { // בדיקה אם טעינת הקובץ נכשלה
-                            console.error(`IntegrationManager: Failed to load meeting notification template '${templateFileName}' via flowEngine (returned error message).`);
-                            messageContent = null;
-                        }
-                    } else if (this.flowEngine && this.flowEngine.messagesPath) {
-                        // Fallback אם flowEngine.loadMessageFile לא זמין אבל messagesPath כן
-                        const fs = require('fs').promises; // ייבוא מקומי של fs
-                        const templatePath = path.join(this.flowEngine.messagesPath, templateFileName);
-                        try {
-                            messageContent = await fs.readFile(templatePath, 'utf8');
-                        } catch (fileReadError) {
-                            console.error(`IntegrationManager: Error directly reading meeting notification template '${templatePath}':`, fileReadError);
-                            messageContent = null;
-                        }
+                    const sheetsResult = await this.services.sheets.addRow(data);
+                    results.sheets.success = sheetsResult.success;
+                    if (sheetsResult.success) {
+                        console.log('[IntegrationManager] ✅ Meeting added to sheets successfully');
                     } else {
-                        console.error('IntegrationManager: Cannot load message template - flowEngine.loadMessageFile and flowEngine.messagesPath are unavailable.');
+                        console.error('[IntegrationManager] ❌ Failed to add to sheets:', sheetsResult.error);
+                        results.sheets.error = sheetsResult.error;
                     }
-
-                } catch (e) {
-                    console.error(`IntegrationManager: General error loading meeting notification template '${settings.messageTemplateFile}':`, e);
-                    messageContent = null; // ודא ש-messageContent הוא null במקרה של שגיאה כללית
+                } catch (error) {
+                    console.error('[IntegrationManager] ❌ Error in sheets integration:', error.message);
+                    results.sheets.error = error.message;
                 }
-
-                if (messageContent && this.whatsappClient) {
-                    let formattedMessage = messageContent;
-                    
-                    // עיצוב ניידות
-                    let mobilityDisplay = data.mobility || '';
-                    if (data.mobility === 'car') {
-                        mobilityDisplay = 'רכב';
-                    } else if (data.mobility === 'bike') {
-                        mobilityDisplay = 'אופנוע';
-                    } else if (data.mobility === 'none') {
-                        mobilityDisplay = 'לא נייד/ת'; // או כל טקסט אחר שתבחר
-                    }
-
-                    // עיצוב מספר טלפון
-                    let phoneDisplay = data.phone || '';
-                    if (phoneDisplay.startsWith('972') && phoneDisplay.length === 12) {
-                        phoneDisplay = '0' + phoneDisplay.substring(3);
-                    } else if (phoneDisplay.startsWith('+972') && phoneDisplay.length === 13) {
-                        phoneDisplay = '0' + phoneDisplay.substring(4);
-                    }
-
-                    const placeholders = {
-                        '{full_name}': data.full_name || '',
-                        '{city_name}': data.city_name || '',
-                        '{phone}': phoneDisplay,
-                        '{mobility}': mobilityDisplay,
-                        '{meeting_date}': data.meeting_date || '',
-                        '{meeting_time}': data.meeting_time || ''
-                        // הוסף placeholders נוספים לפי הצורך מהאובייקט data
-                    };
-
-                    for (const placeholder in placeholders) {
-                        formattedMessage = formattedMessage.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\\]]/g, '\\$&'), 'g'), placeholders[placeholder]);
-                    }
-                    
-                    let groupIds = [];
-                    if (this.services.groupFetcher && typeof this.services.groupFetcher.loadGroupIds === 'function') {
-                        groupIds = await this.services.groupFetcher.loadGroupIds();
-                    } else {
-                        // Fallback: נסה לקרוא ישירות מהקובץ אם השירות לא נטען כראוי
-                        try {
-                            const fs = require('fs').promises; // ייבוא מקומי של fs
-                            const groupsFilePath = path.join(this.dataPath, 'group_ids.json');
-                            const groupsData = await fs.readFile(groupsFilePath, 'utf8');
-                            groupIds = JSON.parse(groupsData);
-                        } catch (e) {
-                            console.warn('IntegrationManager: Could not load group_ids.json for name to ID mapping in meeting notifications.', e);
-                        }
-                    }
-
-                    for (const recipient of settings.recipients) {
-                        let targetId = recipient;
-                        // בדוק אם ה-recipient הוא שם קבוצה ולא ID
-                        if (!recipient.includes('@g.us') && !recipient.includes('@c.us')) {
-                            const foundGroup = groupIds.find(g => g.name === recipient);
-                            if (foundGroup) {
-                                targetId = foundGroup.id;
-                            } else {
-                                console.warn(`IntegrationManager: Group name '${recipient}' not found in loaded group IDs for meeting notification. Skipping.`);
-                                continue;
-                            }
-                        }
-
-                        try {
-                            await this.whatsappClient.sendMessage(targetId, formattedMessage);
-                            // console.log(`IntegrationManager: Sent meeting scheduled notification to ${targetId}`);
-                        } catch (e) {
-                            console.error(`IntegrationManager: Failed to send meeting scheduled notification to ${targetId}:`, e);
-                        }
-                    }
-                }
+            } else {
+                console.log('[IntegrationManager] ℹ️ Google Sheets integration not initialized or disabled');
             }
-            // --- סוף לוגיקה לשליחת הודעת עדכון ---
 
-            // Clean up processing flag on success
-            this.processingMeetings.delete(meetingId);
-            
-            return true;
+            // iPlan Integration
+            if (this.services.iPlan && this.services.iPlan.initialized) {
+                console.log('[IntegrationManager] 🔄 Creating iPlan meeting...');
+                try {
+                    const iPlanResult = await this.services.iPlan.createMeeting(data);
+                    results.iplan.success = iPlanResult.success;
+                    if (iPlanResult.success) {
+                        console.log('[IntegrationManager] ✅ iPlan meeting created successfully');
+                    } else {
+                        console.error('[IntegrationManager] ❌ Failed to create iPlan meeting:', iPlanResult.error);
+                        results.iplan.error = iPlanResult.error;
+                    }
+                } catch (error) {
+                    console.error('[IntegrationManager] ❌ Error in iPlan integration:', error.message);
+                    results.iplan.error = error.message;
+                }
+            } else {
+                console.log('[IntegrationManager] ℹ️ iPlan integration not initialized or disabled');
+            }
+
+            // Send notifications
+            if (this.services.reminders && this.whatsappClient) {
+                console.log('[IntegrationManager] 🔄 Sending meeting notifications...');
+                try {
+                    const notificationResults = await this._sendMeetingNotifications(data, currentLead);
+                    results.notifications = notificationResults;
+                    if (notificationResults.success) {
+                        console.log('[IntegrationManager] ✅ Meeting notifications sent successfully');
+                    } else {
+                        console.error('[IntegrationManager] ❌ Failed to send notifications:', notificationResults.error);
+                    }
+                } catch (error) {
+                    console.error('[IntegrationManager] ❌ Error sending notifications:', error.message);
+                    results.notifications.error = error.message;
+                }
+            } else {
+                console.log('[IntegrationManager] ℹ️ Notifications not enabled or WhatsApp client not available');
+            }
+
+            // Log final results
+            console.log('[IntegrationManager] 📊 Meeting scheduling results:', {
+                calendar: results.calendar.success ? '✅' : '❌',
+                sheets: results.sheets.success ? '✅' : '❌',
+                notifications: results.notifications.success ? '✅' : '❌',
+                iplan: results.iplan.success ? '✅' : '❌'
+            });
+
+            return results;
+
         } catch (error) {
-            // Clean up processing flag on error
-            this.processingMeetings.delete(meetingId);
-            
-            console.error('Failed to handle meeting scheduled:', error);
-            return false;
+            console.error('[IntegrationManager] ❌ Error in handleMeetingScheduled:', error);
+            throw error;
         }
     }
 

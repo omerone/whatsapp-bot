@@ -10,26 +10,40 @@ class LeadsManager {
     }
 
     formatDate(date) {
+        if (!(date instanceof Date)) {
+            date = new Date(date);
+        }
         return date.toLocaleString('he-IL', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
+            timeZone: 'Asia/Jerusalem',
             hour12: false
         });
     }
 
     isValidPhoneNumber(phoneNumber) {
-        // Remove any WhatsApp suffixes
-        const cleanNumber = phoneNumber.split('@')[0];
+        if (!phoneNumber) return false;
         
-        // Check if it's a valid Israeli phone number format
-        // Should start with 972 or 0 followed by valid Israeli prefixes
-        const israeliPattern = /^(972|0)(5[0-9]|[23489])\d{7}$/;
+        // Block groups immediately
+        if (phoneNumber.includes('@g.us')) {
+            console.log(`[LeadsManager] 🚫 Blocking group from being added to leads: ${phoneNumber}`);
+            return false;
+        }
+
+        // Block status messages immediately
+        if (phoneNumber === 'status@broadcast') {
+            console.log(`[LeadsManager] 🚫 Blocking status broadcast from being added to leads`);
+            return false;
+        }
         
-        return israeliPattern.test(cleanNumber);
+        // Remove any non-digit characters except @ and .
+        const cleanNumber = phoneNumber.replace(/[^\d@.]/g, '');
+        
+        // Check if it's a WhatsApp ID format (e.g., 972501234567@c.us)
+        if (phoneNumber.includes('@')) {
+            return /^\d+@c\.us$/.test(phoneNumber); // Only allow @c.us numbers
+        }
+        
+        // For regular phone numbers, ensure it starts with 972 and has 11-12 digits
+        return cleanNumber.startsWith('972') && cleanNumber.length >= 11 && cleanNumber.length <= 12;
     }
 
     async initialize() {
@@ -38,36 +52,32 @@ class LeadsManager {
             this.initialized = true;
             return true;
         } catch (error) {
+            console.error('Failed to initialize LeadsManager:', error);
             return false;
         }
     }
 
     async loadLeads() {
         try {
-            const content = await fs.readFile(this.leadsFilePath, 'utf8');
-            this.leads = JSON.parse(content || '{}');
-            
-            // Migrate old format to new format if needed
-            for (const [phoneNumber, lead] of Object.entries(this.leads)) {
-                // Move any data from step_data to data
-                if (lead.step_data) {
-                    lead.data = {
-                        ...lead.data,
-                        ...lead.step_data
-                    };
-                    delete lead.step_data;
+            // Ensure the directory exists
+            const dir = path.dirname(this.leadsFilePath);
+            await fs.mkdir(dir, { recursive: true });
+
+            try {
+                const data = await fs.readFile(this.leadsFilePath, 'utf8');
+                this.leads = JSON.parse(data);
+            } catch (error) {
+                if (error.code === 'ENOENT') {
+                    // File doesn't exist, create it with empty object
+                    this.leads = {};
+                    await this.saveLeads();
+                } else {
+                    throw error;
                 }
             }
-            
-            await this.saveLeads();
         } catch (error) {
-            if (error.code === 'ENOENT') {
-                // File doesn't exist, create it
-                this.leads = {};
-                await this.saveLeads();
-            } else {
-                throw error;
-            }
+            console.error('Error loading leads:', error);
+            throw error;
         }
     }
 
@@ -76,20 +86,44 @@ class LeadsManager {
             // Create a new object with reordered fields AND include any extra fields
             const leadsToSave = {};
             for (const [phoneNumber, lead] of Object.entries(this.leads)) {
+                // Format frozenUntil if it exists
+                let formattedFrozenUntil = null;
+                if (lead.frozenUntil) {
+                    formattedFrozenUntil = this.formatDate(lead.frozenUntil);
+                }
+
+                // Format last_sent_message to be a simple string
+                let lastSentMessage = 'none';
+                if (lead.last_sent_message) {
+                    if (typeof lead.last_sent_message === 'object' && lead.last_sent_message.sender) {
+                        lastSentMessage = lead.last_sent_message.sender;
+                    } else if (typeof lead.last_sent_message === 'string') {
+                        lastSentMessage = lead.last_sent_message;
+                    }
+                }
+
                 leadsToSave[phoneNumber] = {
                     current_step: lead.current_step,
                     data: lead.data || {},
                     is_schedule: lead.is_schedule || false,
                     meeting: lead.meeting,
-                    last_sent_message: lead.last_sent_message || "none",
+                    last_sent_message: lastSentMessage,
                     last_client_message: lead.last_client_message || "",
                     relevant: lead.relevant !== false, // Default to true if undefined
                     last_interaction: lead.last_interaction,
                     date_and_time_conversation_started: lead.date_and_time_conversation_started,
                     blocked: lead.blocked || false,
                     blocked_reason: lead.blocked_reason,
-                    // Spread any other properties from the lead object
-                    ...lead 
+                    // Add freeze-related fields with formatted dates
+                    frozenUntil: formattedFrozenUntil,
+                    lastFreezeReason: lead.lastFreezeReason,
+                    // Remove lastFrozenAt and lastFreezeMessageSent
+                    // Spread any remaining properties from the lead object
+                    ...Object.fromEntries(
+                        Object.entries(lead).filter(([key]) => 
+                            !['frozenUntil', 'lastFreezeReason', 'lastFrozenAt', 'lastFreezeMessageSent', 'last_sent_message'].includes(key)
+                        )
+                    )
                 };
             }
             await fs.writeFile(this.leadsFilePath, JSON.stringify(leadsToSave, null, 2), 'utf8');
@@ -104,60 +138,30 @@ class LeadsManager {
             throw new Error('LeadsManager not initialized');
         }
 
-        // Block status@broadcast and validate phone number
-        if (phoneNumber === 'status@broadcast' || !this.isValidPhoneNumber(phoneNumber)) {
-            console.log(`[LeadsManager] Blocked invalid phone number from being added to leads: ${phoneNumber}`);
+        if (!this.isValidPhoneNumber(phoneNumber)) {
+            console.log(`[LeadsManager] ❌ Invalid or blocked phone number, rejecting: ${phoneNumber}`);
             return null;
         }
 
         const now = new Date();
-        const newLead = {
-            current_step: null,
-            data: {},
-            is_schedule: false,
-            meeting: null,
-            last_sent_message: 'none',
-            last_client_message: "",
-            relevant: true,
-            last_interaction: this.formatDate(now),
-            date_and_time_conversation_started: this.formatDate(now),
-            blocked: false,
-            blocked_reason: null
-        };
+        const isReset = data.current_step === 'main_menu' && (!data.data || Object.keys(data.data).length === 0);
 
-        // Special handling for reset operations
-        const isReset = data.blocked === false && data.blocked_reason === null;
-
-        // If this is a reset or new lead, use the newLead as base
-        if (!this.leads[phoneNumber] || (data && Object.keys(data).length > 0)) {
-            // If this is a reset operation, force all reset-related fields
-            if (isReset) {
-                this.leads[phoneNumber] = {
-                    ...newLead,
-                    ...data,
-                    blocked: false,
-                    blocked_reason: null,
-                    data: data.data || {}
-                };
-            } else {
-                // If updating blocked status, respect the explicit setting
-                if ('blocked' in data) {
-                    // If explicitly setting blocked to false, also clear the reason
-                    if (data.blocked === false) {
-                        data.blocked_reason = null;
-                    }
-                } else if (this.leads[phoneNumber]?.blocked) {
-                    // If not explicitly setting blocked and lead was blocked, maintain blocked status
-                    data.blocked = true;
-                    data.blocked_reason = this.leads[phoneNumber].blocked_reason;
-                }
-
-                this.leads[phoneNumber] = {
-                    ...newLead,
-                    ...data,
-                    data: data.data || {}
-                };
-            }
+        // For new leads
+        if (!this.leads[phoneNumber]) {
+            this.leads[phoneNumber] = {
+                current_step: null,
+                data: {},
+                is_schedule: false,
+                meeting: null,
+                last_sent_message: "none",
+                last_client_message: "",
+                relevant: true,
+                last_interaction: this.formatDate(now),
+                date_and_time_conversation_started: this.formatDate(now),
+                blocked: false,
+                blocked_reason: null,
+                ...data
+            };
         } else {
             // Update existing lead
             if (isReset) {
@@ -197,7 +201,7 @@ class LeadsManager {
         if (!this.initialized) {
             throw new Error('LeadsManager not initialized');
         }
-        return this.leads[phoneNumber] || null;
+        return this.leads[phoneNumber];
     }
 
     async updateLeadData(phoneNumber, data) {
@@ -206,16 +210,13 @@ class LeadsManager {
         }
 
         if (!this.leads[phoneNumber]) {
-            return await this.createOrUpdateLead(phoneNumber, { data });
+            throw new Error(`Lead not found: ${phoneNumber}`);
         }
 
         this.leads[phoneNumber].data = {
             ...this.leads[phoneNumber].data,
             ...data
         };
-
-        // Update last interaction time
-        this.leads[phoneNumber].last_interaction = this.formatDate(new Date());
 
         await this.saveLeads();
         return this.leads[phoneNumber];
@@ -227,15 +228,11 @@ class LeadsManager {
         }
 
         if (!this.leads[phoneNumber]) {
-            return await this.createOrUpdateLead(phoneNumber, status);
+            throw new Error(`Lead not found: ${phoneNumber}`);
         }
 
-        const now = new Date();
-        this.leads[phoneNumber] = {
-            ...this.leads[phoneNumber],
-            ...status,
-            last_interaction: this.formatDate(now)
-        };
+        this.leads[phoneNumber].status = status;
+        this.leads[phoneNumber].last_interaction = this.formatDate(new Date());
 
         await this.saveLeads();
         return this.leads[phoneNumber];
@@ -247,9 +244,7 @@ class LeadsManager {
         }
 
         if (!this.leads[phoneNumber]) {
-            return await this.createOrUpdateLead(phoneNumber, {
-                current_step: stepId
-            });
+            throw new Error(`Lead not found: ${phoneNumber}`);
         }
 
         this.leads[phoneNumber].current_step = stepId;
@@ -260,36 +255,32 @@ class LeadsManager {
     }
 
     async markLeadScheduled(phoneNumber, meetingDetails) {
-        return await this.updateLeadStatus(phoneNumber, {
+        return this.createOrUpdateLead(phoneNumber, {
             is_schedule: true,
             meeting: meetingDetails
         });
     }
 
     async blockLead(phoneNumber) {
-        return await this.updateLeadStatus(phoneNumber, {
-            blocked: true,
-            relevant: false
+        return this.createOrUpdateLead(phoneNumber, {
+            blocked: true
         });
     }
 
     async updateLastMessage(phoneNumber, sender, messageInfo = null) {
         if (!this.VALID_SENDER_TYPES.includes(sender)) {
-            console.error(`Invalid sender type: ${sender}. Must be one of: ${this.VALID_SENDER_TYPES.join(', ')}`);
-            sender = 'none';
+            throw new Error(`Invalid sender type: ${sender}. Must be one of: ${this.VALID_SENDER_TYPES.join(', ')}`);
         }
 
-        const now = new Date();
         const updateData = {
-            last_sent_message: sender,
-            last_interaction: this.formatDate(now)
+            last_sent_message: sender
         };
 
         if (sender === 'client' && messageInfo) {
             updateData.last_client_message = messageInfo;
         }
 
-        return await this.updateLeadStatus(phoneNumber, updateData);
+        return this.createOrUpdateLead(phoneNumber, updateData);
     }
 
     isLeadActive(phoneNumber) {
@@ -320,10 +311,13 @@ class LeadsManager {
             throw new Error('LeadsManager not initialized');
         }
 
-        if (this.leads[phoneNumber]) {
-            delete this.leads[phoneNumber];
-            await this.saveLeads();
+        if (!this.leads[phoneNumber]) {
+            return false;
         }
+
+        delete this.leads[phoneNumber];
+        await this.saveLeads();
+        return true;
     }
 }
 

@@ -53,8 +53,8 @@ class WhatsAppManager {
 
     initializeRulesManager() {
         if (this.flowEngine && this.flowEngine.initialized && this.flowEngine.integrationManager && this.flowEngine.flow) {
-            this.rulesManager = new RulesManager(this.flowEngine.flow.rules || {}, this.flowEngine.integrationManager);
-            // console.log('WhatsAppManager: RulesManager initialized successfully.');
+            this.rulesManager = new RulesManager(this.flowEngine.flow, this.flowEngine.integrationManager);
+            console.log('[WhatsAppManager] ✅ RulesManager initialized with full configuration');
         } else {
             let missingParts = [];
             if (!this.flowEngine) missingParts.push('flowEngine');
@@ -62,8 +62,19 @@ class WhatsAppManager {
             if (this.flowEngine && !this.flowEngine.integrationManager) missingParts.push('flowEngine.integrationManager');
             if (this.flowEngine && !this.flowEngine.flow) missingParts.push('flowEngine.flow');
             
-            console.warn(`WhatsAppManager: RulesManager could not be initialized. Missing: ${missingParts.join(', ')}. Using fallback.`);
-            this.rulesManager = new RulesManager({}, null); // Fallback to default/empty RulesManager
+            console.warn(`[WhatsAppManager] ⚠️ RulesManager could not be initialized. Missing: ${missingParts.join(', ')}. Using fallback.`);
+            this.rulesManager = new RulesManager({
+                configuration: {
+                    rules: {
+                        blockedSources: {
+                            ignoreContacts: true,
+                            ignoreArchived: true,
+                            ignoreGroups: true,
+                            ignoreStatus: true
+                        }
+                    }
+                }
+            }, null); // Fallback with basic blocked sources rules
         }
     }
 
@@ -191,6 +202,11 @@ class WhatsAppManager {
     }
 
     async handleMessage(message) {
+        // Skip logging for status messages
+        if (message.from === 'status@broadcast') {
+            return;
+        }
+
         console.log(`\n[WhatsAppManager] 📨 Received message from ${message.from}:`, {
             body: message.body,
             messageId: message.id._serialized,

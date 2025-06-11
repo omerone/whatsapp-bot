@@ -60,7 +60,3 @@ jspm_packages/
 *.swo
 *.swn
 .DS_Store
-
-# Credentials files
-src/services/credentials/*.json
-data/leads.json

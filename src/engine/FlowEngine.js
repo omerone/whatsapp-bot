@@ -188,7 +188,7 @@ class FlowEngine {
 
     async handleResetKeyword(userId) {
         const session = await this.getSession(userId);
-        const resetConfig = this.flow.rules?.resetConfig || this.flow.resetConfig;
+        const resetConfig = this.flow.configuration?.client_management?.reset;
 
         if (!resetConfig?.enabled) {
             return null;
@@ -196,7 +196,7 @@ class FlowEngine {
 
         // Reset session data
         session.data = {};
-        session.currentStep = resetConfig.targetStep || 'main_menu';
+        session.currentStep = resetConfig.target_step || 'main_menu';
         session.isFirstMessage = false;
         session.isNewConversation = false;
         session.ignoreNextInput = false;
@@ -386,33 +386,17 @@ class FlowEngine {
     }
 
     async freezeClient(userId, stepId = null) {
-        // Check both old and new freeze config for backwards compatibility
-        const oldConfig = this.flow.freezeConfig;
-        const newConfig = this.flow.rules?.freezeClients;
+        const freezeConfig = this.flow.configuration?.client_management?.freeze;
         
-        if (!oldConfig?.enabled && !newConfig?.enabled) {
+        if (!freezeConfig?.enabled) {
             return;
         }
 
-        // Get current lead for freeze count tracking
+        // Get current lead
         const currentLead = await this.leadsManager.getLead(userId);
-        const currentFreezeCount = (currentLead?.freezeCount || 0) + 1;
         
-        // Check max freeze count limit
-        if (newConfig?.maxFreezeCount && currentFreezeCount > newConfig.maxFreezeCount) {
-            console.log(`[FlowEngine] Client ${userId} exceeded max freeze count (${newConfig.maxFreezeCount}), not freezing`);
-            return;
-        }
-
-        // Determine freeze duration
-        let freezeDurationMinutes;
-        if (newConfig?.stepSpecificDurations && stepId && newConfig.stepSpecificDurations[stepId]) {
-            freezeDurationMinutes = newConfig.stepSpecificDurations[stepId];
-        } else if (newConfig?.defaultDurationMinutes) {
-            freezeDurationMinutes = newConfig.defaultDurationMinutes;
-        } else {
-            freezeDurationMinutes = oldConfig?.freezeDurationMinutes || 60; // Fallback
-        }
+        // Calculate freeze duration
+        const freezeDurationMinutes = freezeConfig.duration || 60;
 
         const frozenUntil = new Date();
         frozenUntil.setMinutes(frozenUntil.getMinutes() + freezeDurationMinutes);
@@ -420,7 +404,6 @@ class FlowEngine {
         // Update lead with freeze info
         const updateData = {
             frozenUntil: frozenUntil.toISOString(),
-            freezeCount: currentFreezeCount,
             lastFreezeReason: stepId || 'unknown',
             lastFrozenAt: new Date().toISOString()
         };
@@ -428,32 +411,23 @@ class FlowEngine {
         await this.leadsManager.createOrUpdateLead(userId, updateData);
 
         // Send explanation message if enabled
-        if (newConfig?.sendExplanationMessage && newConfig?.explanationMessageText) {
-            const explanationText = newConfig.explanationMessageText.replace('{duration}', freezeDurationMinutes);
+        if (freezeConfig.messaging?.send_explanation && freezeConfig.messaging?.message) {
+            const explanationText = freezeConfig.messaging.message.replace('{duration}', freezeDurationMinutes);
             
-            // Only send if not already sent recently (prevent duplicate messages)
-            if (!newConfig.preventDuplicateMessages || !currentLead?.lastFreezeMessageSent ||
-                (Date.now() - new Date(currentLead.lastFreezeMessageSent).getTime()) > 60000) { // 1 minute cooldown
+            try {
+                await this.whatsappClient.sendMessage(`${userId.split('@')[0]}@c.us`, explanationText);
                 
-                try {
-                    await this.whatsappClient.sendMessage(`${userId.split('@')[0]}@c.us`, explanationText);
-                    
-                    // Track that we sent the message and update last_sent_message
-                    await this.leadsManager.createOrUpdateLead(userId, {
-                        lastFreezeMessageSent: new Date().toISOString(),
-                        last_sent_message: 'bot'
-                    });
-                } catch (error) {
-                    console.error(`[FlowEngine] Error sending freeze explanation to ${userId}:`, error);
-                }
+                // Track that we sent the message
+                await this.leadsManager.createOrUpdateLead(userId, {
+                    lastFreezeMessageSent: new Date().toISOString(),
+                    last_sent_message: 'bot'
+                });
+            } catch (error) {
+                console.error(`[FlowEngine] Error sending freeze explanation to ${userId}:`, error);
             }
         }
 
-        if (newConfig?.logFreezeActions) {
-            console.log(`[FlowEngine] Client ${userId} frozen until ${frozenUntil.toLocaleString('he-IL')} (reason: ${stepId || 'unknown'}, count: ${currentFreezeCount})`);
-        } else {
-            console.log(`[FlowEngine] Client ${userId} frozen until ${frozenUntil.toLocaleString('he-IL')}`);
-        }
+        console.log(`[FlowEngine] Client ${userId} frozen until ${frozenUntil.toLocaleString('he-IL')} (reason: ${stepId || 'unknown'})`);
     }
 
     cleanupOldSessions() {

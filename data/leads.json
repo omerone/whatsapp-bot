@@ -1,22 +1,30 @@
 {
-  "972503533373@c.us": {
-    "current_step": "final_confirmation",
-    "data": {
-      "full_name": "עומר מעוז",
-      "city_name": "לוד",
-      "mobility": "car"
-    },
-    "is_schedule": true,
-    "meeting": {
-      "date": "07/07/2025",
-      "time": "10:00"
-    },
-    "last_sent_message": "client",
-    "last_client_message": "2",
-    "relevant": false,
-    "last_interaction": "10.06.2025, 00:29:53",
-    "date_and_time_conversation_started": "10.06.2025, 00:29:18",
+  "972506554100@c.us": {
+    "current_step": null,
+    "data": {},
+    "is_schedule": false,
+    "meeting": null,
+    "last_sent_message": "none",
+    "last_client_message": "",
+    "relevant": true,
+    "last_interaction": "11.6.2025, 12:36:51",
+    "date_and_time_conversation_started": "11.6.2025, 12:34:55",
     "blocked": true,
-    "blocked_reason": null
+    "blocked_reason": "is_contact",
+    "frozenUntil": null
+  },
+  "972502927977@c.us": {
+    "current_step": null,
+    "data": {},
+    "is_schedule": false,
+    "meeting": null,
+    "last_sent_message": "none",
+    "last_client_message": "",
+    "relevant": true,
+    "last_interaction": "11.6.2025, 12:34:55",
+    "date_and_time_conversation_started": "11.6.2025, 12:34:55",
+    "blocked": true,
+    "blocked_reason": "is_contact",
+    "frozenUntil": null
   }
 }

@@ -16,25 +16,57 @@ class GoogleCalendarService {
                 return false;
             }
 
-            // Load Google credentials from the same file as Google Sheets
-            const credentialsPath = path.join(__dirname, '..', 'credentials', 'google-sheets-credentials.json');
+            // Load Google Calendar credentials
+            const credentialsPath = path.join(__dirname, '..', 'credentials', 'google-calendar-credentials.json');
             
             // Check if credentials file exists
             try {
-                await fs.access(credentialsPath);
+                await fs.promises.access(credentialsPath);
+                console.log('GoogleCalendarService: Found credentials file at', credentialsPath);
             } catch (error) {
-                console.error(`GoogleCalendarService: Using Google Sheets credentials from ${credentialsPath}`);
-                console.error('Please make sure the file exists and has the correct calendar permissions.');
+                console.error(`GoogleCalendarService: Credentials file not found at ${credentialsPath}`);
+                console.error('Please make sure to add the google-calendar-credentials.json file with proper permissions.');
                 return false;
             }
 
-            // Initialize calendar client with Google Sheets credentials
+            // Initialize calendar client with dedicated credentials
             const auth = new google.auth.GoogleAuth({
                 keyFile: credentialsPath,
                 scopes: ['https://www.googleapis.com/auth/calendar']
             });
 
-            this.client = google.calendar({ version: 'v3', auth });
+            // Test auth by getting the client email
+            const client = await auth.getClient();
+            const credentials = await auth.getCredentials();
+            console.log('GoogleCalendarService: Authenticated as:', credentials.client_email);
+            console.log('GoogleCalendarService: Using calendar ID:', this.config.calendarId);
+
+            this.calendar = google.calendar({ version: 'v3', auth });
+
+            // Test calendar access
+            try {
+                console.log('GoogleCalendarService: Testing calendar access...');
+                const calendarInfo = await this.calendar.calendars.get({
+                    calendarId: this.config.calendarId
+                });
+                console.log('GoogleCalendarService: Successfully accessed calendar:', calendarInfo.data.summary);
+                console.log('GoogleCalendarService: Calendar details:', {
+                    id: calendarInfo.data.id,
+                    timeZone: calendarInfo.data.timeZone,
+                    accessRole: calendarInfo.data.accessRole
+                });
+            } catch (error) {
+                console.error('GoogleCalendarService: Failed to access calendar:', error.message);
+                if (error.code === 404) {
+                    console.error('Calendar not found. Please check the calendarId');
+                } else if (error.code === 403) {
+                    console.error('Permission denied. Please check service account permissions');
+                }
+                throw error;
+            }
+
+            this.initialized = true;
+            console.log('GoogleCalendarService: Successfully initialized with calendar credentials');
             return true;
         } catch (error) {
             console.error('GoogleCalendarService: Failed to initialize:', error);
@@ -56,6 +88,12 @@ class GoogleCalendarService {
             const startDateTime = new Date(year, month - 1, day, hour, minute);
             const endDateTime = new Date(startDateTime.getTime() + (this.config.eventDurationMinutes * 60 * 1000));
 
+            console.log(`GoogleCalendarService: Checking availability for ${date} ${time}`, {
+                startDateTime: startDateTime.toISOString(),
+                endDateTime: endDateTime.toISOString(),
+                maxParticipants: this.config.maxParticipantsPerSlot || 1
+            });
+
             // Check for conflicting events
             const response = await this.calendar.events.list({
                 calendarId: this.config.calendarId,
@@ -66,6 +104,7 @@ class GoogleCalendarService {
             });
 
             const existingEvents = response.data.items || [];
+            console.log(`GoogleCalendarService: Found ${existingEvents.length} existing events in this time slot`);
             
             // Check if we have maxParticipantsPerSlot configured
             const maxParticipants = this.config.maxParticipantsPerSlot || 1;
@@ -78,11 +117,12 @@ class GoogleCalendarService {
             const currentParticipants = ourMeetings.length;
             const slotAvailable = currentParticipants < maxParticipants;
 
-            if (!slotAvailable) {
-                // console.log(`GoogleCalendarService: Time slot ${date} ${time} is full - found ${currentParticipants}/${maxParticipants} meetings`);
-            } else {
-                // console.log(`GoogleCalendarService: Time slot ${date} ${time} has space - ${currentParticipants}/${maxParticipants} meetings`);
-            }
+            console.log(`GoogleCalendarService: Time slot ${date} ${time} status:`, {
+                currentParticipants,
+                maxParticipants,
+                available: slotAvailable,
+                existingMeetings: ourMeetings.map(m => m.summary)
+            });
 
             return slotAvailable;
 
@@ -100,6 +140,13 @@ class GoogleCalendarService {
         }
 
         try {
+            console.log(`GoogleCalendarService: Creating event for ${meetingData.full_name}`, {
+                date: meetingData.meeting_date,
+                time: meetingData.meeting_time,
+                city: meetingData.city_name,
+                mobility: meetingData.mobility
+            });
+
             // Parse the date and time
             const [day, month, year] = meetingData.meeting_date.split('/');
             const [hour, minute] = meetingData.meeting_time.split(':');
@@ -107,10 +154,20 @@ class GoogleCalendarService {
             const startDateTime = new Date(year, month - 1, day, hour, minute);
             const endDateTime = new Date(startDateTime.getTime() + (this.config.eventDurationMinutes * 60 * 1000));
 
+            console.log('GoogleCalendarService: Event time details:', {
+                startDateTime: startDateTime.toISOString(),
+                endDateTime: endDateTime.toISOString(),
+                timeZone: this.config.timeZone
+            });
+
             // Check for existing event with same details
             const existingEvent = await this._findExistingEvent(meetingData, startDateTime, endDateTime);
             if (existingEvent) {
-                console.log(`📅 Google Calendar: אירוע קיים כבר נמצא עבור ${meetingData.full_name} בתאריך ${meetingData.meeting_date} ${meetingData.meeting_time}`);
+                console.log(`GoogleCalendarService: Found existing event for ${meetingData.full_name}`, {
+                    eventId: existingEvent.id,
+                    eventLink: existingEvent.htmlLink,
+                    summary: existingEvent.summary
+                });
                 return {
                     success: true,
                     eventId: existingEvent.id,
@@ -133,6 +190,7 @@ class GoogleCalendarService {
             );
             
             const participantNumber = ourMeetings.length + 1;
+            console.log(`GoogleCalendarService: Current participants in this time slot: ${participantNumber}`);
 
             // Replace placeholders in title and description
             const eventTitle = this.replacePlaceholders(this.config.eventTitle, meetingData);
@@ -149,15 +207,25 @@ class GoogleCalendarService {
                     dateTime: endDateTime.toISOString(),
                     timeZone: this.config.timeZone
                 }
-                // Removed attendees - Service accounts can't invite attendees without Domain-Wide Delegation
             };
+
+            console.log('GoogleCalendarService: Creating new event with details:', {
+                summary: event.summary,
+                description: event.description,
+                start: event.start,
+                end: event.end
+            });
 
             const response = await this.calendar.events.insert({
                 calendarId: this.config.calendarId,
                 resource: event
             });
 
-            console.log(`📅 Google Calendar: אירוע חדש נוצר בהצלחה עבור ${meetingData.full_name}`);
+            console.log(`GoogleCalendarService: Event created successfully for ${meetingData.full_name}`, {
+                eventId: response.data.id,
+                eventLink: response.data.htmlLink
+            });
+
             return {
                 success: true,
                 eventId: response.data.id,
@@ -167,6 +235,13 @@ class GoogleCalendarService {
 
         } catch (error) {
             console.error('GoogleCalendarService: Error creating event:', error.message);
+            if (error.response) {
+                console.error('GoogleCalendarService: API Error Details:', {
+                    status: error.response.status,
+                    statusText: error.response.statusText,
+                    data: error.response.data
+                });
+            }
             return {
                 success: false,
                 error: error.message

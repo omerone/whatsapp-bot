@@ -1,47 +1,54 @@
 {
-  "תסריט החברה": "עבור משאבים LTD",
-
-  "rules": {
-    "ignoreContacts": true,
-    "ignoreArchived": true,
-    "ignoreGroups": true,
-    "ignoreStatus": true,
-    "blockScheduledClients": {
-      "enabled": true,
-      "blockPastAndPresent": true,
-      "blockFutureAndPresent": false,
-      "allowRescheduling": true,
-      "rescheduleOnlyFuture": true
-    },
-    "activationKeywords": {
-        "enabled": false,
+  "metadata": {
+    "company_name": "עבור משאבים LTD",
+    "version": "1.0",
+    "last_updated": "2024-03-21"
+  },
+  
+  "configuration": {
+    "rules": {
+      "blockedSources": {
+        "ignoreContacts": true,
+        "ignoreArchived": true,
+        "ignoreGroups": true,
+        "ignoreStatus": true
+      },
+      "activation": {
+        "enabled": true,
         "keywords": ["תספורת"],
         "resetAfterHours": 24
+      }
     },
-    "freezeClients": {
-      "enabled": true,
-      "defaultDurationMinutes": 60,
-      "sendExplanationMessage": true,
-      "maxFreezeCount": 3,
-      "explanationMessageText": "תחזור אלינו בעוד {duration} דקות. תודה על הסבלנות! 🙏",
-      "stepSpecificDurations": {
-        "not_suitable": 1440,
-        "human_support": 60,
-        "remove_candidate": 10080
+    
+    "client_management": {
+      "freeze": {
+        "enabled": true,
+        "duration": 60,
+        "messaging": {
+          "send_explanation": true,
+          "message": "תחזור אלינו בעוד {duration} דקות. תודה על הסבלנות! 🙏"
+        }
       },
-      "preventDuplicateMessages": true,
-      "logFreezeActions": true
-    },
-    "resetConfig": {
-      "enabled": true,
-      "keyword": "תפריט",
-      "targetStep": "main_menu",
-      "unfreezeOnReset": true,
-      "deleteAppointmentOnReset": true,
-      "allowResetForBlockedClients": true,
-      "logResetActions": true
+      "reset": {
+        "enabled": true,
+        "keyword": "תפריט",
+        "target_step": "main_menu",
+        "options": {
+          "unfreeze": true,
+          "delete_appointment": true,
+          "allow_unblock": true
+        }
+      },
+      "blockScheduledClients": {
+        "enabled": true,
+        "blockPastAndPresent": true,
+        "blockFutureAndPresent": false,
+        "allowRescheduling": true,
+        "rescheduleOnlyFuture": true
+      }
     }
   },
+  
 
   "integrations": {
     "enabled": true,
@@ -64,7 +71,7 @@
       },
       "calendar": {
         "enabled": true,
-        "calendarId": "805b96a7ab3f3a51f68ca9f451ffaa7c40f25b550b73a3d570242761818d3468@group.calendar.google.com",
+        "calendarId": "484cd349c67e23d926a65281152a0b05d35bc9c040641122de54e6357c059490@group.calendar.google.com",
         "eventDurationMinutes": 60,
         "timeZone": "Asia/Jerusalem",
         "eventTitle": "פגישה עם {full_name}",
@@ -114,8 +121,6 @@
     }
   },
 
-
-  
   "start": "intro",
   
   "steps": {
