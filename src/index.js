@@ -1,11 +1,15 @@
 const path = require('path');
 const FlowEngine = require('./engine/FlowEngine');
 const WhatsAppManager = require('./WhatsAppManager');
+const ValidatorRegistry = require('./engine/ValidatorRegistry');
 
 async function main() {
     try {
         const now = new Date();
         console.log(`[${now.toLocaleString('he-IL')}] מפעיל את הבוט...`);
+
+        // Register validators
+        ValidatorRegistry.registerStandardValidators();
 
         // 1. Create WhatsAppManager instance - it creates the client object internally.
         // Pass null for flowEngine initially; it will be set later.

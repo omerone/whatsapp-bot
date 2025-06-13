@@ -71,21 +71,50 @@ class OptionStep {
         }
 
         // If we're just starting this step or had an invalid selection
-        let messageToSend = step.message || await flowEngine.loadMessageFile(step.messageFile);
+        const messages = [];
 
-        // הוספת לוגיקה להחלפת placeholders
+        // Process message header if exists
+        if (step.messageHeader) {
+            let headerMessage = step.messageHeader;
+            if (session.data) {
+                for (const keyInSession in session.data) {
+                    if (session.data.hasOwnProperty(keyInSession)) {
+                        const placeholder = `{${keyInSession}}`;
+                        headerMessage = headerMessage.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\\]]/g, '\\$&'), 'g'), session.data[keyInSession]);
+                    }
+                }
+            }
+            messages.push(headerMessage);
+        }
+
+        // Process main message
+        let messageToSend = step.message || await flowEngine.loadMessageFile(step.messageFile);
         if (messageToSend && session.data) {
             for (const keyInSession in session.data) {
                 if (session.data.hasOwnProperty(keyInSession)) {
                     const placeholder = `{${keyInSession}}`;
-                    // שימוש ב-RegExp גלובלי כדי להחליף את כל המופעים של ה-placeholder
                     messageToSend = messageToSend.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\\]]/g, '\\$&'), 'g'), session.data[keyInSession]);
                 }
             }
         }
+        messages.push(messageToSend);
+
+        // Process footer message if exists
+        if (step.footerMessage) {
+            let footerMessage = step.footerMessage;
+            if (session.data) {
+                for (const keyInSession in session.data) {
+                    if (session.data.hasOwnProperty(keyInSession)) {
+                        const placeholder = `{${keyInSession}}`;
+                        footerMessage = footerMessage.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\\]]/g, '\\$&'), 'g'), session.data[keyInSession]);
+                    }
+                }
+            }
+            messages.push(footerMessage);
+        }
 
         return {
-            messages: [messageToSend],
+            messages,
             waitForUser: true
         };
     }

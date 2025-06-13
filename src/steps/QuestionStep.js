@@ -111,6 +111,23 @@ class QuestionStep {
             }
 
             // If no input, show the question
+            const messages = [];
+
+            // Process message header if exists
+            if (step.messageHeader) {
+                let headerMessage = step.messageHeader;
+                if (session.data) {
+                    for (const keyInSession in session.data) {
+                        if (session.data.hasOwnProperty(keyInSession)) {
+                            const placeholder = `{${keyInSession}}`;
+                            headerMessage = headerMessage.replace(new RegExp(escapeRegExp(placeholder), 'g'), session.data[keyInSession]);
+                        }
+                    }
+                }
+                messages.push(headerMessage);
+            }
+
+            // Process main message
             let questionMessage = step.message;
             if (questionMessage && session.data) {
                 for (const keyInSession in session.data) {
@@ -120,9 +137,24 @@ class QuestionStep {
                     }
                 }
             }
+            messages.push(questionMessage);
+
+            // Process footer message if exists
+            if (step.footerMessage) {
+                let footerMessage = step.footerMessage;
+                if (session.data) {
+                    for (const keyInSession in session.data) {
+                        if (session.data.hasOwnProperty(keyInSession)) {
+                            const placeholder = `{${keyInSession}}`;
+                            footerMessage = footerMessage.replace(new RegExp(escapeRegExp(placeholder), 'g'), session.data[keyInSession]);
+                        }
+                    }
+                }
+                messages.push(footerMessage);
+            }
 
             return {
-                messages: [questionMessage],
+                messages,
                 waitForUser: true
             };
 

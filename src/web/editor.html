@@ -1,0 +1,1999 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>ניהול זמינות</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      margin: 0; /* Remove margin for full-width container-fluid */
+      background: #e9ecef; /* Lighter, neutral background */
+      color: #343a40;
+    }
+    .container-fluid { /* Changed from .container */
+        /* max-width: 1200px; */ /* Removed max-width for true full width */
+        padding: 20px; /* Add padding that was on body */
+    }
+    .hour-tag {
+      display: inline-block;
+      margin: 3px;
+      padding: 6px 10px;
+      background-color: #d1ecf1;
+      border-radius: 5px;
+    }
+    .btn-primary {
+        background-color: #20c997; /* Muted Teal */
+        border-color: #20c997;
+        color: white;
+    }
+    .btn-primary:hover {
+        background-color: #1baa80; /* Darker Teal */
+        border-color: #1a9f79;
+        color: white;
+    }
+    .btn-info { 
+        background-color: #6c757d; /* Bootstrap Secondary/Gray */
+        border-color: #6c757d;
+        color: white;
+    }
+    .btn-info:hover {
+        background-color: #5a6268;
+        border-color: #545b62;
+        color: white;
+    }
+    
+    .btn-outline-info {
+        color: #6c757d;
+        border-color: #6c757d;
+    }
+    .btn-outline-info:hover {
+        color: white;
+        background-color: #6c757d;
+        border-color: #6c757d;
+    }
+
+    .btn-success {
+        background-color: #28a745;
+        border-color: #28a745;
+    }
+    .btn-success:hover {
+        background-color: #218838;
+        border-color: #1e7e34;
+    }
+
+    .btn-secondary {
+        background-color: #adb5bd; /* Lighter Gray */
+        border-color: #adb5bd;
+        color: #212529; /* Dark text for light gray button */
+    }
+    .btn-secondary:hover {
+        background-color: #9fa6ae;
+        border-color: #989fa6;
+        color: #212529;
+    }
+
+    .btn-outline-secondary {
+        color: #6c757d;
+        border-color: #ced4da; /* Lighter border for outline */
+    }
+    .btn-outline-secondary:hover {
+        color: #fff;
+        background-color: #6c757d;
+        border-color: #6c757d;
+    }
+
+    .btn-danger {
+        background-color: #dc3545;
+        border-color: #dc3545;
+    }
+    .btn-danger:hover {
+        background-color: #c82333;
+        border-color: #bd2130;
+    }
+    .btn-outline-danger {
+        color: #dc3545;
+        border-color: #dc3545;
+    }
+    .btn-outline-danger:hover {
+        color:white;
+        background-color: #dc3545;
+        border-color: #dc3545;
+    }
+
+    .holiday-cell {
+      background-color: #fff3cd !important; /* Bootstrap warning light yellow */
+      border: 1px solid #ffeeba !important;
+    }
+
+    .friday-cell {
+      background-color: #f0f8ff !important; /* AliceBlue - very light blue */
+      border: 1px solid #d6eaff !important;
+    }
+
+    .saturday-cell {
+      background-color: #fff0f5 !important; /* LavenderBlush - very light pink/purple */
+      border: 1px solid #ffe0f0 !important;
+    }
+
+    .area-box {
+      background: #ffffff;
+      border: 1px solid #dee2e6;
+      border-radius: 0.375rem;
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+      transition: background-color 0.3s ease, border-color 0.3s ease;
+    }
+    .area-box.checked {
+      background-color: #e6f9eb;
+      border-color: #28a745;
+    }
+    .area-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+    }
+    .area-title-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .area-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .area-name {
+      font-weight: 500;
+      font-size: 1.1rem;
+      color: #212529;
+    }
+    .city-list {
+      margin-top: 0.5rem;
+      font-size: 0.875rem;
+      color: #495057;
+      display: none;
+      padding-right: 2.5rem;
+      background-color: #f8f9fa;
+      padding: 0.5rem 0.75rem 0.5rem 2.5rem;
+      border-radius: 0.25rem;
+      border: 1px solid #e9ecef;
+    }
+    .area-toggle, .area-edit-btn, .area-delete-btn {
+      padding: 0.375rem 0.75rem;
+      font-size: 0.875rem;
+      border-radius: 0.25rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .area-toggle i, .area-edit-btn i, .area-delete-btn i {
+        margin-right: 0.25rem;
+    }
+    .area-selector-modal-box {
+        background: #ffffff;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        border-radius: 0.5rem; /* Rounded corners for the whole modal */
+        /* padding: 1.5rem; */ /* General padding removed, will be handled by inner sections */
+        text-align: right;
+        width: 500px;
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden; /* CRITICAL: clips children to the rounded corners */
+    }
+    .area-selector-modal-box h3 {
+        font-size: 1.5rem;
+        color: #20c997; /* Muted Teal for modal titles */
+        margin-bottom: 1rem;
+        text-align: center;
+    }
+    .area-selector-modal-box .btn-outline-primary {
+        align-self: center;
+    }
+    .area-actions-bar {
+        position: sticky;
+        bottom: -1.5rem;
+        left: -1.5rem;
+        right: -1.5rem;
+        background: #f8f9fa;
+        padding: 1rem 1.5rem;
+        border-top: 1px solid #dee2e6;
+        display: flex;
+        justify-content: center;
+        gap: 0.75rem;
+        margin-top: 1rem;
+        border-bottom-left-radius: 0.5rem;
+        border-bottom-right-radius: 0.5rem;
+    }
+    .form-check-input {
+        margin-left: 0.5rem;
+        margin-right: 0;
+    }
+  </style>
+</head>
+<body class="bg-light text-center p-4">
+  <div class="container-fluid">
+    <h1 class="mb-4 fw-bold text-center" style="font-size: 2.4rem; color: #17a2b8; text-shadow: 1px 1px 2px rgba(0,0,0,0.05);">
+      📅 לוח ניהול ראיונות ומועדים
+    </h1>
+    <div id="calendar" class="row justify-content-center"></div>
+    <!-- <button onclick="saveChanges()" class="btn btn-success btn-lg mt-4"><i class="bi bi-save me-2"></i>שמור שינויים</button> -->
+  </div>
+
+  <script>
+    const holidays = {
+      "13/03/2025": "פורים",
+      "12/04/2025": "פסח",
+      "13/04/2025": "פסח",
+      "14/04/2025": "פסח",
+      "15/04/2025": "פסח",
+      "16/04/2025": "פסח",
+      "17/04/2025": "פסח",
+      "18/04/2025": "פסח",
+      "19/04/2025": "פסח",
+      "01/06/2025": "שבועות",
+      "02/06/2025": "שבועות",
+      "22/09/2025": "ראש השנה",
+      "23/09/2025": "ראש השנה",
+      "24/09/2025": "ראש השנה",
+      "01/10/2025": "יום כיפור",
+      "06/10/2025": "סוכות",
+      "07/10/2025": "סוכות",
+      "08/10/2025": "סוכות",
+      "09/10/2025": "סוכות",
+      "10/10/2025": "סוכות",
+      "11/10/2025": "סוכות",
+      "12/10/2025": "סוכות",
+      "13/10/2025": "סוכות",
+      "24/12/2025": "חנוכה",
+      "25/12/2025": "חנוכה",
+      "26/12/2025": "חנוכה",
+      "27/12/2025": "חנוכה",
+      "28/12/2025": "חנוכה",
+      "29/12/2025": "חנוכה",
+      "30/12/2025": "חנוכה",
+      "31/12/2025": "חנוכה",
+      "13/02/2026": "ט״ו בשבט",
+      "03/03/2026": "פורים",
+      "01/04/2026": "פסח",
+      "02/04/2026": "פסח",
+      "03/04/2026": "פסח",
+      "04/04/2026": "פסח",
+      "05/04/2026": "פסח",
+      "06/04/2026": "פסח",
+      "07/04/2026": "פסח",
+      "08/04/2026": "פסח",
+      "21/05/2026": "שבועות",
+      "24/03/2027": "פורים",
+      "22/04/2027": "פסח",
+      "23/04/2027": "פסח",
+      "24/04/2027": "פסח",
+      "25/04/2027": "פסח",
+      "26/04/2027": "פסח",
+      "27/04/2027": "פסח",
+      "28/04/2027": "פסח",
+      "29/04/2027": "פסח",
+      "11/06/2027": "שבועות",
+      "02/10/2027": "ראש השנה",
+      "03/10/2027": "ראש השנה",
+      "04/10/2027": "ראש השנה",
+      "11/10/2027": "יום כיפור",
+      "16/10/2027": "סוכות",
+      "17/10/2027": "סוכות",
+      "18/10/2027": "סוכות",
+      "19/10/2027": "סוכות",
+      "20/10/2027": "סוכות",
+      "21/10/2027": "סוכות",
+      "22/10/2027": "סוכות",
+      "23/10/2027": "סוכות",
+      "25/12/2027": "חנוכה",
+      "26/12/2027": "חנוכה",
+      "27/12/2027": "חנוכה",
+      "28/12/2027": "חנוכה",
+      "29/12/2027": "חנוכה",
+      "30/12/2027": "חנוכה",
+      "31/12/2027": "חנוכה",
+      "01/01/2028": "חנוכה",
+      "02/02/2028": "ט״ו בשבט",
+      "13/03/2028": "פורים",
+      "11/04/2028": "פסח",
+      "12/04/2028": "פסח",
+      "13/04/2028": "פסח",
+      "14/04/2028": "פסח",
+      "15/04/2028": "פסח",
+      "16/04/2028": "פסח",
+      "17/04/2028": "פסח",
+      "18/04/2028": "פסח",
+      "01/06/2028": "שבועות",
+      "21/09/2028": "ראש השנה",
+      "22/09/2028": "ראש השנה",
+      "23/09/2028": "ראש השנה",
+      "30/09/2028": "יום כיפור",
+      "05/10/2028": "סוכות",
+      "06/10/2028": "סוכות",
+      "07/10/2028": "סוכות",
+      "08/10/2028": "סוכות",
+      "09/10/2028": "סוכות",
+      "10/10/2028": "סוכות",
+      "11/10/2028": "סוכות",
+      "12/10/2028": "סוכות",
+      "13/12/2028": "חנוכה",
+      "14/12/2028": "חנוכה",
+      "15/12/2028": "חנוכה",
+      "16/12/2028": "חנוכה",
+      "17/12/2028": "חנוכה",
+      "18/12/2028": "חנוכה",
+      "19/12/2028": "חנוכה",
+      "20/12/2028": "חנוכה",
+      "22/01/2029": "ט״ו בשבט",
+      "01/03/2029": "פורים",
+      "31/03/2029": "פסח",
+      "01/04/2029": "פסח",
+      "02/04/2029": "פסח",
+      "03/04/2029": "פסח",
+      "04/04/2029": "פסח",
+      "05/04/2029": "פסח",
+      "06/04/2029": "פסח",
+      "07/04/2029": "פסח",
+      "20/05/2029": "שבועות",
+      "10/09/2029": "ראש השנה",
+      "11/09/2029": "ראש השנה",
+      "12/09/2029": "ראש השנה",
+      "19/09/2029": "יום כיפור",
+      "24/09/2029": "סוכות",
+      "25/09/2029": "סוכות",
+      "26/09/2029": "סוכות",
+      "27/09/2029": "סוכות",
+      "28/09/2029": "סוכות",
+      "29/09/2029": "סוכות",
+      "30/09/2029": "סוכות",
+      "01/10/2029": "סוכות",
+      "02/12/2029": "חנוכה",
+      "03/12/2029": "חנוכה",
+      "04/12/2029": "חנוכה",
+      "05/12/2029": "חנוכה",
+      "06/12/2029": "חנוכה",
+      "07/12/2029": "חנוכה",
+      "08/12/2029": "חנוכה",
+      "09/12/2029": "חנוכה",
+      "10/02/2030": "ט״ו בשבט",
+      "21/03/2030": "פורים",
+      "17/04/2030": "פסח",
+      "18/04/2030": "פסח",
+      "19/04/2030": "פסח",
+      "20/04/2030": "פסח",
+      "21/04/2030": "פסח",
+      "22/04/2030": "פסח",
+      "23/04/2030": "פסח",
+      "24/04/2030": "פסח",
+      "06/06/2030": "שבועות"
+    };
+
+    let availability = {};
+    let currentMonth = new Date().getMonth();
+    let currentYear = new Date().getFullYear();
+
+    // Load availability data from server
+    async function loadAvailability() {
+      try {
+        const response = await fetch('/availability.json');
+        const data = await response.json();
+        availability = data || {};
+        renderCalendar();
+      } catch (error) {
+        console.error('Error loading availability:', error);
+        availability = {};
+        renderCalendar();
+      }
+    }
+
+    // Load data when page loads
+    loadAvailability();
+
+    // Initialize with empty defaults but allow them to be set
+    let appDefaultHours = [];
+    let appDefaultWeekdays = [];
+
+    // Function to load default hours from localStorage
+    function loadAppDefaultHours() {
+      const storedDefaults = localStorage.getItem('appDefaultHours');
+      if (storedDefaults) {
+        try {
+          const parsed = JSON.parse(storedDefaults);
+          if (Array.isArray(parsed)) {
+            appDefaultHours = parsed;
+          }
+        } catch (e) {
+          console.error('Error loading default hours:', e);
+          appDefaultHours = [];
+        }
+      }
+    }
+
+    // Function to load default weekdays from localStorage
+    function loadAppDefaultWeekdays() {
+      const storedWeekdays = localStorage.getItem('appDefaultWeekdays');
+      if (storedWeekdays) {
+        try {
+          const parsed = JSON.parse(storedWeekdays);
+          if (Array.isArray(parsed)) {
+            appDefaultWeekdays = parsed;
+          }
+        } catch (e) {
+          console.error('Error loading default weekdays:', e);
+          appDefaultWeekdays = [];
+        }
+      }
+    }
+
+    // Load defaults on page load
+    loadAppDefaultHours();
+    loadAppDefaultWeekdays();
+
+    function openHourSelector(dateStr) {
+      const availableOptions = [
+        "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
+        "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
+        "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30",
+        "20:00", "20:30", "21:00", "21:30"
+      ];
+
+      const current = availability[dateStr];
+
+      const overlay = document.createElement('div');
+      overlay.style.position = 'fixed';
+      overlay.style.top = 0;
+      overlay.style.left = 0;
+      overlay.style.width = '100vw';
+      overlay.style.height = '100vh';
+      overlay.style.background = 'rgba(0,0,0,0.5)';
+      overlay.style.display = 'flex';
+      overlay.style.alignItems = 'center';
+      overlay.style.justifyContent = 'center';
+      overlay.style.zIndex = 9999;
+
+      const box = document.createElement('div');
+      box.className = 'bg-white shadow-lg rounded p-4 text-center';
+      box.style.width = '320px';
+      box.style.maxHeight = '80vh';
+      box.style.overflowY = 'auto';
+      box.style.boxShadow = '0 4px 20px rgba(0,0,0,0.2)';
+
+      const title = document.createElement('h3');
+      title.textContent = `בחר שעות ליום ${dateStr}`;
+      title.className = 'mb-3 text-primary';
+      title.style.fontSize = '1.2rem';
+      box.appendChild(title);
+
+      const selectAllBtn = document.createElement('button');
+      selectAllBtn.innerHTML = '<i class="bi bi-check-square-fill"></i> בחר הכל';
+      selectAllBtn.className = 'btn btn-primary btn-sm me-2';
+      selectAllBtn.style.marginBottom = '10px';
+      selectAllBtn.onclick = () => {
+        box.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
+      };
+
+      const deselectAllBtn = document.createElement('button');
+      deselectAllBtn.innerHTML = '<i class="bi bi-x-square-fill"></i> הסר הכל';
+      deselectAllBtn.className = 'btn btn-secondary btn-sm';
+      deselectAllBtn.style.marginBottom = '10px';
+      deselectAllBtn.style.marginRight = '10px';
+      deselectAllBtn.onclick = () => {
+        box.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+      };
+
+      box.appendChild(selectAllBtn);
+      box.appendChild(deselectAllBtn);
+
+      // Add button to save current selection as default
+      const saveAsDefaultBtn = document.createElement('button');
+      saveAsDefaultBtn.innerHTML = '<i class="bi bi-bookmark-star"></i> שמור כברירת מחדל';
+      saveAsDefaultBtn.className = 'btn btn-outline-primary btn-sm';
+      saveAsDefaultBtn.style.marginBottom = '10px';
+      saveAsDefaultBtn.style.marginRight = '10px';
+      saveAsDefaultBtn.onclick = () => {
+        const selected = Array.from(box.querySelectorAll('input:checked')).map(cb => cb.value);
+        localStorage.setItem('appDefaultHours', JSON.stringify(selected));
+        appDefaultHours = selected;
+        showToastNotification('השעות נשמרו כברירת מחדל!', 'success');
+      };
+      box.appendChild(saveAsDefaultBtn);
+
+      // Helper function to create a label for a single time slot ([checkbox] TEXT)
+      function createTimeSlotLabel(hourText, isCheckedCurrently) {
+        const label = document.createElement('label');
+        label.style.display = 'flex';
+        label.style.alignItems = 'center';
+        label.style.flexBasis = '50%'; // Each slot takes half of the row's width
+        label.style.padding = '4px 8px';   // Padding within each slot
+        // label.style.justifyContent = 'flex-start'; // Default for flex is usually fine
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = hourText;
+        checkbox.checked = isCheckedCurrently;
+        checkbox.className = 'form-check-input';
+        // For RTL, margin-right on checkbox adds space to its left, before the text node
+        checkbox.style.marginRight = '8px'; 
+
+        const textNode = document.createTextNode(hourText);
+
+        label.appendChild(checkbox);
+        label.appendChild(textNode);
+        return label;
+      }
+
+      // Iterate through availableOptions in pairs to create rows
+      for (let i = 0; i < availableOptions.length; i += 2) {
+        const hour00 = availableOptions[i];     // e.g., "08:00"
+        const hour30 = availableOptions[i+1];    // e.g., "08:30"
+
+        let isChecked00, isChecked30;
+
+        if (typeof current === 'undefined') { // Day has never been touched/saved
+            // Use the default hours for new days
+            isChecked00 = appDefaultHours.includes(hour00);
+            isChecked30 = hour30 ? appDefaultHours.includes(hour30) : false;
+        } else { // Day has been touched (could be empty array [] or have hours)
+            isChecked00 = current.includes(hour00);
+            isChecked30 = hour30 ? current.includes(hour30) : false;
+        }
+
+        const rowContainer = document.createElement('div');
+        rowContainer.style.display = 'flex';
+        rowContainer.style.border = '1px solid #ccc';
+        rowContainer.style.borderRadius = '6px';
+        rowContainer.style.marginBottom = '6px';
+        rowContainer.style.background = '#f1f1f1';
+        rowContainer.style.padding = '2px'; 
+
+        // Create slot for HH:00 (will be on the visual right in RTL)
+        const slot00 = createTimeSlotLabel(hour00, isChecked00);
+        // Add a separator line to its left, which will appear in the middle of the row.
+        slot00.style.borderLeft = '1px solid #dee2e6'; 
+        slot00.style.paddingLeft = '12px'; // Add some padding so text isn't against the line
+
+        // Create slot for HH:30 (will be on the visual left in RTL)
+        let slot30;
+        if (hour30) {
+            slot30 = createTimeSlotLabel(hour30, isChecked30);
+        } else {
+            slot30 = document.createElement('div'); 
+            slot30.style.flexBasis = '50%'; // Occupy space if no HH:30 slot (e.g. if odd number of options)
+        }
+
+        // Append in order for RTL display: rightmost element first, then leftmost.
+        // slot00 (HH:00) will be on the right. slot30 (HH:30) will be on the left.
+        rowContainer.appendChild(slot00); 
+        rowContainer.appendChild(slot30);
+
+        box.appendChild(rowContainer);
+      }
+
+      const saveBtn = document.createElement('button');
+      saveBtn.innerHTML = '<i class="bi bi-save"></i> שמירה';
+      saveBtn.className = 'btn btn-success mt-3 me-3';
+      saveBtn.onclick = () => {
+        const selected = Array.from(box.querySelectorAll('input:checked')).map(cb => cb.value);
+        // רק אם נבחרו שעות, נשמור אותן
+        if (selected.length > 0) {
+          availability[dateStr] = selected;
+        } else {
+          // אם לא נבחרו שעות, נמחק את היום מה-availability
+          delete availability[dateStr];
+        }
+        
+        saveChanges().then(wasSuccessful => {
+          if (document.body.contains(overlay)) {
+            document.body.removeChild(overlay);
+          }
+          document.removeEventListener('keydown', escHandler);
+
+          if (wasSuccessful) {
+            showToastNotification('הנתונים נשמרו בהצלחה!', 'success');
+          }
+          renderCalendar();
+        }).catch(error => {
+          console.error("Critical error during saveChanges flow:", error);
+          if (document.body.contains(overlay)) {
+            document.body.removeChild(overlay);
+          }
+          document.removeEventListener('keydown', escHandler);
+          alert('אירעה שגיאה קריטית במהלך השמירה.');
+          renderCalendar(); 
+        });
+      };
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.innerHTML = '<i class="bi bi-x-circle"></i> ביטול';
+      cancelBtn.className = 'btn'; // Basic btn class
+      cancelBtn.style.background = '#dc3545';
+      cancelBtn.style.color = 'white';
+      cancelBtn.onclick = () => {
+        document.body.removeChild(overlay);
+        document.removeEventListener('keydown', escHandler);
+      };
+
+      // New container for action buttons
+      const actionsContainer = document.createElement('div');
+      actionsContainer.style.display = 'flex';
+      actionsContainer.style.justifyContent = 'center'; // Or 'flex-end' or other alignment
+      // actionsContainer.style.gap = '0.75rem'; // Gap removed, using margin on button instead
+      actionsContainer.style.marginTop = '1.5rem'; // Spacing from the checkboxes above
+
+      // Ensure saveBtn class does not have mt-3 or me-3 if actionsContainer handles spacing
+      saveBtn.className = 'btn btn-success'; // Base class
+      saveBtn.classList.add('ms-3'); // Add margin-start (left margin in RTL) for spacing
+
+      actionsContainer.appendChild(saveBtn); // Add save button first (right in RTL)
+      actionsContainer.appendChild(cancelBtn); // Add cancel button second (left in RTL)
+
+      box.appendChild(actionsContainer); // Add the new container to the modal box
+
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+
+      const escHandler = (e) => {
+        if (e.key === 'Escape') {
+          document.body.removeChild(overlay);
+          document.removeEventListener('keydown', escHandler);
+        }
+      };
+      document.addEventListener('keydown', escHandler);
+    }
+
+    async function fetchAvailability() {
+      loadAppDefaultHours(); // Load/initialize appDefaultHours first
+      loadAppDefaultWeekdays(); // Load/initialize appDefaultWeekdays
+      try {
+        const res = await fetch('/availability.json');
+        let loadedAvailability = {};
+        if (!res.ok) {
+            if (res.status === 404) {
+                console.warn('availability.json not found. Initializing with empty data.');
+            } else {
+                console.error(`Failed to fetch availability: ${res.status}. Initializing with empty data.`);
+            }
+        } else {
+            const text = await res.text();
+            if (text.trim() === '') {
+                console.warn('availability.json is empty. Initializing with empty data.');
+            } else {
+                try {
+                    loadedAvailability = JSON.parse(text);
+                } catch (parseError) {
+                    console.error('Error parsing availability.json: ', parseError, '. Initializing with empty data.');
+                }
+            }
+        }
+
+        // Get the month and year for the initial view (current month on load)
+        const initialViewMonth = new Date().getMonth(); // 0-indexed
+        const initialViewYear = new Date().getFullYear();
+
+        const areHoursEqual = (arr1, arr2) => {
+          if (!arr1 || !arr2 || arr1.length !== arr2.length) return false;
+          const sortedArr1 = [...arr1].sort();
+          const sortedArr2 = [...arr2].sort();
+          return sortedArr1.every((value, index) => value === sortedArr2[index]);
+        };
+        
+        // Define oldDefaultHoursPattern, it might still be used elsewhere (e.g. renderCalendar)
+        const oldDefaultHoursPattern = ["08:00", "08:30", "09:00", "09:30"];
+
+        // Directly use loadedAvailability, bypassing the previous cleanup loop for future dates.
+        // This ensures that any explicitly saved future dates are loaded, even if they match default patterns.
+        availability = { ...loadedAvailability };
+
+      } catch (err) { 
+        console.error('Error in fetchAvailability function:', err);
+        availability = {}; 
+      }
+      renderCalendar();
+    }
+
+    function renderCalendar() {
+      const calendar = document.getElementById('calendar');
+      calendar.innerHTML = '';
+
+      const year = currentYear;
+      const month = currentMonth;
+      const actualSystemMonth = new Date().getMonth();
+      const actualSystemYear = new Date().getFullYear();
+
+      const oldDefaultHoursPattern = ["08:00", "08:30", "09:00", "09:30"];
+      function arraysEqual(a, b) {
+        if (a === b) return true;
+        if (a == null || b == null) return false;
+        if (a.length !== b.length) return false;
+        for (let i = 0; i < a.length; ++i) {
+            if (a[i] !== b[i]) return false;
+        }
+        return true;
+      }
+
+      // --- BEGIN: Default date selection logic ---
+      // const defaultDays = [9, 10, 11, 13, 14];
+      // if (year === actualSystemYear && month === actualSystemMonth) {
+      //   for (let day = 1; day <= new Date(year, month + 1, 0).getDate(); day++) {
+      //     const dateStr = `${String(day).padStart(2, '0')}/${String(month + 1).padStart(2, '0')}/${year}`;
+      //     if (defaultDays.includes(day)) {
+      //       const currentHours = availability[dateStr];
+      //       if (typeof currentHours === 'undefined' || arraysEqual(currentHours, oldDefaultHoursPattern)) {
+      //         availability[dateStr] = [...appDefaultHours];
+      //       }
+      //     }
+      //   }
+      // }
+      // --- END: Default date selection logic ---
+
+      const firstDay = new Date(year, month, 1).getDay(); // 0 = Sunday
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      const nav = document.createElement('div');
+      nav.style.display = 'flex';
+      // nav.style.justifyContent = 'space-between'; // This will be handled by className
+      nav.style.alignItems = 'center';
+      nav.style.marginBottom = '1.5rem';
+      // Changed className: removed p-3, changed justify-content-center to justify-content-between, added py-3 for vertical padding
+      nav.className = 'bg-white rounded shadow-sm mb-4 d-flex flex-wrap align-items-center justify-content-between py-3';
+
+      const prevBtn = document.createElement('button');
+      prevBtn.innerHTML = '<i class="bi bi-arrow-right-circle-fill me-1"></i> חודש הבא';
+      // Changed className: m-1 to my-1 to remove horizontal margins
+      prevBtn.className = 'btn btn-outline-primary my-1';
+      prevBtn.onclick = () => {
+        if (currentMonth === 11) {
+          currentMonth = 0;
+          currentYear++;
+        } else {
+          currentMonth++;
+        }
+        renderCalendar();
+      };
+
+      const nextBtn = document.createElement('button'); // This is "חודש קודם" (Previous Month)
+      nextBtn.innerHTML = 'חודש קודם <i class="bi bi-arrow-left-circle-fill ms-1"></i>';
+      // Changed className: m-1 to my-1 to remove horizontal margins
+      nextBtn.className = 'btn btn-outline-primary my-1';
+      nextBtn.onclick = () => {
+        if (currentMonth === 0) {
+          currentMonth = 11;
+          currentYear--;
+        } else {
+          currentMonth--;
+        }
+        renderCalendar();
+      };
+      
+      // New Order for RTL: 
+      // Right: Next Month (prevBtn)
+      // Middle: Area, Config Defaults, Apply Weekday Defaults
+      // Left: Previous Month (nextBtn)
+      nav.appendChild(prevBtn); // "חודש הבא" will appear on the right in RTL
+
+      const areaBtn = document.createElement('button');
+      areaBtn.innerHTML = '📍 ניהול אזורים רלוונטיים';
+      areaBtn.className = 'btn btn-outline-secondary m-1';
+      areaBtn.onclick = openAreaSelector;
+      nav.appendChild(areaBtn);
+
+      const configureDefaultsBtn = document.createElement('button');
+      configureDefaultsBtn.innerHTML = '<i class="bi bi-gear-fill me-1"></i> הגדר שעות ברירת מחדל';
+      configureDefaultsBtn.className = 'btn btn-outline-primary m-1';
+      configureDefaultsBtn.onclick = openDefaultHourEditor;
+      nav.appendChild(configureDefaultsBtn);
+
+      const configureDefaultWeekdaysBtn = document.createElement('button');
+      configureDefaultWeekdaysBtn.innerHTML = '<i class="bi bi-calendar-range-fill me-1"></i> הגדר ימי ברירת מחדל';
+      configureDefaultWeekdaysBtn.className = 'btn btn-outline-info m-1'; // Different color for distinction
+      configureDefaultWeekdaysBtn.title = 'קבע אילו ימים בשבוע יושפעו מהחלת ברירת מחדל חודשית';
+      configureDefaultWeekdaysBtn.onclick = openDefaultWeekdayEditor;
+      nav.appendChild(configureDefaultWeekdaysBtn);
+
+      // בדיקה אם כל ימי החודש הם ימי ברירת מחדל
+      function hasDefaultDaysInMonth() {
+        const year = currentYear;
+        const month = currentMonth;
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const today = new Date();
+        const isCurrentMonth = today.getMonth() === month && today.getFullYear() === year;
+        const startDay = isCurrentMonth ? today.getDate() : 1;
+        
+        let relevantDays = 0;
+        let allMatch = 0;
+
+        for (let day = startDay; day <= daysInMonth; day++) {
+          const currentDate = new Date(year, month, day);
+          const weekday = currentDate.getDay();
+          if (!appDefaultWeekdays.includes(weekday)) continue;
+          
+          const dateStr = `${String(day).padStart(2, '0')}/${String(month + 1).padStart(2, '0')}/${year}`;
+          // דילוג על ימי חג
+          if (holidays[dateStr]) continue;
+          
+          relevantDays++;
+          if (
+            availability[dateStr] &&
+            Array.isArray(availability[dateStr]) &&
+            availability[dateStr].length === appDefaultHours.length &&
+            availability[dateStr].every((h, i) => h === appDefaultHours[i])
+          ) {
+            allMatch++;
+          }
+        }
+        
+        return relevantDays > 0 && allMatch === relevantDays;
+      }
+
+      // פונקציה שמסירה את כל ימי ברירת המחדל מהחודש
+      async function removeDefaultsFromMonth() {
+        const year = currentYear;
+        const month = currentMonth;
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        let removed = false;
+        for (let day = 1; day <= daysInMonth; day++) {
+          const dateStr = `${String(day).padStart(2, '0')}/${String(month + 1).padStart(2, '0')}/${year}`;
+          if (
+            availability[dateStr] &&
+            Array.isArray(availability[dateStr]) &&
+            availability[dateStr].length === appDefaultHours.length &&
+            availability[dateStr].every((h, i) => h === appDefaultHours[i])
+          ) {
+            delete availability[dateStr];
+            removed = true;
+          }
+        }
+        if (removed) {
+          renderCalendar();
+          await saveChanges();
+          alert('כל ימי ברירת המחדל הוסרו מהחודש!');
+        } else {
+          alert('לא נמצאו ימי ברירת מחדל להסרה.');
+        }
+      }
+
+      // יצירת כפתור toggle להחלה/הסרה
+      const applyToWeekdaysBtn = document.createElement('button');
+      if (hasDefaultDaysInMonth()) {
+        // אם כל ימי החודש הם ימי ברירת מחדל, נציג רק את כפתור ההסרה
+        applyToWeekdaysBtn.innerHTML = '<i class="bi bi-calendar-x-fill me-1"></i> הסר ברירת מחדל מכל ימי החודש';
+        applyToWeekdaysBtn.className = 'btn btn-outline-danger m-1';
+        applyToWeekdaysBtn.title = 'הסר את כל ימי ברירת המחדל מהחודש הנוכחי';
+        applyToWeekdaysBtn.onclick = removeDefaultsFromMonth;
+      } else {
+        // אחרת, נציג את כפתור ההחלה
+        applyToWeekdaysBtn.innerHTML = '<i class="bi bi-calendar-week-fill me-1"></i> החל ברירת מחדל על ימי החודש';
+        applyToWeekdaysBtn.className = 'btn btn-outline-success m-1';
+        applyToWeekdaysBtn.title = 'ימלא את כל ימי ראשון עד חמישי בחודש הנוכחי (שאינם חגים) בשעות ברירת המחדל שהוגדרו';
+        applyToWeekdaysBtn.onclick = async () => {
+          await applyDefaultsToWeekdays();
+          // אחרי החלת ברירת המחדל, נעדכן את הכפתור להיות כפתור הסרה
+          if (hasDefaultDaysInMonth()) {
+            applyToWeekdaysBtn.innerHTML = '<i class="bi bi-calendar-x-fill me-1"></i> הסר ברירת מחדל מכל ימי החודש';
+            applyToWeekdaysBtn.className = 'btn btn-outline-danger m-1';
+            applyToWeekdaysBtn.title = 'הסר את כל ימי ברירת המחדל מהחודש הנוכחי';
+            applyToWeekdaysBtn.onclick = removeDefaultsFromMonth;
+          }
+        };
+      }
+      nav.appendChild(applyToWeekdaysBtn);
+      
+      nav.appendChild(nextBtn); // "חודש קודם" will appear on the left in RTL
+      calendar.appendChild(nav);
+
+      // כפתור חזרה לחודש הנוכחי
+      const todayBtn = document.createElement('button');
+      todayBtn.innerHTML = '<i class="bi bi-calendar-check-fill me-1"></i> חזרה לחודש הנוכחי'; // Icon added
+      todayBtn.className = 'btn btn-outline-info'; // Changed to outline-info for less bright
+      todayBtn.onclick = () => {
+        currentMonth = new Date().getMonth();
+        currentYear = new Date().getFullYear();
+        renderCalendar();
+      };
+      calendar.appendChild(todayBtn);
+
+      const headerRow = document.createElement('div');
+      headerRow.style.display = 'flex';
+      headerRow.style.justifyContent = 'space-between';
+      headerRow.style.alignItems = 'baseline';
+      headerRow.className = 'mb-3';
+
+      const monthTitle = document.createElement('h3');
+      monthTitle.textContent = `חודש ${month + 1}/${year}`;
+      monthTitle.className = 'fw-normal'; // Removed text-primary
+      monthTitle.style.color = '#20c997'; // Muted Teal for month title
+
+      const hebrewDate = new Date(year, month, 1).toLocaleDateString('he-IL-u-ca-hebrew', {
+        year: 'numeric',
+        month: 'long'
+      });
+      const hebrewTitle = document.createElement('span');
+      hebrewTitle.textContent = `(${hebrewDate})`;
+      hebrewTitle.style.fontSize = '1rem';
+      hebrewTitle.style.color = '#6c757d';
+
+      headerRow.appendChild(monthTitle);
+      headerRow.appendChild(hebrewTitle);
+      calendar.appendChild(headerRow);
+
+      const calendarWrapper = document.createElement('div');
+      calendarWrapper.style.display = 'grid';
+      calendarWrapper.style.gridTemplateColumns = 'repeat(7, 1fr)';
+      calendarWrapper.style.gap = '0.5rem';
+      calendarWrapper.style.marginBottom = '1rem';
+      calendar.appendChild(calendarWrapper);
+
+      // כותרות ימים
+      const daysOfWeek = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+      daysOfWeek.forEach(day => {
+        const dayCell = document.createElement('div');
+        dayCell.textContent = day;
+        dayCell.style.fontWeight = '500';
+        dayCell.style.textAlign = 'center';
+        dayCell.style.fontSize = '0.875rem';
+        dayCell.style.padding = '0.5rem 0.25rem';
+        dayCell.style.background = '#f8f9fa'; // Bootstrap light gray
+        dayCell.style.borderRadius = '0.25rem';
+        dayCell.style.color = '#495057';
+        calendarWrapper.appendChild(dayCell);
+      });
+
+      for (let i = 0; i < firstDay; i++) {
+        const empty = document.createElement('div');
+        calendarWrapper.appendChild(empty);
+      }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const currentDate = new Date(year, month, day);
+        const weekday = currentDate.getDay();
+
+        const cell = document.createElement('div');
+        cell.style.border = '1px solid #dee2e6';
+        cell.style.padding = '0.5rem';
+        cell.style.background = '#ffffff';
+        cell.style.cursor = 'pointer';
+        cell.style.transition = 'box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out';
+        cell.style.borderRadius = '0.375rem';
+        cell.style.minHeight = '110px';
+
+        cell.onmouseenter = () => {
+            cell.style.boxShadow = '0 0.25rem 0.75rem rgba(0,0,0,0.1)';
+            cell.style.transform = 'translateY(-2px)';
+        };
+        cell.onmouseleave = () => {
+            cell.style.boxShadow = '';
+            cell.style.transform = '';
+        };
+
+        const dateStr = `${String(day).padStart(2, '0')}/${String(month + 1).padStart(2, '0')}/${year}`;
+
+        if (weekday === 5) { // שישי
+          cell.classList.add('friday-cell');
+          cell.title = 'שישי';
+        }
+        if (weekday === 6) { // שבת
+          cell.classList.add('saturday-cell');
+          cell.title = 'שבת';
+        }
+        if (holidays[dateStr]) {
+          cell.classList.add('holiday-cell');
+          cell.title = holidays[dateStr];
+
+          const holidayLabel = document.createElement('div');
+          holidayLabel.innerHTML = `🇮🇱 ${holidays[dateStr]}`;
+          holidayLabel.style.fontSize = '11px';
+          holidayLabel.style.color = '#b36b00';
+          holidayLabel.style.marginTop = '4px';
+          cell.appendChild(holidayLabel);
+        }
+
+        // סימון היום הנוכחי
+        const today = new Date();
+        if (
+          currentDate.getDate() === today.getDate() &&
+          currentDate.getMonth() === today.getMonth() &&
+          currentDate.getFullYear() === today.getFullYear()
+        ) {
+          cell.style.border = '2px solid #ffc107';
+          cell.style.boxShadow = '0 0 12px 2px rgba(255, 193, 7, 0.7)';
+          cell.title = 'היום';
+
+          const todayIndicator = document.createElement('div');
+          todayIndicator.style.height = '4px';
+          todayIndicator.style.backgroundColor = '#ffc107';
+          todayIndicator.style.borderTopLeftRadius = '0.375rem';
+          todayIndicator.style.borderTopRightRadius = '0.375rem';
+          todayIndicator.style.position = 'absolute';
+          todayIndicator.style.top = '0';
+          todayIndicator.style.left = '0';
+          todayIndicator.style.right = '0';
+          cell.style.position = 'relative';
+          cell.appendChild(todayIndicator);
+        }
+
+        const title = document.createElement('strong');
+        title.textContent = day;
+        title.style.display = 'block';
+        title.style.fontSize = '1.1rem';
+        title.style.marginBottom = '0.25rem';
+        title.style.color = '#20c997';
+        cell.appendChild(title);
+
+        const hebDate = new Date(year, month, day).toLocaleDateString('he-IL-u-ca-hebrew', {
+          day: 'numeric',
+          month: 'short'
+        });
+        const hebEl = document.createElement('div');
+        hebEl.textContent = hebDate;
+        hebEl.style.fontSize = '0.75rem';
+        hebEl.style.color = '#6c757d';
+        cell.appendChild(hebEl);
+
+        // רק אם יש שעות שמורות בפועל בקובץ ה-JSON - נציג אותן
+        if (availability && availability[dateStr] && Array.isArray(availability[dateStr]) && availability[dateStr].length > 0) {
+          const hours = document.createElement('div');
+          hours.style.fontSize = '0.75rem';
+          hours.style.marginTop = '0.3rem';
+          hours.style.color = '#17a2b8';
+          hours.style.wordBreak = 'break-word';
+          hours.style.lineHeight = '1.4';
+          hours.textContent = availability[dateStr].join(', ');
+          cell.appendChild(hours);
+        }
+
+        cell.onclick = () => openHourSelector(dateStr);
+        calendarWrapper.appendChild(cell);
+      }
+    }
+
+    async function saveChanges() {
+      return new Promise(async (resolve, reject) => {
+        try {
+          // Remove days with empty arrays and days in the past before saving
+          const filteredAvailability = {};
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          for (const [date, hours] of Object.entries(availability)) {
+            if (Array.isArray(hours) && hours.length > 0) {
+              // date is in format DD/MM/YYYY
+              const [d, m, y] = date.split('/').map(Number);
+              const entryDate = new Date(y, m - 1, d);
+              entryDate.setHours(0, 0, 0, 0);
+              if (entryDate >= today) {
+                filteredAvailability[date] = hours;
+              }
+            }
+          }
+
+          const response = await fetch('/api/save-availability', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(filteredAvailability)
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to save');
+          }
+
+          // Reload availability after save to ensure we have latest data
+          await loadAvailability();
+          resolve(true);
+        } catch (error) {
+          console.error('Error saving changes:', error);
+          resolve(false);
+        }
+      });
+    }
+
+    // Function to show a temporary toast notification
+    function showToastNotification(message, type = 'info') {
+      const toast = document.createElement('div');
+      toast.textContent = message;
+      toast.style.position = 'fixed';
+      toast.style.bottom = '20px';
+      toast.style.right = '20px';
+      toast.style.padding = '12px 20px';
+      toast.style.borderRadius = '0.375rem';
+      toast.style.zIndex = '10001'; // Above other modals
+      toast.style.transition = 'opacity 0.5s ease-in-out, transform 0.5s ease-in-out';
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(20px)';
+      toast.style.boxShadow = '0 0.25rem 0.75rem rgba(0,0,0,0.1)';
+
+      if (type === 'success') {
+        toast.style.backgroundColor = '#d4edda'; // Bootstrap success light
+        toast.style.color = '#155724'; // Bootstrap success dark
+        toast.style.border = '1px solid #c3e6cb';
+      } else if (type === 'error') {
+        toast.style.backgroundColor = '#f8d7da'; // Bootstrap danger light
+        toast.style.color = '#721c24'; // Bootstrap danger dark
+        toast.style.border = '1px solid #f5c6cb';
+      } else { // Default to info style
+        toast.style.backgroundColor = '#d1ecf1'; // Bootstrap info light
+        toast.style.color = '#0c5460'; // Bootstrap info dark
+        toast.style.border = '1px solid #bee5eb';
+      }
+
+      document.body.appendChild(toast);
+
+      // Animate in
+      setTimeout(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+      }, 100); // Short delay to allow initial styles to apply for transition
+
+      // Animate out and remove
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(20px)';
+        setTimeout(() => {
+          if (document.body.contains(toast)) {
+            document.body.removeChild(toast);
+          }
+        }, 500); // Wait for fade out transition to complete
+      }, 3000); // Display for 3 seconds
+    }
+
+    // אזורים רלוונטיים - ניהול
+    async function openAreaSelector() {
+      console.log("openAreaSelector() called");
+      // הקובץ מכיל את כל הקבוצות שנוצרו על פי רדיוס ממרכזים כמו תל אביב, ירושלים וכו'.
+      let cityGroups = {};
+      try {
+        const res = await fetch('/city-groups.json');
+        if (!res.ok) {
+          console.error('שגיאה בקבלת city-groups.json. סטטוס:', res.status);
+          throw new Error('שגיאה בטעינת הקובץ');
+        }
+        const json = await res.json();
+        cityGroups = json.groups;
+        console.log('cityGroups loaded successfully:', cityGroups);
+      } catch (err) {
+        alert('לא ניתן לטעון את הקובץ city-groups.json');
+        console.error('שגיאה בקריאת city-groups.json:', err);
+        return;
+      }
+
+      const overlay = document.createElement('div');
+      overlay.style.position = 'fixed';
+      overlay.style.top = 0;
+      overlay.style.left = 0;
+      overlay.style.width = '100vw';
+      overlay.style.height = '100vh';
+      overlay.style.background = 'rgba(0,0,0,0.5)';
+      overlay.style.display = 'flex';
+      overlay.style.alignItems = 'center';
+      overlay.style.justifyContent = 'center';
+      overlay.style.zIndex = 9998; // Ensure area selector is below hour selector if both open by mistake
+
+      const box = document.createElement('div');
+      box.className = 'area-selector-modal-box'; // Styles include overflow:hidden and border-radius
+
+      // Header Section (Title + New Group Button)
+      const modalHeaderSection = document.createElement('div');
+      modalHeaderSection.style.padding = '1.5rem 1.5rem 0.75rem 1.5rem'; // Padding for header items
+      modalHeaderSection.style.borderBottom = '1px solid #dee2e6';
+      modalHeaderSection.style.backgroundColor = '#f8f9fa'; // Light background for header distinction
+
+      const title = document.createElement('h3');
+      title.textContent = 'בחר אזורים רלוונטיים';
+      // CSS class `.area-selector-modal-box h3` handles specific title styling (color, margin, etc)
+      modalHeaderSection.appendChild(title);
+      
+      const newGroupBtn = document.createElement('button');
+      newGroupBtn.innerHTML = '<i class="bi bi-plus-circle-fill me-2"></i>צור אזור חדש';
+      newGroupBtn.className = 'btn btn-outline-primary mt-2 mb-1 d-block mx-auto'; // Centered, with some margin
+      newGroupBtn.onclick = () => {
+        const groupName = prompt('הזן שם אזור חדש (באנגלית, לדוגמה: "קרית גת")');
+        
+        // If user clicks Cancel on the prompt, groupName will be null.
+        if (groupName === null) {
+          return; // Do nothing if Cancel is pressed, no alert.
+        }
+
+        // If groupName is an empty string (user clicked OK without typing) or group already exists
+        // Also ensure the name is trimmed to prevent names with only spaces.
+        if (!groupName.trim() || cityGroups[groupName.trim()]) {
+          alert('שם לא חוקי, ריק, או שכבר קיים. השם חייב להיות ייחודי ולא להכיל רק רווחים.');
+          return;
+        }
+
+        // Use the trimmed name for consistency
+        const trimmedGroupName = groupName.trim();
+        cityGroups[trimmedGroupName] = { cities: [], motoEnabled: false, selected: false };
+        renderAreaGroups();
+      };
+      modalHeaderSection.appendChild(newGroupBtn);
+      box.appendChild(modalHeaderSection);
+
+      // Scrollable Content Section (List of Areas)
+      const scrollableContentSection = document.createElement('div');
+      scrollableContentSection.style.padding = '1.5rem'; // Padding for the list itself
+      scrollableContentSection.style.overflowY = 'auto';
+      scrollableContentSection.style.flexGrow = '1'; // Allows this area to take available vertical space
+      
+      const areaListContainer = document.createElement('div');
+      areaListContainer.id = 'area-list-container'; 
+      scrollableContentSection.appendChild(areaListContainer);
+      box.appendChild(scrollableContentSection);
+
+      // Sticky Footer / Actions Bar - Will be appended by renderAreaGroups as a direct child of 'box'
+      // This allows its bottom-border-radius to align with the main 'box' border-radius due to overflow:hidden
+
+      function renderAreaGroups() {
+        areaListContainer.innerHTML = ''; // Clear from the dedicated container
+
+        Object.keys(cityGroups).forEach(group => {
+          const currentGroupData = cityGroups[group];
+          if (Array.isArray(currentGroupData)) { // Legacy format: group is just an array of cities
+            cityGroups[group] = { cities: currentGroupData, motoEnabled: false, selected: false };
+          } else if (typeof currentGroupData === 'object' && currentGroupData !== null) {
+            // Ensure 'selected' property exists, default to false if not
+            if (typeof currentGroupData.selected === 'undefined') {
+              currentGroupData.selected = false;
+            }
+            // Ensure 'motoEnabled' property exists, default to false if not
+             if (typeof currentGroupData.motoEnabled === 'undefined') {
+              currentGroupData.motoEnabled = false;
+            }
+             // Ensure 'cities' property exists, default to empty array if not (should not happen with valid data)
+            if (!Array.isArray(currentGroupData.cities)) {
+                currentGroupData.cities = [];
+            }
+          } else {
+            // Handle cases where group data is neither array nor valid object (e.g. null, undefined)
+            cityGroups[group] = { cities: [], motoEnabled: false, selected: false };
+          }
+        });
+
+        // מיון: קודם האזורים המסומנים (selected), אחר כך כל השאר לפי א-ב
+        const orderedGroups = Object.keys(cityGroups).sort((a, b) => {
+          const selectedA = cityGroups[a].selected;
+          const selectedB = cityGroups[b].selected;
+          if (selectedA && !selectedB) return -1;
+          if (!selectedA && selectedB) return 1;
+          return a.localeCompare(b, 'he');
+        });
+
+        orderedGroups.forEach(group => {
+          // מודרני: כל שורה אזור
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.value = group;
+          cb.checked = cityGroups[group].selected; // Use selected status from cityGroups
+          cb.className = 'form-check-input';
+          
+          const areaBox = document.createElement('div');
+          areaBox.className = 'area-box' + (cb.checked ? ' checked' : '');
+          cb.onchange = () => {
+            cityGroups[group].selected = cb.checked;
+            areaBox.classList.toggle('checked', cb.checked);
+            // Optional: Re-sort and re-render if live sorting by "selected" is desired.
+            // For now, only visual state changes. Full re-render on save.
+          };
+          
+          const hebrewGroupName = group.replace(/_/g, ' ');
+          const areaName = document.createElement('span');
+          areaName.className = 'area-name';
+          areaName.textContent = hebrewGroupName;
+
+          const editBtn = document.createElement('button');
+          editBtn.innerHTML = '<i class="bi bi-pencil-fill"></i>';
+          editBtn.className = 'btn btn-sm btn-outline-secondary area-edit-btn';
+          editBtn.title = 'ערוך ערים ושם אזור';
+          editBtn.onclick = async () => {
+            const res = await fetch('./cities-israel.json');
+            const allCities = await res.json();
+            // Support both array and object
+            const current = new Set(cityGroups[group]?.cities || cityGroups[group]);
+            // Add: keep selected cities in a set throughout the edit session
+            let selectedCitiesSet = new Set(current);
+
+            // cityAliases mapping
+            const cityAliases = {
+              "תל אביה": "תל אביב",
+              "תל-אביב": "תל אביב",
+              "ראשון": "ראשון לציון",
+              "ראשלצ": "ראשון לציון",
+              "ירושליים": "ירושלים",
+              "הרצליה": "הרצליה",
+              "באר שבע": "באר שבע",
+              "בארשבע": "באר שבע",
+              "צפת": "צפת",
+              "אילת": "אילת",
+              "דימונה": "דימונה"
+            };
+
+            const modal = document.createElement('div');
+            modal.style.position = 'fixed';
+            modal.style.top = 0;
+            modal.style.left = 0;
+            modal.style.width = '100vw';
+            modal.style.height = '100vh';
+            modal.style.background = 'rgba(0,0,0,0.5)';
+            modal.style.display = 'flex';
+            modal.style.alignItems = 'center';
+            modal.style.justifyContent = 'center';
+            modal.style.zIndex = 9999;
+
+            const box = document.createElement('div');
+            box.className = 'bg-white rounded shadow-lg';
+            box.style.width = '480px'; // Slightly wider for better spacing
+            box.style.maxHeight = '90vh';
+            box.style.overflowY = 'auto';
+            box.style.display = 'flex';
+            box.style.flexDirection = 'column';
+            box.style.padding = '0'; // Padding will be handled by inner containers
+            box.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)'; // Softer, more modern shadow
+
+            // --- Modal Header ---
+            const headerBar = document.createElement('div');
+            headerBar.style.display = 'flex';
+            headerBar.style.justifyContent = 'space-between'; // Title on left, close on right (for RTL)
+            headerBar.style.alignItems = 'center';
+            headerBar.style.padding = '1rem 1.5rem'; // Ample padding
+            headerBar.style.background = '#f8f9fa'; // Light background for header
+            headerBar.style.borderBottom = '1px solid #dee2e6';
+            headerBar.style.position = 'sticky';
+            headerBar.style.top = '0';
+            headerBar.style.zIndex = '10';
+
+            const modalTitleText = document.createElement('h5'); // Using h5 for modal titles
+            modalTitleText.textContent = `ערוך אזור: ${hebrewGroupName}`;
+            modalTitleText.className = 'mb-0'; // Remove default margin
+            modalTitleText.style.fontWeight = '500';
+
+            const closeBtnHeader = document.createElement('button');
+            closeBtnHeader.type = 'button';
+            closeBtnHeader.className = 'btn-close'; // Bootstrap close button
+            closeBtnHeader.setAttribute('aria-label', 'Close');
+            closeBtnHeader.onclick = () => {
+              document.body.removeChild(modal);
+              document.removeEventListener('keydown', escHandler);
+            };
+
+            headerBar.appendChild(modalTitleText);
+            headerBar.appendChild(closeBtnHeader);
+            box.appendChild(headerBar);
+            // ---
+
+            // --- Content wrapper for main content ---
+            const contentWrap = document.createElement('div');
+            contentWrap.style.padding = '1.5rem'; // Uniform padding for content
+            contentWrap.style.display = 'flex';
+            contentWrap.style.flexDirection = 'column';
+            contentWrap.style.gap = '1rem'; // Consistent gap between elements
+
+            // --- Area Name Input Group ---
+            const nameInputGroup = document.createElement('div');
+            nameInputGroup.className = 'mb-3'; // Bootstrap margin bottom
+            const nameLabel = document.createElement('label');
+            nameLabel.htmlFor = 'areaNameInputModal';
+            nameLabel.className = 'form-label';
+            nameLabel.textContent = 'שם האזור (באנגלית):';
+            const nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.id = 'areaNameInputModal';
+            nameInput.className = 'form-control';
+            nameInput.placeholder = 'לדוגמה: tel_aviv';
+            nameInput.value = group;
+            nameInputGroup.appendChild(nameLabel);
+            nameInputGroup.appendChild(nameInput);
+            contentWrap.appendChild(nameInputGroup);
+            // ---
+
+            // --- Search City Input Group ---
+            const searchInputGroup = document.createElement('div');
+            searchInputGroup.className = 'mb-3';
+            const searchLabel = document.createElement('label');
+            searchLabel.htmlFor = 'citySearchInputModal';
+            searchLabel.className = 'form-label';
+            searchLabel.textContent = 'חיפוש עיר:';
+            const searchInput = document.createElement('input');
+            searchInput.type = 'text';
+            searchInput.id = 'citySearchInputModal';
+            searchInput.placeholder = 'הקלד שם עיר לסינון...';
+            searchInput.className = 'form-control';
+            searchInputGroup.appendChild(searchLabel);
+            searchInputGroup.appendChild(searchInput);
+            contentWrap.appendChild(searchInputGroup);
+            // ---
+
+            const listContainer = document.createElement('div');
+            listContainer.style.maxHeight = '300px'; // Max height for scrollability
+            listContainer.style.overflowY = 'auto';
+            listContainer.style.border = '1px solid #dee2e6';
+            listContainer.style.borderRadius = '0.25rem';
+            listContainer.style.padding = '0.5rem';
+
+            const list = document.createElement('div');
+            list.style.display = 'flex';
+            list.style.flexDirection = 'column';
+            list.style.alignItems = 'flex-start';
+            listContainer.appendChild(list);
+            contentWrap.appendChild(listContainer);
+
+            // Renders the city list, filtered by `filter` (default '')
+            function renderCityList(filter = '') {
+              list.innerHTML = '';
+              const normalized = (txt) => txt.replace(/\s|-/g, '').toLowerCase();
+              const target = normalized(filter);
+              allCities
+                .filter(city => {
+                  if (!filter) return true;
+                  // const real = cityAliases[filter] || filter; // Using 'target' for normalized search
+                  return normalized(city).includes(target);
+                })
+                .sort((a, b) => a.localeCompare(b, 'he'))
+                .forEach(city => {
+                  const row = document.createElement('div');
+                  row.className = 'form-check';
+                  row.style.width = '100%';
+                  row.style.cursor = 'pointer';
+                  row.style.borderRadius = '0.25rem';
+                  row.style.display = 'flex';
+                  row.style.alignItems = 'center';
+                  row.style.padding = '0.5rem 0.75rem';
+                  row.style.minHeight = 'calc(1.5em + 0.75rem + 2px)'; // Ensure consistent row height, similar to Bootstrap inputs
+
+                  const cb = document.createElement('input');
+                  cb.type = 'checkbox';
+                  cb.value = city;
+                  cb.id = `city-cb-${normalized(city)}`;
+                  cb.className = 'form-check-input';
+                  cb.checked = selectedCitiesSet.has(city);
+                  cb.style.marginTop = '0'; // Critical for vertical alignment with the label
+                  cb.style.marginBottom = '0'; // Ensure no vertical margins
+                  cb.style.marginRight = '0';    // Let Bootstrap RTL handle this side
+                  cb.style.marginLeft = '0.5rem'; // Space between checkbox and label in RTL
+                  
+                  const cityNameLabel = document.createElement('label');
+                  cityNameLabel.htmlFor = cb.id;
+                  cityNameLabel.className = 'form-check-label';
+                  cityNameLabel.textContent = city;
+                  cityNameLabel.style.cursor = 'pointer';
+                  // The label should not have its own padding that misaligns it from the checkbox
+                  // Let the row's padding and checkbox margin handle spacing.
+
+                  row.appendChild(cb);
+                  row.appendChild(cityNameLabel);
+                  
+                  // Toggle checkbox on row click
+                  row.onclick = (e) => {
+                    if (e.target !== cb) { // Prevent double-toggle if checkbox itself is clicked
+                        cb.checked = !cb.checked;
+                    }
+                    // Manually trigger change event for the checkbox
+                    const event = new Event('change', { bubbles: true });
+                    cb.dispatchEvent(event);
+                  };
+                  
+                  // Update selectedCitiesSet on checkbox change
+                  cb.onchange = () => {
+                    if (cb.checked) {
+                      selectedCitiesSet.add(city);
+                    } else {
+                      selectedCitiesSet.delete(city);
+                    }
+                     // Visual feedback for checked row
+                    if (cb.checked) {
+                        row.style.backgroundColor = '#e6f9eb'; // Light green for selected
+                    } else {
+                        row.style.backgroundColor = ''; // Default background
+                    }
+                  };
+                  
+                  // Initial visual state
+                  if (cb.checked) {
+                    row.style.backgroundColor = '#e6f9eb';
+                  }
+
+                  // Hover effect
+                  row.onmouseenter = () => { if (!cb.checked) row.style.backgroundColor = '#f8f9fa'; };
+                  row.onmouseleave = () => { if (!cb.checked) row.style.backgroundColor = ''; };
+
+                  list.appendChild(row);
+                });
+            }
+
+            searchInput.oninput = () => renderCityList(searchInput.value);
+            renderCityList();
+
+            box.appendChild(contentWrap); // Ensure content is added to the modal's box
+
+            // Put save/cancel in a sticky action bar at the bottom
+            const actionBar = document.createElement('div');
+            actionBar.style.position = 'sticky';
+            actionBar.style.bottom = '0';
+            actionBar.style.background = '#f8f9fa';
+            actionBar.style.padding = '1rem 1.5rem'; // Consistent padding
+            actionBar.style.borderTop = '1px solid #dee2e6';
+            actionBar.style.display = 'flex';
+            actionBar.style.justifyContent = 'flex-end'; // Align buttons to the end (right in RTL)
+            actionBar.style.gap = '0.75rem'; // Gap between buttons
+            actionBar.style.zIndex = '10';
+            // Ensure action bar corners match modal if modal is rounded and not full width
+            actionBar.style.borderBottomLeftRadius = '0.375rem'; 
+            actionBar.style.borderBottomRightRadius = '0.375rem';
+
+            const save = document.createElement('button');
+            save.textContent = 'שמור';
+            save.className = 'btn btn-success';
+            save.onclick = () => {
+              // Use selectedCitiesSet for checked cities
+              const checked = Array.from(selectedCitiesSet);
+              const newGroupName = nameInput.value.trim();
+              if (!newGroupName || (newGroupName !== group && cityGroups[newGroupName])) {
+                alert('שם לא חוקי או שכבר קיים');
+                return;
+              }
+
+              if (newGroupName !== group) {
+                delete cityGroups[group];
+              }
+              // Preserve motoEnabled if already exists
+              let motoEnabled = false;
+              // Make sure to check cityGroups[group] first, then cityGroups[newGroupName] if group name changed
+              const originalGroupData = cityGroups[group] || (cityGroups[newGroupName] && newGroupName === group ? cityGroups[newGroupName] : null) ;
+              if (originalGroupData && typeof originalGroupData === 'object' && 'motoEnabled' in originalGroupData) {
+                motoEnabled = originalGroupData.motoEnabled;
+              }
+              cityGroups[newGroupName] = { cities: checked, motoEnabled, selected: cityGroups[group]?.selected || false }; // Preserve selected state
+              document.body.removeChild(modal);
+              document.removeEventListener('keydown', escHandler);
+              renderAreaGroups();
+            };
+
+            const cancel = document.createElement('button');
+            cancel.textContent = 'ביטול';
+            cancel.className = 'btn btn-secondary';
+            cancel.onclick = () => {
+              document.body.removeChild(modal);
+              document.removeEventListener('keydown', escHandler);
+            };
+
+            actionBar.appendChild(cancel); // Cancel first for RTL flow (Cancel | Save)
+            actionBar.appendChild(save);
+            box.appendChild(actionBar);
+
+            modal.appendChild(box);
+            document.body.appendChild(modal); // Make the modal visible
+
+            // --- Improved escHandler for modal close ---
+            const escHandler = (e) => {
+              if (e.key === 'Escape') {
+                if (document.body.contains(modal)) {
+                  document.body.removeChild(modal);
+                }
+                document.removeEventListener('keydown', escHandler);
+              }
+            };
+            document.addEventListener('keydown', escHandler); // Add the event listener
+            // ---
+          }; // This is the closing brace for editBtn.onclick
+
+          const toggleBtn = document.createElement('button');
+          toggleBtn.innerHTML = '<i class="bi bi-chevron-down"></i>';
+          toggleBtn.className = 'btn btn-sm btn-outline-secondary area-toggle';
+          toggleBtn.title = 'הצג/הסתר ערים';
+
+          // Initialize data attribute for visibility state.
+          // The city list is initially hidden by the .city-list CSS rule (display: none).
+          toggleBtn.dataset.citiesVisible = 'false';
+
+          toggleBtn.onclick = () => {
+            const clickedButton = toggleBtn; // Alias for clarity in this handler
+            const isCurrentlyVisible = clickedButton.dataset.citiesVisible === 'true';
+
+            // Iterate over ALL .area-box elements within the areaListContainer
+            areaListContainer.querySelectorAll('.area-box').forEach(ab => {
+                const abToggleBtn = ab.querySelector('.area-controls .area-toggle');
+                const abCitiesList = ab.querySelector('.city-list');
+
+                if (!abToggleBtn || !abCitiesList) {
+                    console.warn('Could not find toggle button or city list for an area box.', ab);
+                    return; 
+                }
+
+                if (abToggleBtn === clickedButton) {
+                    // This is the areaBox of the button that was clicked
+                    if (isCurrentlyVisible) {
+                        // Hide it
+                        abCitiesList.style.display = 'none';
+                        abToggleBtn.innerHTML = '<i class="bi bi-chevron-down"></i>';
+                        abToggleBtn.dataset.citiesVisible = 'false';
+                    } else {
+                        // Show it
+                        abCitiesList.style.display = 'block';
+                        abToggleBtn.innerHTML = '<i class="bi bi-chevron-up"></i>';
+                        abToggleBtn.dataset.citiesVisible = 'true';
+                    }
+                } else {
+                    // This is any other areaBox, ensure its list is hidden and icon is reset
+                    abCitiesList.style.display = 'none';
+                    abToggleBtn.innerHTML = '<i class="bi bi-chevron-down"></i>';
+                    abToggleBtn.dataset.citiesVisible = 'false';
+                }
+            });
+          };
+
+          // אופנוע רלוונטי לאזור
+          const motoLabel = document.createElement('label');
+          motoLabel.style.display = 'flex';
+          motoLabel.style.alignItems = 'center';
+          motoLabel.style.gap = '6px';
+          motoLabel.style.margin = 0;
+          const motoCheckbox = document.createElement('input');
+          motoCheckbox.type = 'checkbox';
+          motoCheckbox.checked = cityGroups[group].motoEnabled || false;
+          motoCheckbox.className = 'form-check-input';
+          motoLabel.appendChild(motoCheckbox);
+          motoLabel.append(' 🛵');
+
+          // מבנה groupHeader החדש - גרסה אנכית מסודרת
+          const groupHeader = document.createElement('div');
+          groupHeader.style.display = 'flex';
+          groupHeader.style.flexDirection = 'column';
+          groupHeader.style.alignItems = 'flex-start';
+          groupHeader.style.width = '100%';
+          groupHeader.style.gap = '6px';
+
+          // שורת שם האזור (מימין) עם checkbox
+          const topRow = document.createElement('div');
+          topRow.style.display = 'flex';
+          topRow.style.alignItems = 'center';
+          topRow.style.justifyContent = 'space-between';
+          topRow.style.width = '100%';
+
+          const areaTitleGroup = document.createElement('div');
+          areaTitleGroup.className = 'area-title-group';
+          areaTitleGroup.appendChild(cb);
+          areaTitleGroup.appendChild(areaName);
+          topRow.appendChild(areaTitleGroup);
+
+          // שורת כפתורי עריכה, מחיקה ואופנוע - עכשיו בתוך area-controls
+          const areaControls = document.createElement('div');
+          areaControls.className = 'area-controls';
+          areaControls.appendChild(motoLabel);
+          areaControls.appendChild(toggleBtn);
+          areaControls.appendChild(editBtn);
+          
+          const deleteBtn = document.createElement('button');
+          deleteBtn.innerHTML = '<i class="bi bi-trash3-fill"></i>';
+          deleteBtn.className = 'btn btn-sm btn-outline-danger area-delete-btn';
+          deleteBtn.title = 'מחק אזור';
+          deleteBtn.onclick = () => {
+            if (confirm(`האם אתה בטוח שברצונך למחוק את האזור "${hebrewGroupName}"?`)) {
+              delete cityGroups[group];
+              renderAreaGroups();
+            }
+          };
+          areaControls.appendChild(deleteBtn);
+          topRow.appendChild(areaControls);
+
+          // Structure: areaBox contains topRow (title, checkbox, controls) and then citiesList
+          areaBox.appendChild(topRow);
+          const citiesList = document.createElement('div');
+          citiesList.className = 'city-list';
+          // Ensure groupCities is an array before joining
+          const groupCitiesArray = Array.isArray(cityGroups[group]?.cities) ? cityGroups[group].cities : [];
+          citiesList.textContent = groupCitiesArray.join(', ');
+          
+          areaBox.appendChild(citiesList);
+          areaListContainer.appendChild(areaBox);
+        });
+
+        // Create button wrapper with sticky styling (remove previous if exists)
+        let actionsBar = box.querySelector('.area-actions-bar');
+        if (actionsBar) box.removeChild(actionsBar); // Remove if it exists from a previous render
+        
+        actionsBar = document.createElement('div');
+        actionsBar.className = 'area-actions-bar'; // This class has sticky, padding, border-top, and bottom-border-radius
+
+        const saveBtnModal = document.createElement('button');
+        saveBtnModal.textContent = 'שמור';
+        saveBtnModal.className = 'btn btn-success me-2'; // Added me-2 for spacing consistency
+        saveBtnModal.onclick = async () => {
+          Object.keys(cityGroups).forEach(groupKey => {
+            const currentAreaBox = Array.from(areaListContainer.querySelectorAll('.area-box')).find(ab => {
+                const input = ab.querySelector('.area-title-group input[type="checkbox"]');
+                return input && input.value === groupKey;
+            });
+            if (currentAreaBox) {
+              const motoCheckbox = currentAreaBox.querySelector('.area-controls input[type="checkbox"]');
+              if (motoCheckbox && cityGroups[groupKey]) { // Ensure cityGroups[groupKey] exists
+                cityGroups[groupKey].motoEnabled = motoCheckbox.checked;
+              }
+            }
+          });
+          await fetch('/api/save-city-groups', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            // Send the entire cityGroups object, selected status is part of it
+            body: JSON.stringify({ groups: cityGroups }) 
+          });
+          // alert('הקבוצות נשמרו!'); // Replaced with toast
+          showToastNotification('הקבוצות נשמרו בהצלחה!', 'success');
+          overlay.remove();
+          document.removeEventListener('keydown', escHandlerAreaModal); // Clean up listener
+        };
+
+        const cancelBtnModal = document.createElement('button');
+        cancelBtnModal.textContent = 'ביטול';
+        cancelBtnModal.className = 'btn btn-secondary';
+        cancelBtnModal.onclick = () => {
+          overlay.remove();
+          document.removeEventListener('keydown', escHandlerAreaModal); // Use specific handler
+        };
+
+        actionsBar.appendChild(saveBtnModal); // Save button (will be on the right in RTL)
+        actionsBar.appendChild(cancelBtnModal); // Cancel button (will be on the left in RTL)
+        box.appendChild(actionsBar); // Append as direct child of the main modal box
+      }
+
+      renderAreaGroups();
+
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+
+      const escHandlerAreaModal = (e) => { // Renamed to be specific
+        if (e.key === 'Escape') {
+          document.body.removeChild(overlay);
+          document.removeEventListener('keydown', escHandlerAreaModal);
+        }
+      };
+      document.addEventListener('keydown', escHandlerAreaModal);
+    }
+
+    // Function to apply appDefaultHours to all weekdays (Sun-Thu) of the currently viewed month, skipping holidays
+    async function applyDefaultsToWeekdays() {
+      const dayNames = ["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"];
+      const selectedDayNames = appDefaultWeekdays.map(d => dayNames[d]).join(', ');
+      
+      if (!appDefaultWeekdays || appDefaultWeekdays.length === 0) {
+        alert('לא נבחרו ימי ברירת מחדל. יש להגדיר ימי ברירת מחדל (למשל ראשון עד חמישי) בלחיצה על "הגדר ימי ברירת מחדל".');
+        return;
+      }
+      if (!appDefaultHours || appDefaultHours.length === 0) {
+        alert('לא נבחרו שעות ברירת מחדל. יש להגדיר שעות ברירת מחדל בלחיצה על "הגדר שעות ברירת מחדל".');
+        return;
+      }
+      if (!confirm("האם אתה בטוח שברצונך להחיל את שעות ברירת המחדל על כל ימי " + selectedDayNames + " בחודש הנוכחי, למעט חגים? פעולה זו תחליף הגדרות קיימות עבור ימים אלו.")) {
+        return;
+      }
+
+      const year = currentYear;
+      const month = currentMonth; // 0-indexed
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+      let changesMade = false;
+      for (let day = 1; day <= daysInMonth; day++) {
+        const currentDate = new Date(year, month, day);
+        const weekday = currentDate.getDay(); // 0 (Sunday) to 6 (Saturday)
+        const dateStr = `${String(day).padStart(2, '0')}/${String(month + 1).padStart(2, '0')}/${year}`;
+
+        // Apply only to days defined in appDefaultWeekdays
+        if (appDefaultWeekdays.includes(weekday)) {
+          if (holidays[dateStr]) {
+            continue; // Skip holidays
+          }
+          availability[dateStr] = [...appDefaultHours];
+          changesMade = true;
+        }
+      }
+
+      if (changesMade) {
+        renderCalendar(); // Re-render to show changes
+        try {
+          const saveSuccess = await saveChanges();
+          if (saveSuccess) {
+            alert('שעות ברירת המחדל הוחלו על ימי החול בחודש ונשמרו.');
+          }
+          // saveChanges() handles its own alerts for server errors
+        } catch (error) {
+            console.error("Error saving after applying defaults to weekdays:", error);
+            alert('אירעה שגיאה קריטית בעת שמירת השינויים.');
+        }
+      } else {
+        alert('לא בוצעו שינויים (ייתכן שאין ימי חול רלוונטיים או שהם חגים).');
+      }
+    }
+
+    fetchAvailability(); // Initial fetch and render
+
+    // Function to open the editor for appDefaultHours
+    function openDefaultHourEditor() {
+      const availableOptions = [
+        "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30",
+        "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
+        "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30",
+        "20:00", "20:30", "21:00", "21:30"
+      ];
+
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; z-index:10000;';
+
+      const box = document.createElement('div');
+      box.className = 'bg-white shadow-lg rounded p-4';
+      box.style.width = '380px';
+      box.style.maxHeight = '90vh';
+      box.style.overflowY = 'auto';
+      box.style.textAlign = 'right';
+
+      const title = document.createElement('h4');
+      title.textContent = 'הגדר שעות ברירת מחדל כלליות';
+      title.className = 'mb-3 text-center text-primary'; // text-primary will use the new teal
+      box.appendChild(title);
+
+      const timeSlotsContainer = document.createElement('div');
+      timeSlotsContainer.style.display = 'grid';
+      timeSlotsContainer.style.gridTemplateColumns = 'repeat(2, 1fr)'; // 2 columns
+      timeSlotsContainer.style.gap = '0.5rem';
+      timeSlotsContainer.style.marginBottom = '1rem';
+
+      availableOptions.forEach(hour => {
+        const label = document.createElement('label');
+        label.className = 'form-check';
+        label.style.padding = '0.375rem 0.75rem';
+        label.style.border = '1px solid #dee2e6';
+        label.style.borderRadius = '0.25rem';
+        label.style.display = 'flex';
+        label.style.alignItems = 'center';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = hour;
+        checkbox.checked = appDefaultHours.includes(hour);
+        checkbox.className = 'form-check-input';
+        checkbox.style.marginLeft = '0.5rem';
+
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(hour));
+        timeSlotsContainer.appendChild(label);
+      });
+      box.appendChild(timeSlotsContainer);
+
+      const saveBtn = document.createElement('button');
+      saveBtn.textContent = 'שמור ברירות מחדל';
+      saveBtn.className = 'btn btn-primary w-100 mb-2'; // Will use new teal
+      saveBtn.onclick = () => {
+        const selected = Array.from(box.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+        appDefaultHours = selected.sort(); // Keep them sorted
+        localStorage.setItem('appDefaultHours', JSON.stringify(appDefaultHours));
+        alert('שעות ברירת המחדל עודכנו ונשמרו!');
+        overlay.remove();
+        document.removeEventListener('keydown', escHandlerModal);
+      };
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = 'ביטול';
+      cancelBtn.className = 'btn btn-secondary w-100';
+      cancelBtn.onclick = () => {
+        overlay.remove();
+        document.removeEventListener('keydown', escHandlerModal);
+      };
+      
+      const escHandlerModal = (e) => {
+        if (e.key === 'Escape') {
+          overlay.remove();
+          document.removeEventListener('keydown', escHandlerModal);
+        }
+      };
+
+      box.appendChild(saveBtn);
+      box.appendChild(cancelBtn);
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+
+      document.addEventListener('keydown', escHandlerModal);
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          overlay.remove();
+          document.removeEventListener('keydown', escHandlerModal);
+        }
+      });
+    }
+
+    // Function to open the editor for appDefaultWeekdays
+    function openDefaultWeekdayEditor() {
+      const daysMap = [
+        { name: 'ראשון', value: 0 }, { name: 'שני', value: 1 }, { name: 'שלישי', value: 2 },
+        { name: 'רביעי', value: 3 }, { name: 'חמישי', value: 4 }, { name: 'שישי', value: 5 },
+        { name: 'שבת', value: 6 }
+      ];
+
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; z-index:10000;';
+
+      const box = document.createElement('div');
+      box.className = 'bg-white shadow-lg rounded p-4';
+      box.style.width = '380px';
+      box.style.maxHeight = '90vh';
+      box.style.overflowY = 'auto';
+      box.style.textAlign = 'right';
+
+      const title = document.createElement('h4');
+      title.textContent = 'הגדר ימי ברירת מחדל בשבוע';
+      title.className = 'mb-3 text-center text-info'; // Matching button color
+      box.appendChild(title);
+
+      const weekdaysContainer = document.createElement('div');
+      weekdaysContainer.style.marginBottom = '1rem';
+
+      daysMap.forEach(dayInfo => {
+        const label = document.createElement('label');
+        label.className = 'form-check d-block mb-2'; 
+        label.style.padding = '0.375rem 0.75rem';
+        label.style.border = '1px solid #dee2e6';
+        label.style.borderRadius = '0.25rem';
+        label.style.cursor = 'pointer';
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = dayInfo.value;
+        checkbox.checked = appDefaultWeekdays.includes(dayInfo.value);
+        checkbox.className = 'form-check-input';
+        checkbox.style.marginLeft = '0.5rem'; // RTL support: margin for space on left of text
+
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(dayInfo.name));
+        weekdaysContainer.appendChild(label);
+      });
+      box.appendChild(weekdaysContainer);
+
+      const saveBtn = document.createElement('button');
+      saveBtn.textContent = 'שמור ימי ברירת מחדל';
+      saveBtn.className = 'btn btn-info w-100 mb-2';
+      saveBtn.onclick = () => {
+        const selectedDays = Array.from(box.querySelectorAll('input[type="checkbox"]:checked'))
+                                 .map(cb => parseInt(cb.value));
+        appDefaultWeekdays = selectedDays.sort((a, b) => a - b); // Keep them sorted (0-6)
+        localStorage.setItem('appDefaultWeekdays', JSON.stringify(appDefaultWeekdays));
+        alert('ימי ברירת המחדל בשבוע עודכנו ונשמרו!');
+        overlay.remove();
+        document.removeEventListener('keydown', escHandlerModal);
+      };
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = 'ביטול';
+      cancelBtn.className = 'btn btn-secondary w-100';
+      cancelBtn.onclick = () => {
+        overlay.remove();
+        document.removeEventListener('keydown', escHandlerModal);
+      };
+      
+      const escHandlerModal = (e) => {
+        if (e.key === 'Escape') {
+          overlay.remove();
+          document.removeEventListener('keydown', escHandlerModal);
+        }
+      };
+
+      box.appendChild(saveBtn);
+      box.appendChild(cancelBtn);
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+
+      document.addEventListener('keydown', escHandlerModal);
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          overlay.remove();
+          document.removeEventListener('keydown', escHandlerModal);
+        }
+      });
+    }
+
+    fetchAvailability(); // Initial fetch and render
+  </script>
+</body>
+</html>

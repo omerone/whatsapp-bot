@@ -3,6 +3,20 @@ class MessageStep {
         try {
             const messages = [];
 
+            // Process message header if exists
+            if (step.messageHeader) {
+                let headerMessage = step.messageHeader;
+                if (session.data) {
+                    for (const keyInSession in session.data) {
+                        if (session.data.hasOwnProperty(keyInSession)) {
+                            const placeholder = `{${keyInSession}}`;
+                            headerMessage = headerMessage.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\\]]/g, '\\$&'), 'g'), session.data[keyInSession]);
+                        }
+                    }
+                }
+                messages.push(headerMessage);
+            }
+
             // Load message from file if specified
             if (step.messageFile) {
                 const messageContent = await flowEngine.loadMessageFile(step.messageFile);
@@ -47,8 +61,22 @@ class MessageStep {
                     }
                 }
                 messages.push(directMessage);
-            } else if (!step.messageFile) {
-                throw new Error('Step has neither messageFile nor message');
+            } else if (!step.messageFile && !step.messageHeader) {
+                throw new Error('Step has neither messageFile, message, nor messageHeader');
+            }
+
+            // Process footer message if exists
+            if (step.footerMessage) {
+                let footerMessage = step.footerMessage;
+                if (session.data) {
+                    for (const keyInSession in session.data) {
+                        if (session.data.hasOwnProperty(keyInSession)) {
+                            const placeholder = `{${keyInSession}}`;
+                            footerMessage = footerMessage.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\\]]/g, '\\$&'), 'g'), session.data[keyInSession]);
+                        }
+                    }
+                }
+                messages.push(footerMessage);
             }
 
             // Special handling for final_confirmation step
