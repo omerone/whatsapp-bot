@@ -39,7 +39,7 @@ eval("__webpack_require__.r(__webpack_exports__);\n/* harmony export */ __webpac
   \****************************/
 /***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
 
-eval("__webpack_require__.r(__webpack_exports__);\n/* harmony export */ __webpack_require__.d(__webpack_exports__, {\n/* harmony export */   \"default\": () => (__WEBPACK_DEFAULT_EXPORT__)\n/* harmony export */ });\n/* harmony import */ var react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! react/jsx-dev-runtime */ \"react/jsx-dev-runtime\");\n/* harmony import */ var react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_0__);\n/* harmony import */ var _emotion_react__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @emotion/react */ \"@emotion/react\");\n/* harmony import */ var _emotion_react__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(_emotion_react__WEBPACK_IMPORTED_MODULE_1__);\n/* harmony import */ var _emotion_cache__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! @emotion/cache */ \"@emotion/cache\");\n/* harmony import */ var _emotion_cache__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(_emotion_cache__WEBPACK_IMPORTED_MODULE_2__);\n/* harmony import */ var _mui_material_styles__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! @mui/material/styles */ \"./node_modules/@mui/material/node/styles/index.js\");\n/* harmony import */ var _mui_material_styles__WEBPACK_IMPORTED_MODULE_6___default = /*#__PURE__*/__webpack_require__.n(_mui_material_styles__WEBPACK_IMPORTED_MODULE_6__);\n/* harmony import */ var _mui_material_CssBaseline__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! @mui/material/CssBaseline */ \"./node_modules/@mui/material/node/CssBaseline/index.js\");\n/* harmony import */ var stylis_plugin_rtl__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! stylis-plugin-rtl */ \"stylis-plugin-rtl\");\n/* harmony import */ var stylis_plugin_rtl__WEBPACK_IMPORTED_MODULE_3___default = /*#__PURE__*/__webpack_require__.n(stylis_plugin_rtl__WEBPACK_IMPORTED_MODULE_3__);\n/* harmony import */ var stylis__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! stylis */ \"stylis\");\n/* harmony import */ var stylis__WEBPACK_IMPORTED_MODULE_4___default = /*#__PURE__*/__webpack_require__.n(stylis__WEBPACK_IMPORTED_MODULE_4__);\n/* harmony import */ var _context_FlowContext__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../context/FlowContext */ \"./src/context/FlowContext.tsx\");\n/* __next_internal_client_entry_do_not_use__ default auto */ \n\n\n\n\n\n\n\n\n// Create RTL cache\nconst cacheRtl = _emotion_cache__WEBPACK_IMPORTED_MODULE_2___default()({\n    key: \"muirtl\",\n    stylisPlugins: [\n        stylis__WEBPACK_IMPORTED_MODULE_4__.prefixer,\n        (stylis_plugin_rtl__WEBPACK_IMPORTED_MODULE_3___default())\n    ]\n});\n// Create theme\nconst theme = (0,_mui_material_styles__WEBPACK_IMPORTED_MODULE_6__.createTheme)({\n    direction: \"rtl\",\n    typography: {\n        fontFamily: \"Rubik, Arial, sans-serif\"\n    },\n    palette: {\n        primary: {\n            main: \"#1976d2\"\n        },\n        secondary: {\n            main: \"#dc004e\"\n        }\n    }\n});\nconst App = ({ Component, pageProps })=>{\n    return /*#__PURE__*/ (0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxDEV)(_emotion_react__WEBPACK_IMPORTED_MODULE_1__.CacheProvider, {\n        value: cacheRtl,\n        children: /*#__PURE__*/ (0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxDEV)(_mui_material_styles__WEBPACK_IMPORTED_MODULE_6__.ThemeProvider, {\n            theme: theme,\n            children: [\n                /*#__PURE__*/ (0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxDEV)(_mui_material_CssBaseline__WEBPACK_IMPORTED_MODULE_7__[\"default\"], {}, void 0, false, {\n                    fileName: \"/Users/omermaoz/whatssapp-bot/flow-editor/src/pages/_app.tsx\",\n                    lineNumber: 40,\n                    columnNumber: 9\n                }, undefined),\n                /*#__PURE__*/ (0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxDEV)(_context_FlowContext__WEBPACK_IMPORTED_MODULE_5__.FlowProvider, {\n                    children: /*#__PURE__*/ (0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxDEV)(Component, {\n                        ...pageProps\n                    }, void 0, false, {\n                        fileName: \"/Users/omermaoz/whatssapp-bot/flow-editor/src/pages/_app.tsx\",\n                        lineNumber: 42,\n                        columnNumber: 11\n                    }, undefined)\n                }, void 0, false, {\n                    fileName: \"/Users/omermaoz/whatssapp-bot/flow-editor/src/pages/_app.tsx\",\n                    lineNumber: 41,\n                    columnNumber: 9\n                }, undefined)\n            ]\n        }, void 0, true, {\n            fileName: \"/Users/omermaoz/whatssapp-bot/flow-editor/src/pages/_app.tsx\",\n            lineNumber: 39,\n            columnNumber: 7\n        }, undefined)\n    }, void 0, false, {\n        fileName: \"/Users/omermaoz/whatssapp-bot/flow-editor/src/pages/_app.tsx\",\n        lineNumber: 38,\n        columnNumber: 5\n    }, undefined);\n};\n/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (App);\n//# sourceURL=[module]\n//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiLi9zcmMvcGFnZXMvX2FwcC50c3giLCJtYXBwaW5ncyI6Ijs7Ozs7Ozs7Ozs7Ozs7Ozs7OztBQUUrQztBQUNOO0FBQ1k7QUFDRjtBQUNDO0FBQ1Y7QUFDUjtBQUdvQjtBQUV0RCxtQkFBbUI7QUFDbkIsTUFBTVEsV0FBV1AscURBQVdBLENBQUM7SUFDM0JRLEtBQUs7SUFDTEMsZUFBZTtRQUFDSiw0Q0FBUUE7UUFBRUQsMERBQVNBO0tBQUM7QUFDdEM7QUFFQSxlQUFlO0FBQ2YsTUFBTU0sUUFBUVIsaUVBQVdBLENBQUM7SUFDeEJTLFdBQVc7SUFDWEMsWUFBWTtRQUNWQyxZQUFZO0lBQ2Q7SUFDQUMsU0FBUztRQUNQQyxTQUFTO1lBQ1BDLE1BQU07UUFDUjtRQUNBQyxXQUFXO1lBQ1RELE1BQU07UUFDUjtJQUNGO0FBQ0Y7QUFFQSxNQUFNRSxNQUFNLENBQUMsRUFBRUMsU0FBUyxFQUFFQyxTQUFTLEVBQVk7SUFDN0MscUJBQ0UsOERBQUNyQix5REFBYUE7UUFBQ3NCLE9BQU9kO2tCQUNwQiw0RUFBQ04sK0RBQWFBO1lBQUNTLE9BQU9BOzs4QkFDcEIsOERBQUNQLGlFQUFXQTs7Ozs7OEJBQ1osOERBQUNHLDhEQUFZQTs4QkFDWCw0RUFBQ2E7d0JBQVcsR0FBR0MsU0FBUzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7OztBQUtsQztBQUVBLGlFQUFlRixHQUFHQSxFQUFDIiwic291cmNlcyI6WyJ3ZWJwYWNrOi8vZmxvdy1lZGl0b3IvLi9zcmMvcGFnZXMvX2FwcC50c3g/ZjlkNiJdLCJzb3VyY2VzQ29udGVudCI6WyIndXNlIGNsaWVudCc7XG5cbmltcG9ydCB7IENhY2hlUHJvdmlkZXIgfSBmcm9tICdAZW1vdGlvbi9yZWFjdCc7XG5pbXBvcnQgY3JlYXRlQ2FjaGUgZnJvbSAnQGVtb3Rpb24vY2FjaGUnO1xuaW1wb3J0IHsgVGhlbWVQcm92aWRlciB9IGZyb20gJ0BtdWkvbWF0ZXJpYWwvc3R5bGVzJztcbmltcG9ydCB7IGNyZWF0ZVRoZW1lIH0gZnJvbSAnQG11aS9tYXRlcmlhbC9zdHlsZXMnO1xuaW1wb3J0IENzc0Jhc2VsaW5lIGZyb20gJ0BtdWkvbWF0ZXJpYWwvQ3NzQmFzZWxpbmUnO1xuaW1wb3J0IHJ0bFBsdWdpbiBmcm9tICdzdHlsaXMtcGx1Z2luLXJ0bCc7XG5pbXBvcnQgeyBwcmVmaXhlciB9IGZyb20gJ3N0eWxpcyc7XG5pbXBvcnQgeyBBcHBQcm9wcyB9IGZyb20gJ25leHQvYXBwJztcbmltcG9ydCB7IFJlYWN0Tm9kZSB9IGZyb20gJ3JlYWN0JztcbmltcG9ydCB7IEZsb3dQcm92aWRlciB9IGZyb20gJy4uL2NvbnRleHQvRmxvd0NvbnRleHQnO1xuXG4vLyBDcmVhdGUgUlRMIGNhY2hlXG5jb25zdCBjYWNoZVJ0bCA9IGNyZWF0ZUNhY2hlKHtcbiAga2V5OiAnbXVpcnRsJyxcbiAgc3R5bGlzUGx1Z2luczogW3ByZWZpeGVyLCBydGxQbHVnaW5dLFxufSk7XG5cbi8vIENyZWF0ZSB0aGVtZVxuY29uc3QgdGhlbWUgPSBjcmVhdGVUaGVtZSh7XG4gIGRpcmVjdGlvbjogJ3J0bCcsXG4gIHR5cG9ncmFwaHk6IHtcbiAgICBmb250RmFtaWx5OiAnUnViaWssIEFyaWFsLCBzYW5zLXNlcmlmJyxcbiAgfSxcbiAgcGFsZXR0ZToge1xuICAgIHByaW1hcnk6IHtcbiAgICAgIG1haW46ICcjMTk3NmQyJyxcbiAgICB9LFxuICAgIHNlY29uZGFyeToge1xuICAgICAgbWFpbjogJyNkYzAwNGUnLFxuICAgIH0sXG4gIH0sXG59KTtcblxuY29uc3QgQXBwID0gKHsgQ29tcG9uZW50LCBwYWdlUHJvcHMgfTogQXBwUHJvcHMpID0+IHtcbiAgcmV0dXJuIChcbiAgICA8Q2FjaGVQcm92aWRlciB2YWx1ZT17Y2FjaGVSdGx9PlxuICAgICAgPFRoZW1lUHJvdmlkZXIgdGhlbWU9e3RoZW1lfT5cbiAgICAgICAgPENzc0Jhc2VsaW5lIC8+XG4gICAgICAgIDxGbG93UHJvdmlkZXI+XG4gICAgICAgICAgPENvbXBvbmVudCB7Li4ucGFnZVByb3BzfSAvPlxuICAgICAgICA8L0Zsb3dQcm92aWRlcj5cbiAgICAgIDwvVGhlbWVQcm92aWRlcj5cbiAgICA8L0NhY2hlUHJvdmlkZXI+XG4gICk7XG59O1xuXG5leHBvcnQgZGVmYXVsdCBBcHA7ICJdLCJuYW1lcyI6WyJDYWNoZVByb3ZpZGVyIiwiY3JlYXRlQ2FjaGUiLCJUaGVtZVByb3ZpZGVyIiwiY3JlYXRlVGhlbWUiLCJDc3NCYXNlbGluZSIsInJ0bFBsdWdpbiIsInByZWZpeGVyIiwiRmxvd1Byb3ZpZGVyIiwiY2FjaGVSdGwiLCJrZXkiLCJzdHlsaXNQbHVnaW5zIiwidGhlbWUiLCJkaXJlY3Rpb24iLCJ0eXBvZ3JhcGh5IiwiZm9udEZhbWlseSIsInBhbGV0dGUiLCJwcmltYXJ5IiwibWFpbiIsInNlY29uZGFyeSIsIkFwcCIsIkNvbXBvbmVudCIsInBhZ2VQcm9wcyIsInZhbHVlIl0sInNvdXJjZVJvb3QiOiIifQ==\n//# sourceURL=webpack-internal:///./src/pages/_app.tsx\n");
+eval("__webpack_require__.r(__webpack_exports__);\n/* harmony export */ __webpack_require__.d(__webpack_exports__, {\n/* harmony export */   \"default\": () => (/* binding */ App)\n/* harmony export */ });\n/* harmony import */ var react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! react/jsx-dev-runtime */ \"react/jsx-dev-runtime\");\n/* harmony import */ var react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_0__);\n/* harmony import */ var _emotion_react__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @emotion/react */ \"@emotion/react\");\n/* harmony import */ var _emotion_react__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(_emotion_react__WEBPACK_IMPORTED_MODULE_1__);\n/* harmony import */ var _emotion_cache__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! @emotion/cache */ \"@emotion/cache\");\n/* harmony import */ var _emotion_cache__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(_emotion_cache__WEBPACK_IMPORTED_MODULE_2__);\n/* harmony import */ var _mui_material_styles__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! @mui/material/styles */ \"@mui/material/styles\");\n/* harmony import */ var _mui_material_styles__WEBPACK_IMPORTED_MODULE_3___default = /*#__PURE__*/__webpack_require__.n(_mui_material_styles__WEBPACK_IMPORTED_MODULE_3__);\n/* harmony import */ var _mui_material_CssBaseline__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! @mui/material/CssBaseline */ \"@mui/material/CssBaseline\");\n/* harmony import */ var _mui_material_CssBaseline__WEBPACK_IMPORTED_MODULE_4___default = /*#__PURE__*/__webpack_require__.n(_mui_material_CssBaseline__WEBPACK_IMPORTED_MODULE_4__);\n/* harmony import */ var stylis_plugin_rtl__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! stylis-plugin-rtl */ \"stylis-plugin-rtl\");\n/* harmony import */ var stylis_plugin_rtl__WEBPACK_IMPORTED_MODULE_5___default = /*#__PURE__*/__webpack_require__.n(stylis_plugin_rtl__WEBPACK_IMPORTED_MODULE_5__);\n/* harmony import */ var stylis__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! stylis */ \"stylis\");\n/* harmony import */ var stylis__WEBPACK_IMPORTED_MODULE_6___default = /*#__PURE__*/__webpack_require__.n(stylis__WEBPACK_IMPORTED_MODULE_6__);\n/* harmony import */ var _context_FlowContext__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ../context/FlowContext */ \"./src/context/FlowContext.tsx\");\n/* __next_internal_client_entry_do_not_use__ default auto */ \n\n\n\n\n\n\n\n// Create RTL cache\nconst cacheRtl = _emotion_cache__WEBPACK_IMPORTED_MODULE_2___default()({\n    key: \"muirtl\",\n    stylisPlugins: [\n        stylis__WEBPACK_IMPORTED_MODULE_6__.prefixer,\n        (stylis_plugin_rtl__WEBPACK_IMPORTED_MODULE_5___default())\n    ]\n});\n// Create theme\nconst theme = (0,_mui_material_styles__WEBPACK_IMPORTED_MODULE_3__.createTheme)({\n    direction: \"rtl\",\n    typography: {\n        fontFamily: \"Rubik, Arial, sans-serif\"\n    },\n    palette: {\n        primary: {\n            main: \"#1976d2\"\n        },\n        secondary: {\n            main: \"#dc004e\"\n        }\n    }\n});\nfunction App({ Component, pageProps }) {\n    return /*#__PURE__*/ (0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxDEV)(_emotion_react__WEBPACK_IMPORTED_MODULE_1__.CacheProvider, {\n        value: cacheRtl,\n        children: /*#__PURE__*/ (0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxDEV)(_mui_material_styles__WEBPACK_IMPORTED_MODULE_3__.ThemeProvider, {\n            theme: theme,\n            children: [\n                /*#__PURE__*/ (0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxDEV)((_mui_material_CssBaseline__WEBPACK_IMPORTED_MODULE_4___default()), {}, void 0, false, {\n                    fileName: \"/Users/omermaoz/whatssapp-bot/flow-editor/src/pages/_app.tsx\",\n                    lineNumber: 39,\n                    columnNumber: 9\n                }, this),\n                /*#__PURE__*/ (0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxDEV)(_context_FlowContext__WEBPACK_IMPORTED_MODULE_7__.FlowProvider, {\n                    children: /*#__PURE__*/ (0,react_jsx_dev_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxDEV)(Component, {\n                        ...pageProps\n                    }, void 0, false, {\n                        fileName: \"/Users/omermaoz/whatssapp-bot/flow-editor/src/pages/_app.tsx\",\n                        lineNumber: 41,\n                        columnNumber: 11\n                    }, this)\n                }, void 0, false, {\n                    fileName: \"/Users/omermaoz/whatssapp-bot/flow-editor/src/pages/_app.tsx\",\n                    lineNumber: 40,\n                    columnNumber: 9\n                }, this)\n            ]\n        }, void 0, true, {\n            fileName: \"/Users/omermaoz/whatssapp-bot/flow-editor/src/pages/_app.tsx\",\n            lineNumber: 38,\n            columnNumber: 7\n        }, this)\n    }, void 0, false, {\n        fileName: \"/Users/omermaoz/whatssapp-bot/flow-editor/src/pages/_app.tsx\",\n        lineNumber: 37,\n        columnNumber: 5\n    }, this);\n}\n//# sourceURL=[module]\n//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiLi9zcmMvcGFnZXMvX2FwcC50c3giLCJtYXBwaW5ncyI6Ijs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7QUFFK0M7QUFDTjtBQUN5QjtBQUNkO0FBQ1Y7QUFDUjtBQUdvQjtBQUV0RCxtQkFBbUI7QUFDbkIsTUFBTVEsV0FBV1AscURBQVdBLENBQUM7SUFDM0JRLEtBQUs7SUFDTEMsZUFBZTtRQUFDSiw0Q0FBUUE7UUFBRUQsMERBQVNBO0tBQUM7QUFDdEM7QUFFQSxlQUFlO0FBQ2YsTUFBTU0sUUFBUVIsaUVBQVdBLENBQUM7SUFDeEJTLFdBQVc7SUFDWEMsWUFBWTtRQUNWQyxZQUFZO0lBQ2Q7SUFDQUMsU0FBUztRQUNQQyxTQUFTO1lBQ1BDLE1BQU07UUFDUjtRQUNBQyxXQUFXO1lBQ1RELE1BQU07UUFDUjtJQUNGO0FBQ0Y7QUFFZSxTQUFTRSxJQUFJLEVBQUVDLFNBQVMsRUFBRUMsU0FBUyxFQUFZO0lBQzVELHFCQUNFLDhEQUFDckIseURBQWFBO1FBQUNzQixPQUFPZDtrQkFDcEIsNEVBQUNOLCtEQUFhQTtZQUFDUyxPQUFPQTs7OEJBQ3BCLDhEQUFDUCxrRUFBV0E7Ozs7OzhCQUNaLDhEQUFDRyw4REFBWUE7OEJBQ1gsNEVBQUNhO3dCQUFXLEdBQUdDLFNBQVM7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7QUFLbEMiLCJzb3VyY2VzIjpbIndlYnBhY2s6Ly9mbG93LWVkaXRvci8uL3NyYy9wYWdlcy9fYXBwLnRzeD9mOWQ2Il0sInNvdXJjZXNDb250ZW50IjpbIid1c2UgY2xpZW50JztcblxuaW1wb3J0IHsgQ2FjaGVQcm92aWRlciB9IGZyb20gJ0BlbW90aW9uL3JlYWN0JztcbmltcG9ydCBjcmVhdGVDYWNoZSBmcm9tICdAZW1vdGlvbi9jYWNoZSc7XG5pbXBvcnQgeyBUaGVtZVByb3ZpZGVyLCBjcmVhdGVUaGVtZSB9IGZyb20gJ0BtdWkvbWF0ZXJpYWwvc3R5bGVzJztcbmltcG9ydCBDc3NCYXNlbGluZSBmcm9tICdAbXVpL21hdGVyaWFsL0Nzc0Jhc2VsaW5lJztcbmltcG9ydCBydGxQbHVnaW4gZnJvbSAnc3R5bGlzLXBsdWdpbi1ydGwnO1xuaW1wb3J0IHsgcHJlZml4ZXIgfSBmcm9tICdzdHlsaXMnO1xuaW1wb3J0IHsgQXBwUHJvcHMgfSBmcm9tICduZXh0L2FwcCc7XG5pbXBvcnQgeyBSZWFjdE5vZGUgfSBmcm9tICdyZWFjdCc7XG5pbXBvcnQgeyBGbG93UHJvdmlkZXIgfSBmcm9tICcuLi9jb250ZXh0L0Zsb3dDb250ZXh0JztcblxuLy8gQ3JlYXRlIFJUTCBjYWNoZVxuY29uc3QgY2FjaGVSdGwgPSBjcmVhdGVDYWNoZSh7XG4gIGtleTogJ211aXJ0bCcsXG4gIHN0eWxpc1BsdWdpbnM6IFtwcmVmaXhlciwgcnRsUGx1Z2luXSxcbn0pO1xuXG4vLyBDcmVhdGUgdGhlbWVcbmNvbnN0IHRoZW1lID0gY3JlYXRlVGhlbWUoe1xuICBkaXJlY3Rpb246ICdydGwnLFxuICB0eXBvZ3JhcGh5OiB7XG4gICAgZm9udEZhbWlseTogJ1J1YmlrLCBBcmlhbCwgc2Fucy1zZXJpZicsXG4gIH0sXG4gIHBhbGV0dGU6IHtcbiAgICBwcmltYXJ5OiB7XG4gICAgICBtYWluOiAnIzE5NzZkMicsXG4gICAgfSxcbiAgICBzZWNvbmRhcnk6IHtcbiAgICAgIG1haW46ICcjZGMwMDRlJyxcbiAgICB9LFxuICB9LFxufSk7XG5cbmV4cG9ydCBkZWZhdWx0IGZ1bmN0aW9uIEFwcCh7IENvbXBvbmVudCwgcGFnZVByb3BzIH06IEFwcFByb3BzKSB7XG4gIHJldHVybiAoXG4gICAgPENhY2hlUHJvdmlkZXIgdmFsdWU9e2NhY2hlUnRsfT5cbiAgICAgIDxUaGVtZVByb3ZpZGVyIHRoZW1lPXt0aGVtZX0+XG4gICAgICAgIDxDc3NCYXNlbGluZSAvPlxuICAgICAgICA8Rmxvd1Byb3ZpZGVyPlxuICAgICAgICAgIDxDb21wb25lbnQgey4uLnBhZ2VQcm9wc30gLz5cbiAgICAgICAgPC9GbG93UHJvdmlkZXI+XG4gICAgICA8L1RoZW1lUHJvdmlkZXI+XG4gICAgPC9DYWNoZVByb3ZpZGVyPlxuICApO1xufSAiXSwibmFtZXMiOlsiQ2FjaGVQcm92aWRlciIsImNyZWF0ZUNhY2hlIiwiVGhlbWVQcm92aWRlciIsImNyZWF0ZVRoZW1lIiwiQ3NzQmFzZWxpbmUiLCJydGxQbHVnaW4iLCJwcmVmaXhlciIsIkZsb3dQcm92aWRlciIsImNhY2hlUnRsIiwia2V5Iiwic3R5bGlzUGx1Z2lucyIsInRoZW1lIiwiZGlyZWN0aW9uIiwidHlwb2dyYXBoeSIsImZvbnRGYW1pbHkiLCJwYWxldHRlIiwicHJpbWFyeSIsIm1haW4iLCJzZWNvbmRhcnkiLCJBcHAiLCJDb21wb25lbnQiLCJwYWdlUHJvcHMiLCJ2YWx1ZSJdLCJzb3VyY2VSb290IjoiIn0=\n//# sourceURL=webpack-internal:///./src/pages/_app.tsx\n");
 
 /***/ }),
 
@@ -73,173 +73,23 @@ module.exports = require("@emotion/react");
 
 /***/ }),
 
-/***/ "@mui/private-theming":
-/*!***************************************!*\
-  !*** external "@mui/private-theming" ***!
-  \***************************************/
-/***/ ((module) => {
-
-module.exports = require("@mui/private-theming");
-
-/***/ }),
-
-/***/ "@mui/styled-engine":
-/*!*************************************!*\
-  !*** external "@mui/styled-engine" ***!
-  \*************************************/
-/***/ ((module) => {
-
-module.exports = require("@mui/styled-engine");
-
-/***/ }),
-
-/***/ "@mui/utils":
-/*!*****************************!*\
-  !*** external "@mui/utils" ***!
-  \*****************************/
-/***/ ((module) => {
-
-module.exports = require("@mui/utils");
-
-/***/ }),
-
-/***/ "@mui/utils/ClassNameGenerator":
-/*!************************************************!*\
-  !*** external "@mui/utils/ClassNameGenerator" ***!
-  \************************************************/
-/***/ ((module) => {
-
-module.exports = require("@mui/utils/ClassNameGenerator");
-
-/***/ }),
-
-/***/ "@mui/utils/capitalize":
-/*!****************************************!*\
-  !*** external "@mui/utils/capitalize" ***!
-  \****************************************/
-/***/ ((module) => {
-
-module.exports = require("@mui/utils/capitalize");
-
-/***/ }),
-
-/***/ "@mui/utils/clamp":
-/*!***********************************!*\
-  !*** external "@mui/utils/clamp" ***!
-  \***********************************/
-/***/ ((module) => {
-
-module.exports = require("@mui/utils/clamp");
-
-/***/ }),
-
-/***/ "@mui/utils/composeClasses":
+/***/ "@mui/material/CssBaseline":
 /*!********************************************!*\
-  !*** external "@mui/utils/composeClasses" ***!
+  !*** external "@mui/material/CssBaseline" ***!
   \********************************************/
 /***/ ((module) => {
 
-module.exports = require("@mui/utils/composeClasses");
+module.exports = require("@mui/material/CssBaseline");
 
 /***/ }),
 
-/***/ "@mui/utils/deepmerge":
+/***/ "@mui/material/styles":
 /*!***************************************!*\
-  !*** external "@mui/utils/deepmerge" ***!
+  !*** external "@mui/material/styles" ***!
   \***************************************/
 /***/ ((module) => {
 
-module.exports = require("@mui/utils/deepmerge");
-
-/***/ }),
-
-/***/ "@mui/utils/exactProp":
-/*!***************************************!*\
-  !*** external "@mui/utils/exactProp" ***!
-  \***************************************/
-/***/ ((module) => {
-
-module.exports = require("@mui/utils/exactProp");
-
-/***/ }),
-
-/***/ "@mui/utils/formatMuiErrorMessage":
-/*!***************************************************!*\
-  !*** external "@mui/utils/formatMuiErrorMessage" ***!
-  \***************************************************/
-/***/ ((module) => {
-
-module.exports = require("@mui/utils/formatMuiErrorMessage");
-
-/***/ }),
-
-/***/ "@mui/utils/generateUtilityClass":
-/*!**************************************************!*\
-  !*** external "@mui/utils/generateUtilityClass" ***!
-  \**************************************************/
-/***/ ((module) => {
-
-module.exports = require("@mui/utils/generateUtilityClass");
-
-/***/ }),
-
-/***/ "@mui/utils/generateUtilityClasses":
-/*!****************************************************!*\
-  !*** external "@mui/utils/generateUtilityClasses" ***!
-  \****************************************************/
-/***/ ((module) => {
-
-module.exports = require("@mui/utils/generateUtilityClasses");
-
-/***/ }),
-
-/***/ "@mui/utils/getDisplayName":
-/*!********************************************!*\
-  !*** external "@mui/utils/getDisplayName" ***!
-  \********************************************/
-/***/ ((module) => {
-
-module.exports = require("@mui/utils/getDisplayName");
-
-/***/ }),
-
-/***/ "@mui/utils/isMuiElement":
-/*!******************************************!*\
-  !*** external "@mui/utils/isMuiElement" ***!
-  \******************************************/
-/***/ ((module) => {
-
-module.exports = require("@mui/utils/isMuiElement");
-
-/***/ }),
-
-/***/ "@mui/utils/resolveProps":
-/*!******************************************!*\
-  !*** external "@mui/utils/resolveProps" ***!
-  \******************************************/
-/***/ ((module) => {
-
-module.exports = require("@mui/utils/resolveProps");
-
-/***/ }),
-
-/***/ "@mui/utils/useEnhancedEffect":
-/*!***********************************************!*\
-  !*** external "@mui/utils/useEnhancedEffect" ***!
-  \***********************************************/
-/***/ ((module) => {
-
-module.exports = require("@mui/utils/useEnhancedEffect");
-
-/***/ }),
-
-/***/ "clsx":
-/*!***********************!*\
-  !*** external "clsx" ***!
-  \***********************/
-/***/ ((module) => {
-
-module.exports = require("clsx");
+module.exports = require("@mui/material/styles");
 
 /***/ }),
 
@@ -250,16 +100,6 @@ module.exports = require("clsx");
 /***/ ((module) => {
 
 module.exports = require("next/dist/compiled/next-server/pages.runtime.dev.js");
-
-/***/ }),
-
-/***/ "prop-types":
-/*!*****************************!*\
-  !*** external "prop-types" ***!
-  \*****************************/
-/***/ ((module) => {
-
-module.exports = require("prop-types");
 
 /***/ }),
 
@@ -330,7 +170,7 @@ module.exports = require("path");
 var __webpack_require__ = require("../webpack-runtime.js");
 __webpack_require__.C(exports);
 var __webpack_exec__ = (moduleId) => (__webpack_require__(__webpack_require__.s = moduleId))
-var __webpack_exports__ = __webpack_require__.X(0, ["vendor-chunks/@mui","vendor-chunks/next","vendor-chunks/@babel","vendor-chunks/@swc"], () => (__webpack_exec__("./node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js?kind=PAGES&page=%2F_error&preferredRegion=&absolutePagePath=private-next-pages%2F_error&absoluteAppPath=private-next-pages%2F_app&absoluteDocumentPath=private-next-pages%2F_document&middlewareConfigBase64=e30%3D!")));
+var __webpack_exports__ = __webpack_require__.X(0, ["vendor-chunks/next","vendor-chunks/@swc"], () => (__webpack_exec__("./node_modules/next/dist/build/webpack/loaders/next-route-loader/index.js?kind=PAGES&page=%2F_error&preferredRegion=&absolutePagePath=private-next-pages%2F_error&absoluteAppPath=private-next-pages%2F_app&absoluteDocumentPath=private-next-pages%2F_document&middlewareConfigBase64=e30%3D!")));
 module.exports = __webpack_exports__;
 
 })();

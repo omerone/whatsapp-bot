@@ -2,8 +2,7 @@
 
 import { CacheProvider } from '@emotion/react';
 import createCache from '@emotion/cache';
-import { ThemeProvider } from '@mui/material/styles';
-import { createTheme } from '@mui/material/styles';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import rtlPlugin from 'stylis-plugin-rtl';
 import { prefixer } from 'stylis';
@@ -33,7 +32,7 @@ const theme = createTheme({
   },
 });
 
-const App = ({ Component, pageProps }: AppProps) => {
+export default function App({ Component, pageProps }: AppProps) {
   return (
     <CacheProvider value={cacheRtl}>
       <ThemeProvider theme={theme}>
@@ -44,6 +43,4 @@ const App = ({ Component, pageProps }: AppProps) => {
       </ThemeProvider>
     </CacheProvider>
   );
-};
-
-export default App; 
+} 

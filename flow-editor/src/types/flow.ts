@@ -53,6 +53,18 @@ export interface FlowConfiguration {
 
 export type StepType = 'message' | 'question' | 'options' | 'date';
 
+export interface StepData {
+  type: StepType;
+  label: string;
+  messageHeader?: string;
+  message: string;
+  footerMessage?: string;
+  options?: Record<string, string>;
+  branches?: Record<string, string>;
+  limit?: number;
+  resolution?: 'days' | 'hours' | 'minutes';
+}
+
 export interface ValidationRule {
   type: 'text' | 'number' | 'email' | 'phone' | 'custom';
   pattern?: string;
@@ -150,4 +162,16 @@ export interface FlowFile {
   id: string;
   name: string;
   metadata: Flow['metadata'];
+}
+
+export interface FlowData {
+  id: string;
+  name: string;
+  description?: string;
+  steps: Record<string, StepData>;
+  edges: Array<{
+    id: string;
+    source: string;
+    target: string;
+  }>;
 } 

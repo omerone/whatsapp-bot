@@ -1,65 +1,78 @@
 import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
-import { Paper, Typography, Box } from '@mui/material';
-import { styled } from '@mui/material/styles';
+import { Box, Paper, Typography, IconButton } from '@mui/material';
+import {
+  Message as MessageIcon,
+  QuestionAnswer as QuestionIcon,
+  List as OptionsIcon,
+  CalendarToday as DateIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+} from '@mui/icons-material';
+import { StepType } from '../types/flow';
 
-const StyledPaper = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(2),
-  minWidth: 200,
-  backgroundColor: '#fff',
-  border: '1px solid #ccc',
-  borderRadius: theme.spacing(1),
-}));
+const getStepIcon = (type: StepType) => {
+  switch (type) {
+    case 'message':
+      return <MessageIcon />;
+    case 'question':
+      return <QuestionIcon />;
+    case 'options':
+      return <OptionsIcon />;
+    case 'date':
+      return <DateIcon />;
+    default:
+      return <MessageIcon />;
+  }
+};
 
 const StepNode: React.FC<NodeProps> = ({ data }) => {
-  const getStepColor = (type: string) => {
-    switch (type) {
-      case 'message':
-        return '#4CAF50';
-      case 'question':
-        return '#2196F3';
-      case 'options':
-        return '#FF9800';
-      case 'date':
-        return '#9C27B0';
-      default:
-        return '#757575';
-    }
-  };
+  const { type, label, messageHeader, message, footerMessage } = data;
 
   return (
-    <StyledPaper>
+    <Paper
+      elevation={3}
+      sx={{
+        p: 2,
+        minWidth: 200,
+        backgroundColor: '#fff',
+        border: '1px solid #e0e0e0',
+        borderRadius: 2,
+      }}
+    >
       <Handle type="target" position={Position.Top} />
       
-      <Box sx={{ mb: 1 }}>
-        <Typography variant="subtitle2" color="text.secondary">
-          {data.type}
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+        {getStepIcon(type)}
+        <Typography variant="subtitle1" sx={{ ml: 1, flexGrow: 1 }}>
+          {label}
         </Typography>
-        <Typography variant="h6" sx={{ color: getStepColor(data.type) }}>
-          {data.label}
-        </Typography>
+        <IconButton size="small">
+          <EditIcon fontSize="small" />
+        </IconButton>
+        <IconButton size="small" color="error">
+          <DeleteIcon fontSize="small" />
+        </IconButton>
       </Box>
 
-      {data.messageHeader && (
+      {messageHeader && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          כותרת: {data.messageHeader}
+          {messageHeader}
         </Typography>
       )}
 
-      {data.message && (
-        <Typography variant="body2" sx={{ mb: 1 }}>
-          {data.message}
-        </Typography>
-      )}
+      <Typography variant="body1" sx={{ mb: 1 }}>
+        {message || 'הודעה ריקה'}
+      </Typography>
 
-      {data.footerMessage && (
+      {footerMessage && (
         <Typography variant="body2" color="text.secondary">
-          תחתית: {data.footerMessage}
+          {footerMessage}
         </Typography>
       )}
 
       <Handle type="source" position={Position.Bottom} />
-    </StyledPaper>
+    </Paper>
   );
 };
 

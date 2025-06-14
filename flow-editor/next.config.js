@@ -2,7 +2,6 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  transpilePackages: ['@mui/material', '@mui/system', '@mui/icons-material'],
   experimental: {
     esmExternals: false
   },
@@ -12,9 +11,6 @@ const nextConfig = {
       use: 'raw-loader',
     });
     return config;
-  },
-  server: {
-    port: 4000
   }
 };
 

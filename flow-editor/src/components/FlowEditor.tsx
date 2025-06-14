@@ -9,6 +9,7 @@ import ReactFlow, {
   addEdge,
   Connection,
   Panel,
+  NodeTypes,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { Box, Paper, Typography, IconButton, Drawer, Button } from '@mui/material';
@@ -23,12 +24,10 @@ import DownloadIcon from '@mui/icons-material/Download';
 import UndoIcon from '@mui/icons-material/Undo';
 import RedoIcon from '@mui/icons-material/Redo';
 import { getLayoutedElements } from '../utils/autoLayout';
+import EditorSidebar from './EditorSidebar';
 
-const nodeTypes = {
-  message: StepNode,
-  question: StepNode,
-  options: StepNode,
-  date: StepNode,
+const nodeTypes: NodeTypes = {
+  step: StepNode,
 };
 
 const FlowEditor: React.FC = () => {
@@ -57,43 +56,21 @@ const FlowEditor: React.FC = () => {
       const type = event.dataTransfer.getData('application/reactflow') as StepType;
       if (!type) return;
 
-      const reactFlowBounds = document.querySelector('.react-flow')?.getBoundingClientRect();
-      if (!reactFlowBounds) return;
-
-      // Calculate grid position
-      const gridSize = 100; // Size of each grid cell
       const position = {
-        x: Math.round((event.clientX - reactFlowBounds.left) / gridSize) * gridSize,
-        y: Math.round((event.clientY - reactFlowBounds.top) / gridSize) * gridSize,
+        x: event.clientX - 250, // Adjust for sidebar width
+        y: event.clientY - 100, // Adjust for header height
       };
 
-      // Check for overlapping nodes
-      const overlappingNode = nodes.find(node => 
-        Math.abs(node.position.x - position.x) < gridSize && 
-        Math.abs(node.position.y - position.y) < gridSize
-      );
-
-      if (overlappingNode) {
-        // If there's an overlap, move the new node to the next available grid position
-        position.y = overlappingNode.position.y + gridSize;
-      }
-
       const newNode: Node = {
-        id: `${type}-${Date.now()}`,
-        type,
+        id: `${type}-${nodes.length + 1}`,
+        type: 'step',
         position,
-        data: { 
-          id: `${type}-${Date.now()}`,
+        data: {
           type,
-          message: `צעד ${type} חדש`,
-          enabled: true,
-          userResponseWaiting: false,
-          next: null,
-          options: {},
-          branches: {},
-          messageFile: null,
-          messageHeader: null,
-          footerMessage: null
+          label: `צעד ${nodes.length + 1}`,
+          messageHeader: '',
+          message: '',
+          footerMessage: '',
         },
       };
 
@@ -216,148 +193,151 @@ const FlowEditor: React.FC = () => {
   };
 
   return (
-    <Box sx={{ width: '100%', height: '100vh' }}>
-      <Paper
-        elevation={3}
-        sx={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h6">עורך תסריט שיחה</Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button
-              variant="outlined"
-              onClick={handleCreateNew}
-              sx={{ minWidth: 0 }}
-            >
-              תסריט חדש
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<DownloadIcon />}
-              onClick={handleExport}
-              sx={{ minWidth: 0 }}
-            >
-              שמור
-            </Button>
-            <Button
-              variant="outlined"
-              component="label"
-              startIcon={<UploadFileIcon />}
-              sx={{ minWidth: 0 }}
-            >
-              טען
-              <input type="file" accept="application/json" hidden onChange={handleImport} />
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<UndoIcon />}
-              onClick={undo}
-              disabled={!canUndo}
-              sx={{ minWidth: 0 }}
-            >
-              בטל
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<RedoIcon />}
-              onClick={redo}
-              disabled={!canRedo}
-              sx={{ minWidth: 0 }}
-            >
-              חזור
-            </Button>
-            <IconButton onClick={() => setShowMetadata(true)}>
-              <SettingsIcon />
-            </IconButton>
+    <Box sx={{ display: 'flex', height: '100vh' }}>
+      <EditorSidebar />
+      <Box sx={{ flexGrow: 1, height: '100%' }}>
+        <Paper
+          elevation={3}
+          sx={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6">עורך תסריט שיחה</Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                variant="outlined"
+                onClick={handleCreateNew}
+                sx={{ minWidth: 0 }}
+              >
+                תסריט חדש
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<DownloadIcon />}
+                onClick={handleExport}
+                sx={{ minWidth: 0 }}
+              >
+                שמור
+              </Button>
+              <Button
+                variant="outlined"
+                component="label"
+                startIcon={<UploadFileIcon />}
+                sx={{ minWidth: 0 }}
+              >
+                טען
+                <input type="file" accept="application/json" hidden onChange={handleImport} />
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<UndoIcon />}
+                onClick={undo}
+                disabled={!canUndo}
+                sx={{ minWidth: 0 }}
+              >
+                בטל
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<RedoIcon />}
+                onClick={redo}
+                disabled={!canRedo}
+                sx={{ minWidth: 0 }}
+              >
+                חזור
+              </Button>
+              <IconButton onClick={() => setShowMetadata(true)}>
+                <SettingsIcon />
+              </IconButton>
+            </Box>
           </Box>
-        </Box>
-        <Box sx={{ flexGrow: 1, position: 'relative' }}>
-          {noSteps ? (
-            <Box sx={{ p: 4, textAlign: 'center', color: 'gray' }}>
-              לא קיימים צעדים בתסריט. נסה לטעון קובץ תקין או להוסיף צעד ראשון.
-            </Box>
-          ) : noStart ? (
-            <Box sx={{ p: 4, textAlign: 'center', color: 'gray' }}>
-              לא מוגדר צעד התחלה (start) בתסריט. ודא שיש שדה start או הוסף צעד ראשון.
-            </Box>
-          ) : nodes.length === 0 ? (
-            <Box sx={{ p: 4, textAlign: 'center', color: 'gray' }}>
-              <Typography>יש צעדים אך לא מוצגת דיאגרמה. Debug:</Typography>
-              <ul>
-                {getAllSteps().map((s) => (
-                  <li key={s.id}>{s.id} ({s.type})</li>
-                ))}
-              </ul>
-            </Box>
-          ) : (
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onConnect={onConnect}
-              onDragOver={onDragOver}
-              onDrop={onDrop}
-              onNodeClick={onNodeClick}
-              nodeTypes={nodeTypes}
-              fitView
-              style={gridStyle}
-            >
-              <Background />
-              <Controls />
-              <Panel position="top-right">
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  {Object.keys(nodeTypes).map((type) => (
-                    <Box
-                      key={type}
-                      draggable
-                      onDragStart={(event) => {
-                        event.dataTransfer.setData('application/reactflow', type);
-                        event.dataTransfer.effectAllowed = 'move';
-                      }}
-                      sx={{
-                        p: 1,
-                        border: 1,
-                        borderColor: 'divider',
-                        borderRadius: 1,
-                        cursor: 'grab',
-                      }}
-                    >
-                      {type}
-                    </Box>
+          <Box sx={{ flexGrow: 1, position: 'relative' }}>
+            {noSteps ? (
+              <Box sx={{ p: 4, textAlign: 'center', color: 'gray' }}>
+                לא קיימים צעדים בתסריט. נסה לטעון קובץ תקין או להוסיף צעד ראשון.
+              </Box>
+            ) : noStart ? (
+              <Box sx={{ p: 4, textAlign: 'center', color: 'gray' }}>
+                לא מוגדר צעד התחלה (start) בתסריט. ודא שיש שדה start או הוסף צעד ראשון.
+              </Box>
+            ) : nodes.length === 0 ? (
+              <Box sx={{ p: 4, textAlign: 'center', color: 'gray' }}>
+                <Typography>יש צעדים אך לא מוצגת דיאגרמה. Debug:</Typography>
+                <ul>
+                  {getAllSteps().map((s) => (
+                    <li key={s.id}>{s.id} ({s.type})</li>
                   ))}
-                </Box>
-              </Panel>
-            </ReactFlow>
+                </ul>
+              </Box>
+            ) : (
+              <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                onDragOver={onDragOver}
+                onDrop={onDrop}
+                onNodeClick={onNodeClick}
+                nodeTypes={nodeTypes}
+                fitView
+                style={gridStyle}
+              >
+                <Background />
+                <Controls />
+                <Panel position="top-right">
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    {Object.keys(nodeTypes).map((type) => (
+                      <Box
+                        key={type}
+                        draggable
+                        onDragStart={(event) => {
+                          event.dataTransfer.setData('application/reactflow', type);
+                          event.dataTransfer.effectAllowed = 'move';
+                        }}
+                        sx={{
+                          p: 1,
+                          border: 1,
+                          borderColor: 'divider',
+                          borderRadius: 1,
+                          cursor: 'grab',
+                        }}
+                      >
+                        {type}
+                      </Box>
+                    ))}
+                  </Box>
+                </Panel>
+              </ReactFlow>
+            )}
+          </Box>
+        </Paper>
+
+        <Drawer
+          anchor="right"
+          open={!!selectedStep}
+          onClose={() => setSelectedStep(null)}
+        >
+          {selectedStep && (
+            <StepEditor
+              stepId={selectedStep}
+              onClose={() => setSelectedStep(null)}
+            />
           )}
-        </Box>
-      </Paper>
+        </Drawer>
 
-      <Drawer
-        anchor="right"
-        open={!!selectedStep}
-        onClose={() => setSelectedStep(null)}
-      >
-        {selectedStep && (
-          <StepEditor
-            stepId={selectedStep}
-            onClose={() => setSelectedStep(null)}
-          />
-        )}
-      </Drawer>
-
-      <Drawer
-        anchor="right"
-        open={showMetadata}
-        onClose={() => setShowMetadata(false)}
-      >
-        <MetadataEditor onClose={() => setShowMetadata(false)} />
-      </Drawer>
+        <Drawer
+          anchor="right"
+          open={showMetadata}
+          onClose={() => setShowMetadata(false)}
+        >
+          <MetadataEditor onClose={() => setShowMetadata(false)} />
+        </Drawer>
+      </Box>
     </Box>
   );
 };
