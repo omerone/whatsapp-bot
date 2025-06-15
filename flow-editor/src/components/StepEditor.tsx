@@ -22,6 +22,9 @@ import {
 import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
 import { Step, StepType, StepData, ValidationRule } from '../types/flow';
 import { useFlow } from '../context/FlowContext';
+import Chip from '@mui/material/Chip';
+import Tooltip from '@mui/material/Tooltip';
+import InfoIcon from '@mui/icons-material/Info';
 
 interface StepEditorProps {
   stepId: string;
@@ -44,6 +47,7 @@ const StepEditor: React.FC<StepEditorProps> = ({ stepId, onClose }) => {
     ...step,
   });
   const [newOption, setNewOption] = useState({ key: '', value: '' });
+  const [keywordHelperOpen, setKeywordHelperOpen] = useState(false);
 
   if (!step) {
     return null;
@@ -99,6 +103,17 @@ const StepEditor: React.FC<StepEditorProps> = ({ stepId, onClose }) => {
   const handleSave = () => {
     updateStep(stepId, editedStep);
     onClose();
+  };
+
+  // פונקציה לפירוק מחרוזת מילות מפתח למערך
+  const parseKeywords = (keywordString: string): string[] => {
+    if (!keywordString) return [];
+    return keywordString.split('||').map(keyword => keyword.trim()).filter(k => k);
+  };
+
+  // פונקציה לאיחוד מערך מילות מפתח למחרוזת
+  const joinKeywords = (keywords: string[]): string => {
+    return keywords.join(' || ');
   };
 
   return (
@@ -204,12 +219,34 @@ const StepEditor: React.FC<StepEditorProps> = ({ stepId, onClose }) => {
         {/* Options */}
         {editedStep.type === 'options' && (
           <>
-            <Typography variant="subtitle1" sx={{ mb: 1 }}>אפשרויות</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <Typography variant="subtitle1">אפשרויות</Typography>
+              <Tooltip title="ניתן להגדיר מספר מילות מפתח לכל אפשרות על ידי הפרדה עם || לדוגמה: פגישה || לקבוע פגישה || קביעת פגישה">
+                <IconButton size="small" sx={{ ml: 1 }}>
+                  <InfoIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
             <Box sx={{ mb: 2 }}>
               <List>
                 {Object.entries(editedStep.options || {}).map(([key, value]) => (
                   <ListItem key={key}>
-                    <ListItemText primary={`${key} → ${value}`} />
+                    <Box sx={{ flexGrow: 1 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        מילות מפתח שמובילות ל: {value}
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {parseKeywords(key).map((keyword, idx) => (
+                          <Chip 
+                            key={idx} 
+                            label={keyword} 
+                            size="small" 
+                            variant="outlined" 
+                            color="primary"
+                          />
+                        ))}
+                      </Box>
+                    </Box>
                     <ListItemSecondaryAction>
                       <IconButton edge="end" onClick={() => handleRemoveOption(key)}>
                         <DeleteIcon />
@@ -218,26 +255,40 @@ const StepEditor: React.FC<StepEditorProps> = ({ stepId, onClose }) => {
                   </ListItem>
                 ))}
               </List>
-              <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 1 }}>
                 <TextField
-                  label="מפתח"
+                  label="מילות מפתח (מופרדות ב-||)"
                   value={newOption.key}
                   onChange={(e) => setNewOption({ ...newOption, key: e.target.value })}
                   size="small"
+                  fullWidth
+                  helperText="לדוגמה: פגישה || לקבוע פגישה || קביעת פגישה"
                 />
-                <TextField
-                  label="ערך"
-                  value={newOption.value}
-                  onChange={(e) => setNewOption({ ...newOption, value: e.target.value })}
-                  size="small"
-                />
+                <FormControl fullWidth size="small">
+                  <InputLabel>צעד יעד</InputLabel>
+                  <Select
+                    value={newOption.value}
+                    onChange={(e) => setNewOption({ ...newOption, value: e.target.value })}
+                    label="צעד יעד"
+                  >
+                    <MenuItem value="">
+                      <em>בחר צעד</em>
+                    </MenuItem>
+                    {availableNextSteps.map((nextStep) => (
+                      <MenuItem key={nextStep.id} value={nextStep.id}>
+                        {nextStep.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
                 <Button
                   variant="outlined"
                   onClick={handleAddOption}
                   disabled={!newOption.key || !newOption.value}
                   startIcon={<AddIcon />}
+                  fullWidth
                 >
-                  הוסף
+                  הוסף אפשרות
                 </Button>
               </Box>
             </Box>

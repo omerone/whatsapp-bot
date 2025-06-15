@@ -33,8 +33,8 @@ const getStepIcon = (type: StepType) => {
   }
 };
 
-const StepNode = ({ data }: NodeProps) => {
-  const { type, message, messageHeader, footerMessage } = data;
+const StepNode = ({ id, data, selected }: NodeProps) => {
+  const { type, label, message, messageHeader, footerMessage } = data;
   const backgroundColor = getStepColor(type as StepType);
   const icon = getStepIcon(type as StepType);
 
@@ -45,32 +45,37 @@ const StepNode = ({ data }: NodeProps) => {
         padding: 2,
         minWidth: 200,
         backgroundColor,
-        border: '1px solid #ccc',
+        border: selected ? '2px solid #1976d2' : '1px solid #ccc',
         borderRadius: 2,
+        '&:hover': {
+          boxShadow: 3,
+          borderColor: '#1976d2',
+        },
+        position: 'relative',
       }}
     >
       <Handle type="target" position={Position.Top} />
       
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'center' }}>
         <Typography variant="h6" sx={{ fontSize: '1.2rem' }}>
-          {icon} {type}
+          {icon} {label}
         </Typography>
       </Box>
 
       {messageHeader && (
-        <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
+        <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary', textAlign: 'center' }}>
           {messageHeader}
         </Typography>
       )}
 
       {message && (
-        <Typography variant="body2" sx={{ mb: 1 }}>
+        <Typography variant="body2" sx={{ mb: 1, textAlign: 'center' }}>
           {message}
         </Typography>
       )}
 
       {footerMessage && (
-        <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+        <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', textAlign: 'center' }}>
           {footerMessage}
         </Typography>
       )}

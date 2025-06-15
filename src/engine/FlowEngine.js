@@ -289,8 +289,12 @@ class FlowEngine {
             }
 
             // Check for reset keyword
-            const resetConfig = this.flow.rules?.resetConfig;
-            if (resetConfig?.enabled && userInput === resetConfig.keyword && !session.isFirstMessage) {
+            const resetConfig = this.flow.configuration?.client_management?.reset;
+            if (resetConfig?.enabled && 
+                resetConfig.keyword && 
+                userInput && 
+                userInput.trim().toLowerCase() === resetConfig.keyword.toLowerCase() && 
+                !session.isFirstMessage) {
                 console.log(`[FlowEngine] 🔄 Processing reset keyword`);
                 return await this.handleResetKeyword(userId);
             }

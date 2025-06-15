@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import { Flow, StepData } from '../types/flow';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { Flow, StepData, Step } from '../types/flow';
 
 interface HistoryState {
   flow: Flow;
@@ -9,7 +9,7 @@ interface HistoryState {
 interface FlowContextType {
   flow: Flow;
   addStep: (step: StepData) => void;
-  updateStep: (id: string, changes: Partial<StepData>) => void;
+  updateStep: (id: string, changes: Partial<StepData>, triggerFullUpdate?: boolean) => void;
   deleteStep: (id: string) => void;
   getStep: (id: string) => StepData | undefined;
   getAllSteps: () => StepData[];
@@ -47,6 +47,12 @@ export const FlowProvider: React.FC<{ children: React.ReactNode }> = ({ children
   ]);
   const [currentHistoryIndex, setCurrentHistoryIndex] = useState(0);
 
+  // Debug log
+  useEffect(() => {
+    console.log('Flow updated:', flow);
+    console.log('Steps count:', Object.keys(flow.steps).length);
+  }, [flow]);
+
   const pushHistory = useCallback((newFlow: Flow) => {
     const newHistory = history.slice(0, currentHistoryIndex + 1);
     newHistory.push({
@@ -64,26 +70,45 @@ export const FlowProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [history, currentHistoryIndex]);
 
   const updateFlow = useCallback((newFlow: Flow) => {
+    console.log('Updating flow:', newFlow);
     setFlow(newFlow);
     pushHistory(newFlow);
   }, [pushHistory]);
 
   const addStep = useCallback((step: StepData) => {
+    console.log('Adding step to flow context:', step);
+    
+    // וידוא שיש כל השדות הנדרשים
+    const stepToAdd: Step = {
+      ...step,
+      enabled: step.enabled !== undefined ? step.enabled : true,
+      userResponseWaiting: step.userResponseWaiting !== undefined ? step.userResponseWaiting : step.type !== 'message',
+    };
+    
     const newFlow = {
       ...flow,
       steps: {
         ...flow.steps,
-        [step.id]: step,
+        [step.id]: stepToAdd,
       },
     };
+    
+    // אם אין צעד התחלה, הגדר את הצעד הנוכחי כצעד התחלה
     if (!flow.start) {
       newFlow.start = step.id;
     }
+    
+    console.log('Updated flow with new step:', newFlow);
     updateFlow(newFlow);
   }, [flow, updateFlow]);
 
-  const updateStep = useCallback((id: string, changes: Partial<StepData>) => {
-    if (!flow.steps[id]) return;
+  const updateStep = useCallback((id: string, changes: Partial<StepData>, triggerFullUpdate: boolean = true) => {
+    console.log('Updating step:', id, changes);
+    if (!flow.steps[id]) {
+      console.error('Step not found:', id);
+      return;
+    }
+    
     const newFlow = {
       ...flow,
       steps: {
@@ -94,11 +119,23 @@ export const FlowProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
       },
     };
-    updateFlow(newFlow);
+    
+    console.log('Flow after step update:', newFlow);
+    if (triggerFullUpdate) {
+      updateFlow(newFlow);
+    } else {
+      // Only update the flow state without triggering the full update process
+      setFlow(newFlow);
+    }
   }, [flow, updateFlow]);
 
   const deleteStep = useCallback((id: string) => {
-    if (!flow.steps[id]) return;
+    console.log('Deleting step:', id);
+    if (!flow.steps[id]) {
+      console.error('Step not found:', id);
+      return;
+    }
+    
     const newSteps = { ...flow.steps };
     delete newSteps[id];
     
@@ -121,17 +158,56 @@ export const FlowProvider: React.FC<{ children: React.ReactNode }> = ({ children
       steps: newSteps,
       start: flow.start === id ? Object.keys(newSteps)[0] || '' : flow.start,
     };
+    
+    console.log('Flow after step deletion:', newFlow);
     updateFlow(newFlow);
   }, [flow, updateFlow]);
 
-  const getStep = useCallback((id: string) => flow.steps[id], [flow]);
+  const getStep = useCallback((id: string): StepData | undefined => {
+    const step = flow.steps[id];
+    if (!step) {
+      console.error('Step not found:', id);
+      return undefined;
+    }
+    return step;
+  }, [flow]);
 
-  const getAllSteps = useCallback(() => Object.values(flow.steps), [flow]);
+  const getAllSteps = useCallback((): StepData[] => {
+    return Object.entries(flow.steps).map(([id, step]) => ({
+      ...step,
+      id,
+    }));
+  }, [flow]);
 
   const importFlow = useCallback((json: string) => {
     try {
       const newFlow = JSON.parse(json);
-      // Validate flow structure here
+      // בדיקות תקינות בסיסיות
+      if (!newFlow || typeof newFlow !== 'object') {
+        throw new Error('Invalid flow structure');
+      }
+      
+      // וידוא שיש את השדות הנדרשים
+      if (!newFlow.metadata) {
+        newFlow.metadata = {
+          company_name: '',
+          version: '1.0.0',
+          last_updated: new Date().toISOString(),
+        };
+      }
+      
+      if (!newFlow.configuration) {
+        newFlow.configuration = {
+          rules: {},
+          client_management: {},
+        };
+      }
+      
+      if (!newFlow.steps) {
+        newFlow.steps = {};
+      }
+      
+      console.log('Importing flow:', newFlow);
       updateFlow(newFlow);
     } catch (error) {
       console.error('Error importing flow:', error);
@@ -194,6 +270,7 @@ export const FlowProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [currentHistoryIndex, history]);
 
   const createNewFlow = useCallback(() => {
+    console.log('Creating new flow in context');
     const newFlow: Flow = {
       metadata: {
         company_name: '',
@@ -207,8 +284,18 @@ export const FlowProvider: React.FC<{ children: React.ReactNode }> = ({ children
       start: '',
       steps: {},
     };
-    updateFlow(newFlow);
-  }, [updateFlow]);
+    
+    // עדכון הסטייט ישירות ללא שימוש ב-updateFlow
+    // כדי למנוע בעיות עם ההיסטוריה
+    setFlow(newFlow);
+    
+    // איפוס ההיסטוריה
+    setHistory([{ flow: newFlow, timestamp: Date.now() }]);
+    setCurrentHistoryIndex(0);
+    
+    console.log('New flow created:', newFlow);
+    return newFlow;
+  }, []);
 
   const value = {
     flow,

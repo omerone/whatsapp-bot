@@ -121,7 +121,11 @@ class RulesManager {
             if (!isNewConversation) {
                 const resetConfig = this.rules?.configuration?.client_management?.reset;
                 const resetKeyword = resetConfig?.keyword;
-                const isResetKeyword = resetKeyword && message.body === resetKeyword;
+                
+                // Case-insensitive check for reset keyword
+                const isResetKeyword = resetKeyword && 
+                    message.body && 
+                    message.body.trim().toLowerCase() === resetKeyword.toLowerCase();
 
                 if (isResetKeyword && resetConfig?.enabled) {
                     console.log(`[RulesManager] 🔄 Reset keyword detected from ${message.from}: "${message.body}"`);

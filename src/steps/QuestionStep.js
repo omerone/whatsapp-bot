@@ -34,7 +34,8 @@ class QuestionStep {
                 if ((validatorType === 'City' || validatorType === 'Location') && 
                     validationResult.status && step.cityValidationConfig) {
                     
-                    const cityValidationConfig = step.cityValidationConfig;
+                    const cityValidationConfig = step.cityValidationConfig || {};
+                    const configMessages = cityValidationConfig.messages || {};
                     let responseMessageText = '';
 
                     // Clear pending suggestion by default
@@ -51,24 +52,40 @@ class QuestionStep {
                             return flowEngine.processStepInternal(session.userId);
 
                         case 'קלט_ריק':
-                            responseMessageText = cityValidationConfig.messages.קלט_ריק;
+                            responseMessageText = configMessages.קלט_ריק || 'לא הזנת עיר. אנא נסה שנית.';
                             break;
                         case 'עיר_לא_זמינה':
-                            responseMessageText = cityValidationConfig.messages.עיר_לא_זמינה
-                                .replace(/{cityName}/g, validationResult.cityName);
+                            if (configMessages.עיר_לא_זמינה) {
+                                responseMessageText = configMessages.עיר_לא_זמינה
+                                    .replace(/{cityName}/g, validationResult.cityName || '');
+                            } else {
+                                responseMessageText = `איננו פועלים ב${validationResult.cityName || 'אזור זה'} כרגע.`;
+                            }
                             break;
                         case 'SUGGESTION_SERVICEABLE':
-                            responseMessageText = cityValidationConfig.messages.SUGGESTION_SERVICEABLE
-                                .replace(/{suggestedCity}/g, validationResult.suggestedCity);
+                            if (configMessages.SUGGESTION_SERVICEABLE) {
+                                responseMessageText = configMessages.SUGGESTION_SERVICEABLE
+                                    .replace(/{suggestedCity}/g, validationResult.suggestedCity || '');
+                            } else {
+                                responseMessageText = `האם התכוונת ל*${validationResult.suggestedCity || ''}*?\nהשב כן במידה ולא תרשום שוב את שם העיר הרלוונטית.`;
+                            }
                             session.pendingSuggestion = validationResult.suggestedCity;
                             break;
                         case 'הצעה_עיר_לא_זמינה':
-                            responseMessageText = cityValidationConfig.messages.הצעה_עיר_לא_זמינה
-                                .replace(/{suggestedCity}/g, validationResult.suggestedCity);
+                            if (configMessages.הצעה_עיר_לא_זמינה) {
+                                responseMessageText = configMessages.הצעה_עיר_לא_זמינה
+                                    .replace(/{suggestedCity}/g, validationResult.suggestedCity || '');
+                            } else {
+                                responseMessageText = `נראה שהתכוונת ל${validationResult.suggestedCity || ''}, אבל איננו פועלים באזור זה כרגע.`;
+                            }
                             break;
                         case 'עיר_לא_מוכרת':
-                            responseMessageText = cityValidationConfig.messages.עיר_לא_מוכרת
-                                .replace(/{originalInput}/g, validationResult.originalInput);
+                            if (configMessages.עיר_לא_מוכרת) {
+                                responseMessageText = configMessages.עיר_לא_מוכרת
+                                    .replace(/{originalInput}/g, validationResult.originalInput || '');
+                            } else {
+                                responseMessageText = 'לא הכרנו את העיר שציינת. אנא נסה שוב.';
+                            }
                             break;
                         default:
                             console.error(`QuestionStep: Unknown status from LocationValidator: ${validationResult.status}`);
@@ -78,8 +95,8 @@ class QuestionStep {
                     session.currentStep = step.id;
                     
                     // Append back instruction if configured
-                    if (responseMessageText && cityValidationConfig.messages?.הוראת_חזרה) {
-                        responseMessageText += '\n' + cityValidationConfig.messages.הוראת_חזרה;
+                    if (responseMessageText && configMessages.הוראת_חזרה && !configMessages.skipBackInstruction) {
+                        responseMessageText += '\n' + configMessages.הוראת_חזרה;
                     }
 
                     return { messages: [responseMessageText || 'אנא נסה עיר אחרת.'], waitForUser: true };

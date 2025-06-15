@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Paper,
@@ -25,14 +25,19 @@ import { useFlow } from '../context/FlowContext';
 
 interface MetadataEditorProps {
   onClose: () => void;
+  onCompanyNameChange?: (newName: string) => void;
 }
 
-const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose }) => {
+const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameChange }) => {
   const { flow, updateMetadata, updateConfiguration, updateIntegrations } = useFlow();
   const [expandedSection, setExpandedSection] = useState<string | false>('metadata');
 
-  const handleMetadataChange = (field: keyof typeof flow.metadata, value: string) => {
+  const handleMetadataChange = (field: string, value: any) => {
     updateMetadata({ [field]: value });
+    
+    if (field === 'company_name' && onCompanyNameChange) {
+      onCompanyNameChange(value);
+    }
   };
 
   const handleConfigurationChange = (
@@ -131,8 +136,9 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose }) => {
             <TextField
               fullWidth
               label="שם החברה"
-              value={flow.metadata.company_name}
+              value={flow.metadata.company_name || ''}
               onChange={(e) => handleMetadataChange('company_name', e.target.value)}
+              sx={{ mb: 2 }}
             />
             <TextField
               fullWidth

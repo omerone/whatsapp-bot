@@ -53,40 +53,41 @@ export interface FlowConfiguration {
 
 export type StepType = 'message' | 'question' | 'options' | 'date';
 
-export interface StepData {
-  type: StepType;
-  label: string;
-  messageHeader?: string;
-  message: string;
-  footerMessage?: string;
-  options?: Record<string, string>;
-  branches?: Record<string, string>;
-  limit?: number;
-  resolution?: 'days' | 'hours' | 'minutes';
-}
-
 export interface ValidationRule {
-  type: 'text' | 'number' | 'email' | 'phone' | 'custom';
+  type: string;
+  message?: string;
   pattern?: string;
-  errorMessage?: string;
   min?: number;
   max?: number;
 }
 
-export interface Step {
+export interface Position {
+  x: number;
+  y: number;
+}
+
+export interface StepData {
   id: string;
   type: StepType;
-  message?: string;
+  label?: string;
   messageHeader?: string;
+  message?: string;
   footerMessage?: string;
-  enabled: boolean;
-  userResponseWaiting: boolean;
-  next?: string | null;
-  options?: { [key: string]: string };
-  branches?: { [key: string]: string };
-  messageFile?: string | null;
+  next?: string;
+  branches?: Record<string, string>;
+  options?: Record<string, string>;
+  validation?: ValidationRule;
+  enabled?: boolean;
+  userResponseWaiting?: boolean;
   block?: boolean;
   freeze?: boolean;
+  skipIfDisabled?: string;
+  position?: Position;
+}
+
+export interface Step extends StepData {
+  enabled: boolean;
+  userResponseWaiting: boolean;
 }
 
 export interface Flow {
@@ -94,68 +95,16 @@ export interface Flow {
     company_name: string;
     version: string;
     last_updated: string;
+    [key: string]: any;
   };
   configuration: {
-    rules: {
-      blockedSources: {
-        ignoreContacts: boolean;
-        ignoreArchived: boolean;
-        ignoreGroups: boolean;
-        ignoreStatus: boolean;
-      };
-      activation: {
-        enabled: boolean;
-        keywords: string[];
-        resetAfterHours: number;
-      };
-    };
-    client_management: {
-      freeze: {
-        enabled: boolean;
-        duration: number;
-        messaging: {
-          send_explanation: boolean;
-          message: string;
-        };
-      };
-      reset: {
-        enabled: boolean;
-        keyword: string;
-        target_step: string;
-        options: {
-          unfreeze: boolean;
-          delete_appointment: boolean;
-          allow_unblock: boolean;
-        };
-      };
-    };
+    rules?: Record<string, any>;
+    client_management?: Record<string, any>;
+    [key: string]: any;
   };
-  integrations?: {
-    google_workspace?: {
-      enabled?: boolean;
-      credentials?: string;
-    };
-    google_sheets?: {
-      enabled?: boolean;
-      spreadsheet_id?: string;
-      options?: {
-        sort_by_date?: boolean;
-        prevent_duplicates?: boolean;
-      };
-    };
-    google_calendar?: {
-      enabled?: boolean;
-      calendar_id?: string;
-      timezone?: string;
-      event_template?: {
-        title?: string;
-        description?: string;
-        max_participants?: number;
-      };
-    };
-  };
+  integrations?: Record<string, any>;
   start: string;
-  steps: { [key: string]: Step };
+  steps: Record<string, Step>;
 }
 
 export interface FlowFile {
@@ -174,4 +123,23 @@ export interface FlowData {
     source: string;
     target: string;
   }>;
+}
+
+export interface FlowContextType {
+  flow: Flow;
+  addStep: (step: StepData) => void;
+  updateStep: (id: string, changes: Partial<StepData>, triggerFullUpdate?: boolean) => void;
+  deleteStep: (id: string) => void;
+  getStep: (id: string) => Step | undefined;
+  getAllSteps: () => Step[];
+  importFlow: (json: string) => void;
+  exportFlow: () => string;
+  updateMetadata: (metadata: Partial<Flow['metadata']>) => void;
+  updateConfiguration: (config: Partial<Flow['configuration']>) => void;
+  updateIntegrations: (integrations: Record<string, any>) => void;
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  createNewFlow: () => Flow;
 } 

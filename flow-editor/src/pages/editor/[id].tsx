@@ -35,6 +35,7 @@ const EditorPage: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [isAutoLayout, setIsAutoLayout] = useState(true);
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
@@ -45,24 +46,40 @@ const EditorPage: React.FC = () => {
     setIsSidebarOpen(!isSidebarOpen);
   };
 
-  // סידור אוטומטי היררכי בכל טעינה/שינוי nodes/edges
+  // Apply auto layout only once when nodes are loaded initially
   useEffect(() => {
-    if (nodes.length === 0) return;
+    if (nodes.length === 0 || !isAutoLayout) return;
+    
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(nodes, edges, 'TB');
     setNodes(layoutedNodes);
     setEdges(layoutedEdges);
+    setIsAutoLayout(false); // Disable auto layout after initial arrangement
+    
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes.length]);
 
+  const toggleAutoLayout = () => {
+    setIsAutoLayout(true); // Enable auto layout temporarily
+    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(nodes, edges, 'TB');
+    setNodes(layoutedNodes);
+    setEdges(layoutedEdges);
+    setIsAutoLayout(false); // Disable auto layout after arrangement
+  };
+
   return (
     <Container maxWidth={false} sx={{ height: '100vh', p: 2 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <IconButton onClick={toggleSidebar} sx={{ mr: 2 }}>
-          <MenuIcon />
-        </IconButton>
-        <Typography variant="h4" component="h1">
-          עורך תסריט שיחה
-        </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, justifyContent: 'space-between' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <IconButton onClick={toggleSidebar} sx={{ mr: 2 }}>
+            <MenuIcon />
+          </IconButton>
+          <Typography variant="h4" component="h1">
+            עורך תסריט שיחה
+          </Typography>
+        </Box>
+        {/* <Button variant="outlined" onClick={toggleAutoLayout}>
+          סדר אוטומטי
+        </Button> */}
       </Box>
 
       <Box sx={{ display: 'flex', gap: 2, height: 'calc(100% - 80px)' }}>
@@ -91,6 +108,7 @@ const EditorPage: React.FC = () => {
             onConnect={onConnect}
             nodeTypes={nodeTypes}
             fitView
+            nodesDraggable={true}
           >
             <Background />
             <Controls />

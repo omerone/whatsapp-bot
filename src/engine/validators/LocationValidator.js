@@ -87,6 +87,10 @@ class LocationValidator extends BaseValidator {
      * @returns {string} - שם עיר קנוני
      */
     static _getCanonicalCity(input) {
+        if (!input) {
+            return '';
+        }
+        
         const normalized = String(input).trim().toLowerCase().replace(/['"״׳]/g, '');
         
         // בדיקה בכינויים
@@ -104,7 +108,7 @@ class LocationValidator extends BaseValidator {
             }
         }
 
-        return String(input).trim();
+        return String(input || '').trim();
     }
 
     /**
@@ -114,6 +118,10 @@ class LocationValidator extends BaseValidator {
      */
     static findSimilarCity(input, threshold = 0.6) {
         this._initialize();
+        
+        if (!input) {
+            return null;
+        }
         
         const normalizedInput = String(input).trim().toLowerCase().replace(/['"״׳]/g, '');
         if (!normalizedInput || this._citiesForSimilarity.length === 0) {
@@ -164,20 +172,25 @@ class LocationValidator extends BaseValidator {
     static validateSimple(input) {
         this._initialize();
         
-        if (this.isEmpty(input)) {
+        if (!input || this.isEmpty(input)) {
             return this.createResponse(false, null, 'לא הזנת עיר. אנא נסה שנית.');
         }
 
-        const normalizedInput = this.normalizeInput(input);
-        const canonicalCity = this._getCanonicalCity(normalizedInput);
+        try {
+            const normalizedInput = this.normalizeInput(input);
+            const canonicalCity = this._getCanonicalCity(normalizedInput);
 
-        if (this._serviceableCities.has(canonicalCity)) {
-            return this.createResponse(true, canonicalCity, null, {
-                motoEnabled: this.isMotoEnabled(canonicalCity)
-            });
+            if (this._serviceableCities.has(canonicalCity)) {
+                return this.createResponse(true, canonicalCity, null, {
+                    motoEnabled: this.isMotoEnabled(canonicalCity)
+                });
+            }
+
+            return this.createResponse(false, null, '❌ איננו פועלים באזור זה כרגע.');
+        } catch (error) {
+            console.error('LocationValidator validateSimple error:', error);
+            return this.createResponse(false, null, 'שגיאה בבדיקת העיר. אנא נסה שנית.');
         }
-
-        return this.createResponse(false, null, '❌ איננו פועלים באזור זה כרגע.');
     }
 
     /**
@@ -188,6 +201,11 @@ class LocationValidator extends BaseValidator {
      */
     static validateAdvanced(input, pendingSuggestion = null) {
         this._initialize();
+        
+        // בדיקת קלט לא תקין
+        if (input === undefined || input === null) {
+            return { status: 'קלט_ריק' };
+        }
         
         const normalizedInput = String(input).trim().toLowerCase();
         const originalTrimmedInput = String(input).trim();
@@ -260,13 +278,18 @@ class LocationValidator extends BaseValidator {
      * @returns {Object} - תוצאת ולידציה
      */
     static validate(input, options = {}) {
-        // אם יש הגדרות הודעות, נשתמש בולידציה מתקדמת
-        if (options.messages || options.pendingSuggestion !== undefined) {
-            return this.validateAdvanced(input, options.pendingSuggestion);
+        try {
+            // אם יש הגדרות הודעות, נשתמש בולידציה מתקדמת
+            if (options.messages || options.pendingSuggestion !== undefined) {
+                return this.validateAdvanced(input, options.pendingSuggestion);
+            }
+            
+            // אחרת נשתמש בולידציה פשוטה
+            return this.validateSimple(input);
+        } catch (error) {
+            console.error('LocationValidator validation error:', error);
+            return this.createResponse(false, null, 'שגיאה בבדיקת העיר. אנא נסה שנית.');
         }
-        
-        // אחרת נשתמש בולידציה פשוטה
-        return this.validateSimple(input);
     }
 
     /**
