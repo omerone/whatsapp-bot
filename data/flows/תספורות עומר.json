@@ -1,0 +1,81 @@
+{
+  "metadata": {
+    "company_name": "",
+    "version": "1.0.0",
+    "last_updated": "2025-06-16T10:43:41.330Z"
+  },
+  "configuration": {
+    "rules": {},
+    "client_management": {}
+  },
+  "start": "1",
+  "steps": {
+    "1": {
+      "id": "1",
+      "type": "options",
+      "label": "1",
+      "messageHeader": "",
+      "message": "שלום ! האם אתה מעוניין לקבוע תספורת? ",
+      "footerMessage": "",
+      "enabled": true,
+      "userResponseWaiting": true,
+      "position": {
+        "x": 81.9178211978332,
+        "y": 702.0307688971394
+      },
+      "options": {
+        "כן || 1 ": "2"
+      },
+      "branches": {
+        "כן || 1 ": "2"
+      }
+    },
+    "2": {
+      "id": "2",
+      "type": "date",
+      "label": "2",
+      "messageHeader": "תסמן לפי מספר את היום שמתאים לך.",
+      "message": "",
+      "footerMessage": "",
+      "enabled": true,
+      "userResponseWaiting": true,
+      "position": {
+        "x": 82.45093826729803,
+        "y": 951.331947560848
+      },
+      "resolution": "days",
+      "next": "3"
+    },
+    "3": {
+      "id": "3",
+      "type": "date",
+      "label": "3",
+      "messageHeader": "תסמן לפי מספר את השעה שמתאימה לך",
+      "message": "",
+      "footerMessage": "",
+      "enabled": true,
+      "userResponseWaiting": true,
+      "position": {
+        "x": 69.95487894605262,
+        "y": 1129.8341544274526
+      },
+      "resolution": "hours",
+      "next": "4"
+    },
+    "4": {
+      "id": "4",
+      "type": "message",
+      "label": "4",
+      "messageHeader": "",
+      "message": "נקבעה תספורת בתאריך {}",
+      "footerMessage": "",
+      "enabled": false,
+      "userResponseWaiting": false,
+      "position": {
+        "x": 142.7325672734981,
+        "y": 1348.4733456885601
+      },
+      "freeze": true
+    }
+  }
+}

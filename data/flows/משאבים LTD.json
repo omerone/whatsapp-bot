@@ -125,25 +125,36 @@
       "type": "message",
       "userResponseWaiting": false,
       "next": "main_menu",
-      "messageFile": "intro.txt"
+      "messageFile": "intro.txt",
+      "position": {
+        "x": 100,
+        "y": 100
+      }
     },
     "main_menu": {
       "id": "main_menu",
       "type": "options",
       "userResponseWaiting": true,
       "options": {
+        "5": "1",
         "1 || פגישה || לקבוע פגישה || קביעת פגישה": "book",
         "2 || שאלות || מידע || פרטים": "questions",
         "3 || נציג || נציג אנושי || לדבר עם נציג": "human",
         "4 || הסרה || הסר || ביטול": "remove"
       },
       "branches": {
-        "book": "start_booking_flow",
-        "questions": "faq1",
-        "human": "human_support",
-        "remove": "remove_candidate"
+        "5": "1",
+        "1 || פגישה || לקבוע פגישה || קביעת פגישה": "book",
+        "2 || שאלות || מידע || פרטים": "questions",
+        "3 || נציג || נציג אנושי || לדבר עם נציג": "human",
+        "4 || הסרה || הסר || ביטול": "remove"
       },
-      "messageFile": "main_menu.txt"
+      "messageFile": "main_menu.txt",
+      "position": {
+        "x": 0,
+        "y": 320
+      },
+      "label": "main_menu"
     },
     "start_booking_flow": {
       "id": "start_booking_flow",
@@ -163,10 +174,10 @@
         "9 || הסרה || ביטול": "remove"
       },
       "branches": {
-        "book": "start_booking_flow",
-        "next_faq": "faq2",
-        "human": "human_support",
-        "remove": "remove_candidate"
+        "1 || פגישה || לקבוע פגישה": "book",
+        "2 || המשך למידע נוסף": "next_faq",
+        "3 || נציג || נציג אנושי": "human",
+        "9 || הסרה || ביטול": "remove"
       },
       "messageFile": "faq1.txt"
     },
@@ -181,10 +192,10 @@
         "9 || הסרה || ביטול": "remove"
       },
       "branches": {
-        "book": "start_booking_flow",
-        "menu": "main_menu",
-        "human": "human_support",
-        "remove": "remove_candidate"
+        "2": "menu",
+        "1 || פגישה || לקבוע פגישה": "book",
+        "3 || נציג || נציג אנושי": "human",
+        "9 || הסרה || ביטול": "remove"
       },
       "messageFile": "faq2.txt"
     },
@@ -223,8 +234,8 @@
         "2 || לא || לא נכון || תיקון || שגוי": "retype_name"
       },
       "branches": {
-        "confirmed": "ask_city",
-        "retype_name": "ask_name_again"
+        "1 || כן || נכון || בסדר || אישור": "confirmed",
+        "2 || לא || לא נכון || תיקון || שגוי": "retype_name"
       },
       "noMatchMessage": "אנא השב '1' או 'כן' אם השם נכון, או '2' או 'לא' כדי לעדכן את שמך."
     },
@@ -271,9 +282,9 @@
         "3 || לא נייד || ללא || אין || none": "none"
       },
       "branches": {
-        "car": "show_available_months",
-        "bike": "show_available_months",
-        "none": "not_suitable"
+        "1 || רכב || מכונית || אוטו || car": "car",
+        "2 || אופנוע || אופניים || בייק || bike": "bike",
+        "3 || לא נייד || ללא || אין || none": "none"
       }
     },
     "show_available_months": {
@@ -347,7 +358,11 @@
       "type": "message",
       "userResponseWaiting": false,
       "messageFile": "not_suitable.txt",
-      "freeze": true
+      "freeze": true,
+      "position": {
+        "x": 205,
+        "y": 2240
+      }
     }
   }
 }

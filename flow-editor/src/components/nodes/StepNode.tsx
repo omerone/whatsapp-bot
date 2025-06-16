@@ -37,6 +37,9 @@ const StepNode = ({ id, data, selected }: NodeProps) => {
   const { type, label, message, messageHeader, footerMessage } = data;
   const backgroundColor = getStepColor(type as StepType);
   const icon = getStepIcon(type as StepType);
+  
+  // תצוגת המזהה על הבלוק - הסרת המילה "צעד" והצגת המזהה עצמו
+  const displayLabel = id;
 
   return (
     <Paper
@@ -58,7 +61,7 @@ const StepNode = ({ id, data, selected }: NodeProps) => {
       
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'center' }}>
         <Typography variant="h6" sx={{ fontSize: '1.2rem' }}>
-          {icon} {label}
+          {icon} {displayLabel}
         </Typography>
       </Box>
 

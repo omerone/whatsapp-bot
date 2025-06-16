@@ -41,7 +41,7 @@ const validationTypes = [
 ];
 
 const StepEditor: React.FC<StepEditorProps> = ({ stepId, onClose }) => {
-  const { getStep, updateStep, deleteStep, getAllSteps } = useFlow();
+  const { getStep, updateStep, deleteStep, getAllSteps, updateStepId } = useFlow();
   const step = getStep(stepId);
   const [editedStep, setEditedStep] = useState<Partial<StepData>>({
     ...step,
@@ -54,10 +54,16 @@ const StepEditor: React.FC<StepEditorProps> = ({ stepId, onClose }) => {
   }
 
   const handleChange = (field: keyof StepData, value: any) => {
-    setEditedStep((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    setEditedStep((prev) => {
+      const updated = { ...prev, [field]: value };
+      
+      // אם משנים את המזהה, עדכן גם את התווית
+      if (field === 'id') {
+        updated.label = value;
+      }
+      
+      return updated;
+    });
   };
 
   const handleDelete = () => {
@@ -67,19 +73,45 @@ const StepEditor: React.FC<StepEditorProps> = ({ stepId, onClose }) => {
 
   const handleAddOption = () => {
     if (newOption.key && newOption.value) {
+      // עדכון האפשרויות
       const updatedOptions = {
         ...(step.options || {}),
         [newOption.key]: newOption.value,
       };
       handleChange('options', updatedOptions);
+      
+      // עדכון branches כדי שהקווים יופיעו בדיאגרמה
+      const updatedBranches = {
+        ...(step.branches || {}),
+        [newOption.key]: newOption.value,
+      };
+      handleChange('branches', updatedBranches);
+      
+      // ניקוי השדות
       setNewOption({ key: '', value: '' });
+      
+      console.log('Option added with branches:', {
+        key: newOption.key, 
+        value: newOption.value, 
+        branches: updatedBranches
+      });
     }
   };
 
   const handleRemoveOption = (key: string) => {
+    // הסרה מאפשרויות
     const updatedOptions = { ...step.options };
     delete updatedOptions[key];
     handleChange('options', updatedOptions);
+    
+    // הסרה גם מbranches כדי להסיר את הקו מהדיאגרמה
+    if (step.branches) {
+      const updatedBranches = { ...step.branches };
+      delete updatedBranches[key];
+      handleChange('branches', updatedBranches);
+      
+      console.log('Option removed from branches:', { key });
+    }
   };
 
   const handleValidationChange = (field: keyof ValidationRule, value: any) => {
@@ -101,7 +133,38 @@ const StepEditor: React.FC<StepEditorProps> = ({ stepId, onClose }) => {
     }));
 
   const handleSave = () => {
-    updateStep(stepId, editedStep);
+    // סנכרון options עם branches לפני השמירה
+    let stepToUpdate = { ...editedStep };
+    
+    if (stepToUpdate.type === 'options' && stepToUpdate.options) {
+      // העתקת כל הoptions לbranches כדי שהקווים יוצגו בדיאגרמה
+      stepToUpdate.branches = { ...stepToUpdate.options };
+      console.log('Synced options to branches:', stepToUpdate.branches);
+    }
+    
+    // Check if ID changed and handle it specially
+    if (stepToUpdate.id && stepToUpdate.id !== stepId) {
+      // Update the step ID first (which also updates the label)
+      updateStepId(stepId, stepToUpdate.id);
+      
+      // Remove the ID from edited fields since it's already handled
+      const { id, ...otherChanges } = stepToUpdate;
+      
+      // Update other fields if needed
+      if (Object.keys(otherChanges).length > 0) {
+        updateStep(stepToUpdate.id, otherChanges);
+      }
+    } else {
+      // Make sure label matches ID
+      const finalStep = {
+        ...stepToUpdate,
+        label: stepToUpdate.id || stepId
+      };
+      
+      // Normal update without ID change
+      updateStep(stepId, finalStep);
+    }
+    
     onClose();
   };
 

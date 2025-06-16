@@ -125,7 +125,11 @@
       "type": "message",
       "userResponseWaiting": false,
       "next": "main_menu",
-      "messageFile": "intro.txt"
+      "messageFile": "intro.txt",
+      "position": {
+        "x": 48,
+        "y": 100
+      }
     },
     "main_menu": {
       "id": "main_menu",
@@ -143,14 +147,22 @@
         "human": "human_support",
         "remove": "remove_candidate"
       },
-      "messageFile": "main_menu.txt"
+      "messageFile": "main_menu.txt",
+      "position": {
+        "x": 0,
+        "y": 320
+      }
     },
     "start_booking_flow": {
       "id": "start_booking_flow",
       "type": "message",
       "userResponseWaiting": false,
       "next": "ask_name",
-      "messageFile": "start_booking_flow.txt"
+      "messageFile": "start_booking_flow.txt",
+      "position": {
+        "x": -615,
+        "y": 640
+      }
     },
     "faq1": {
       "id": "faq1",
@@ -168,7 +180,11 @@
         "human": "human_support",
         "remove": "remove_candidate"
       },
-      "messageFile": "faq1.txt"
+      "messageFile": "faq1.txt",
+      "position": {
+        "x": -205,
+        "y": 640
+      }
     },
     "faq2": {
       "id": "faq2",
@@ -186,21 +202,33 @@
         "human": "human_support",
         "remove": "remove_candidate"
       },
-      "messageFile": "faq2.txt"
+      "messageFile": "faq2.txt",
+      "position": {
+        "x": 205,
+        "y": 960
+      }
     },
     "human_support": {
       "id": "human_support",
       "type": "message",
       "userResponseWaiting": false,
       "messageFile": "human_support.txt",
-      "freeze": true
+      "freeze": true,
+      "position": {
+        "x": 205,
+        "y": 640
+      }
     },
     "remove_candidate": {
       "id": "remove_candidate",
       "type": "message",
       "userResponseWaiting": false,
       "messageFile": "remove_candidate.txt",
-      "freeze": true
+      "freeze": true,
+      "position": {
+        "x": 615,
+        "y": 640
+      }
     },
     "ask_name": {
       "id": "ask_name",
@@ -211,7 +239,11 @@
       "validation": {
         "type": "Name"
       },
-      "next": "confirm_full_name"
+      "next": "confirm_full_name",
+      "position": {
+        "x": -205,
+        "y": 960
+      }
     },
     "confirm_full_name": {
       "id": "confirm_full_name",
@@ -226,7 +258,11 @@
         "confirmed": "ask_city",
         "retype_name": "ask_name_again"
       },
-      "noMatchMessage": "אנא השב '1' או 'כן' אם השם נכון, או '2' או 'לא' כדי לעדכן את שמך."
+      "noMatchMessage": "אנא השב '1' או 'כן' אם השם נכון, או '2' או 'לא' כדי לעדכן את שמך.",
+      "position": {
+        "x": 0,
+        "y": 1280
+      }
     },
     "ask_name_again": {
       "id": "ask_name_again",
@@ -237,7 +273,11 @@
       "validation": {
         "type": "Name"
       },
-      "next": "confirm_full_name"
+      "next": "confirm_full_name",
+      "position": {
+        "x": 205,
+        "y": 1600
+      }
     },
     "ask_city": {
       "id": "ask_city",
@@ -257,7 +297,11 @@
           "הוראת_חזרה": "לחזרה להתחלה שלח את המילה ״תפריט״"
         }
       },
-      "next": "ask_vehicle"
+      "next": "ask_vehicle",
+      "position": {
+        "x": -205,
+        "y": 1600
+      }
     },
     "ask_vehicle": {
       "id": "ask_vehicle",
@@ -274,6 +318,10 @@
         "car": "show_available_months",
         "bike": "show_available_months",
         "none": "not_suitable"
+      },
+      "position": {
+        "x": 0,
+        "y": 1920
       }
     },
     "show_available_months": {
@@ -289,7 +337,11 @@
       },
       "footerMessage": "\n(כדי לחזור לתפריט הראשי, רשום *חזור*)",
       "enabled": true,
-      "skipIfDisabled": "show_available_weeks"
+      "skipIfDisabled": "show_available_weeks",
+      "position": {
+        "x": -205,
+        "y": 2240
+      }
     },
     "show_available_weeks": {
       "id": "show_available_weeks",
@@ -304,7 +356,11 @@
       },
       "footerMessage": "כדי לחזור לראות חודש אחר, רשום *חזור*",
       "enabled": true,
-      "skipIfDisabled": "show_available_days"
+      "skipIfDisabled": "show_available_days",
+      "position": {
+        "x": 0,
+        "y": 2560
+      }
     },
     "show_available_days": {
       "id": "show_available_days",
@@ -320,7 +376,11 @@
       },
       "footerMessage": "בכדי לחזור לבחירת שבוע אחר, רשום *חזור*",
       "enabled": true,
-      "skipIfDisabled": "show_available_times"
+      "skipIfDisabled": "show_available_times",
+      "position": {
+        "x": 0,
+        "y": 2880
+      }
     },
     "show_available_times": {
       "id": "show_available_times",
@@ -333,21 +393,33 @@
       "options": {
         "חזור": "show_available_days"
       },
-      "footerMessage": "כדי לראות ימים"
+      "footerMessage": "כדי לראות ימים",
+      "position": {
+        "x": 0,
+        "y": 3200
+      }
     },
     "final_confirmation": {
       "id": "final_confirmation",
       "type": "message",
       "userResponseWaiting": false,
       "messageFile": "final_confirmation.txt",
-      "block": true
+      "block": true,
+      "position": {
+        "x": 0,
+        "y": 3520
+      }
     },
     "not_suitable": {
       "id": "not_suitable",
       "type": "message",
       "userResponseWaiting": false,
       "messageFile": "not_suitable.txt",
-      "freeze": true
+      "freeze": true,
+      "position": {
+        "x": 205,
+        "y": 2240
+      }
     }
   }
 }

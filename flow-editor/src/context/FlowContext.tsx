@@ -23,6 +23,8 @@ interface FlowContextType {
   canUndo: boolean;
   canRedo: boolean;
   createNewFlow: () => void;
+  updateStepId: (oldId: string, newId: string) => void;
+  setFlow: (newFlow: Flow) => void;
 }
 
 const FlowContext = createContext<FlowContextType | undefined>(undefined);
@@ -160,6 +162,66 @@ export const FlowProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     
     console.log('Flow after step deletion:', newFlow);
+    updateFlow(newFlow);
+  }, [flow, updateFlow]);
+
+  // Add a function to update a step's ID
+  const updateStepId = useCallback((oldId: string, newId: string) => {
+    console.log(`Updating step ID from ${oldId} to ${newId}`);
+    
+    if (!flow.steps[oldId]) {
+      console.error('Step not found:', oldId);
+      return;
+    }
+    
+    if (oldId === newId) {
+      console.log('Old ID and new ID are the same, no change needed');
+      return;
+    }
+    
+    if (flow.steps[newId]) {
+      console.error('A step with the new ID already exists:', newId);
+      return;
+    }
+    
+    // Create a copy of the flow with the new step ID
+    const newSteps = { ...flow.steps };
+    
+    // Copy the old step to the new ID
+    newSteps[newId] = {
+      ...newSteps[oldId],
+      id: newId,
+      label: newId, // Update label to match new ID
+    };
+    
+    // Remove the old step
+    delete newSteps[oldId];
+    
+    // Update any references to this step
+    Object.values(newSteps).forEach(step => {
+      // Update next references
+      if (step.next === oldId) {
+        step.next = newId;
+      }
+      
+      // Update branches references
+      if (step.branches) {
+        Object.entries(step.branches).forEach(([key, value]) => {
+          if (value === oldId) {
+            step.branches![key] = newId;
+          }
+        });
+      }
+    });
+    
+    // Update start step if needed
+    const newFlow = {
+      ...flow,
+      steps: newSteps,
+      start: flow.start === oldId ? newId : flow.start,
+    };
+    
+    console.log('Flow after step ID update:', newFlow);
     updateFlow(newFlow);
   }, [flow, updateFlow]);
 
@@ -314,6 +376,8 @@ export const FlowProvider: React.FC<{ children: React.ReactNode }> = ({ children
     canUndo: currentHistoryIndex > 0,
     canRedo: currentHistoryIndex < history.length - 1,
     createNewFlow,
+    updateStepId,
+    setFlow,
   };
 
   return <FlowContext.Provider value={value}>{children}</FlowContext.Provider>;

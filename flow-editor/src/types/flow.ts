@@ -142,4 +142,5 @@ export interface FlowContextType {
   canUndo: boolean;
   canRedo: boolean;
   createNewFlow: () => Flow;
+  setFlow: (flow: Flow) => void;
 } 
