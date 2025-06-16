@@ -14,7 +14,8 @@ import ReactFlow, {
   useReactFlow,
   EdgeMouseHandler,
   NodeTypes,
-  Position
+  Position,
+  EdgeTypes
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { 
@@ -39,6 +40,8 @@ import {
 } from '@mui/material';
 import { Settings as SettingsIcon } from '@mui/icons-material';
 import FolderIcon from '@mui/icons-material/Folder';
+import DeleteIcon from '@mui/icons-material/Delete';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { useFlow } from '../context/FlowContext';
 import { StepType, StepData, Step } from '../types/flow';
 import StepNode from './nodes/StepNode';
@@ -58,6 +61,65 @@ const nodeTypes: NodeTypes = {
   question: StepNode,
   options: StepNode,
   date: StepNode,
+};
+
+// מערך צבעים שונים לשימוש בקווים
+const EDGE_COLORS = [
+  '#FF5733', // אדום-כתום
+  '#33FF57', // ירוק בהיר
+  '#3357FF', // כחול
+  '#FF33F5', // ורוד
+  '#F5FF33', // צהוב
+  '#33FFF5', // טורקיז
+  '#FF8C33', // כתום
+  '#8C33FF', // סגול
+  '#33FFAA', // ירוק-טורקיז
+  '#FF3333', // אדום
+];
+
+// מיפוי צבעים לפי סוג צעד
+const STEP_TYPE_COLORS = {
+  message: '#3357FF', // כחול
+  question: '#FF5733', // אדום-כתום
+  options: '#33FF57', // ירוק בהיר
+  date: '#FF33F5', // ורוד
+};
+
+// פונקציה להגדרת צבע קו לפי סוג החיבור
+const getEdgeColor = (edge: Edge, nodes: Node[] | any[]) => {
+  // מצא את הצומת המקור
+  const sourceNode = nodes.find(node => node.id === edge.source);
+  if (!sourceNode) return '#999'; // צבע ברירת מחדל אפור
+
+  // קבל את סוג הצומת המקור
+  const sourceType = sourceNode.type || 'message';
+  
+  // אם זה צומת מסוג שאלה או הודעה, השתמש בצבע לפי סוג הצומת
+  if (sourceType === 'question' || sourceType === 'message' || sourceType === 'date') {
+    return STEP_TYPE_COLORS[sourceType as keyof typeof STEP_TYPE_COLORS] || '#999';
+  }
+  
+  // אם זה צומת אפשרויות ויש תווית לקו, השתמש בצבע לפי האינדקס של התווית
+  if (sourceType === 'options' && edge.label) {
+    // חישוב האינדקס לפי התווית
+    const labelHash = Array.from(edge.label.toString()).reduce(
+      (acc, char) => acc + char.charCodeAt(0), 0
+    );
+    return EDGE_COLORS[labelHash % EDGE_COLORS.length];
+  }
+
+  // אחרת השתמש בצבע לפי סוג הצומת
+  return STEP_TYPE_COLORS[sourceType as keyof typeof STEP_TYPE_COLORS] || '#999';
+};
+
+// פונקציה שמחזירה סגנון קו לפי סוג החיבור
+const getEdgeStyle = (edge: Edge, nodes: Node[] | any[]) => {
+  const color = getEdgeColor(edge, nodes);
+  
+  return {
+    stroke: color,
+    strokeWidth: 2,
+  };
 };
 
 const FlowEditor: React.FC = () => {
@@ -89,8 +151,21 @@ const FlowEditor: React.FC = () => {
   const repositionedNodeIds = useRef<Set<string>>(new Set());
 
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge(params, eds)),
-    [setEdges]
+    (params: Connection) => {
+      // יצירת זיהוי ייחודי לקו
+      const edgeId = `${params.source}-${params.target}`;
+      
+      // הוספת הקו עם סגנון מותאם
+      setEdges((eds) => 
+        addEdge({
+          ...params,
+          id: edgeId,
+          animated: true,
+          style: getEdgeStyle({ ...params, id: edgeId } as Edge, nodes)
+        }, eds)
+      );
+    },
+    [setEdges, nodes]
   );
 
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -256,10 +331,15 @@ const FlowEditor: React.FC = () => {
       const newFileName = `${newName.trim()}.json`;
       setSaveFileName(newFileName);
       
-      // אם זה תסריט חדש (שעדיין לא נשמר), עדכן גם את השם הנוכחי
-      if (!currentFlowName) {
-        setCurrentFlowName(newFileName);
-      }
+      // מעדכן את השם הנוכחי בכל מקרה, כדי להתאים לשם החברה
+      // אבל לא משנה את שם הקובץ בפועל עד שהמשתמש לוחץ על שמור
+      
+      // מציג הודעה למשתמש
+      setSnackbar({
+        open: true,
+        message: `שם הקובץ יעודכן ל-${newFileName} לאחר השמירה`,
+        severity: 'success'
+      });
     }
   };
 
@@ -291,36 +371,62 @@ const FlowEditor: React.FC = () => {
       setFlow(updatedFlow);
       
       // Small delay to ensure flow state is updated before export
-      setTimeout(async () => {
-        // Now export the flow with the updated positions
-        const flowData = JSON.stringify(updatedFlow, null, 2);
-        
-        // Save the flow data to the server
-        let fileName = saveFileName || 'new_flow.json';
-        if (!fileName.endsWith('.json')) {
-          fileName += '.json';
-        }
-        
-        const response = await fetch(`/api/flows/${fileName}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: flowData,
-        });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        setCurrentFlowName(fileName);
-        setShowSaveDialog(false);
-        setSnackbar({
-          open: true,
-          message: `התסריט ${fileName} נשמר בהצלחה`,
-          severity: 'success'
-        });
-      }, 100);
+      return new Promise<void>((resolve, reject) => {
+        setTimeout(async () => {
+          try {
+            // Now export the flow with the updated positions
+            const flowData = JSON.stringify(updatedFlow, null, 2);
+            
+            // בדיקה אם שם החברה שונה משם הקובץ הנוכחי והאם צריך לעדכן
+            const companyName = updatedFlow.metadata.company_name;
+            let fileName = 'new_flow.json';
+            
+            if (companyName && companyName.trim() !== '') {
+              // השתמש בשם החברה לשם הקובץ
+              fileName = `${companyName.trim()}.json`;
+              setSaveFileName(fileName);
+            } else if (saveFileName) {
+              // אם אין שם חברה, השתמש בשם שהוגדר בדיאלוג השמירה אם קיים
+              fileName = saveFileName;
+            }
+            
+            // וודא שיש סיומת .json
+            if (!fileName.endsWith('.json')) {
+              fileName += '.json';
+            }
+            
+            const response = await fetch(`/api/flows/${fileName}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: flowData,
+            });
+            
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            setCurrentFlowName(fileName);
+            setShowSaveDialog(false);
+            setSnackbar({
+              open: true,
+              message: `התסריט ${fileName} נשמר בהצלחה`,
+              severity: 'success'
+            });
+            
+            resolve();
+          } catch (error) {
+            console.error('Error saving flow:', error);
+            setSnackbar({
+              open: true,
+              message: `שגיאה בשמירת התסריט: ${error instanceof Error ? error.message : 'שגיאה לא ידועה'}`,
+              severity: 'error'
+            });
+            reject(error);
+          }
+        }, 100);
+      });
     } catch (error) {
       console.error('Error saving flow:', error);
       setSnackbar({
@@ -328,6 +434,7 @@ const FlowEditor: React.FC = () => {
         message: `שגיאה בשמירת התסריט: ${error instanceof Error ? error.message : 'שגיאה לא ידועה'}`,
         severity: 'error'
       });
+      return Promise.reject(error);
     }
   };
 
@@ -373,13 +480,26 @@ const FlowEditor: React.FC = () => {
       
       const json = JSON.stringify(updatedFlow, null, 2);
       
+      // בדיקה אם שם החברה יכול לשמש כשם הקובץ
+      const companyName = updatedFlow.metadata.company_name;
+      let suggestedFileName = 'flow.json';
+      
+      if (companyName && companyName.trim() !== '') {
+        // השתמש בשם החברה לשם הקובץ
+        suggestedFileName = `${companyName.trim()}.json`;
+        setSaveFileName(suggestedFileName);
+      } else if (saveFileName) {
+        // אם אין שם חברה, השתמש בשם שהוגדר בדיאלוג השמירה אם קיים
+        suggestedFileName = saveFileName;
+      }
+      
       // בדיקה אם File System Access API זמין בדפדפן
       // @ts-ignore - TS doesn't recognize showSaveFilePicker yet in all environments
       if (window && 'showSaveFilePicker' in window && typeof window.showSaveFilePicker === 'function') {
         try {
           // @ts-ignore - Using the File System Access API
           const fileHandle = await window.showSaveFilePicker({
-            suggestedName: saveFileName || 'flow.json',
+            suggestedName: suggestedFileName,
             types: [{
               description: 'JSON Files',
               accept: {
@@ -417,7 +537,7 @@ const FlowEditor: React.FC = () => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = saveFileName || 'flow.json';
+        a.download = suggestedFileName;
         a.click();
         URL.revokeObjectURL(url);
         
@@ -530,124 +650,121 @@ const FlowEditor: React.FC = () => {
 
   const handleLoadFlow = async (flowName: string) => {
     try {
-      console.log('Loading flow:', flowName);
-      
       const response = await fetch(`/api/flows/${flowName}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       // קריאת התסריט כטקסט
-      const flowData = await response.text();
+      const flowText = await response.text();
+      const flowData = JSON.parse(flowText);
       
-      // ניקוי הצמתים והקשתות הקיימים
+      // שמירת שם הקובץ הנוכחי
+      setCurrentFlowName(flowName);
+      
+      // בדיקה אם יש שם חברה במטא-דאטה ועדכון שם הקובץ בהתאם
+      const companyName = flowData.metadata?.company_name;
+      if (companyName && companyName.trim() !== '') {
+        const newFileName = `${companyName.trim()}.json`;
+        setSaveFileName(newFileName);
+      } else {
+        // אם אין שם חברה, השתמש בשם הקובץ הקיים
+        setSaveFileName(flowName);
+      }
+      
+      // ניקוי הצמתים והקשתות הקיימים לפני יצירת חדשים
       setNodes([]);
       setEdges([]);
       
       try {
-        // פענוח התסריט כ-JSON
-        const parsedFlow = JSON.parse(flowData);
-        console.log('Parsed flow:', parsedFlow);
-        
-        // עדכון ישיר של ה-Flow בקונטקסט
-        setFlow(parsedFlow);
-        
-        // יצירת צמתים וקשתות מהתסריט
-        const stepsArray: StepData[] = [];
-        Object.keys(parsedFlow.steps).forEach(stepId => {
-          const stepData = parsedFlow.steps[stepId];
-          // השתמש ב-stepId כ-id
-          const step: StepData = {
-            ...stepData,
-            id: stepId
-          };
-          stepsArray.push(step);
-        });
-        
-        console.log('Steps array:', stepsArray);
-        
-        // בנייה של הצמתים עם המיקומים המוגדרים בתסריט
-        const newNodes: Node[] = stepsArray.map(step => {
-          // וידוא שהמיקום תקף
-          const hasValidPosition = step.position && 
-                                typeof step.position.x === 'number' && 
-                                typeof step.position.y === 'number';
-          
-          // שימוש במיקום המוגדר או יצירת מיקום ברירת מחדל
-          const position: XYPosition = hasValidPosition ? 
-                              { x: step.position!.x, y: step.position!.y } : 
-                              { x: Math.random() * 300 + 100, y: Math.random() * 300 + 100 };
-          
-          console.log(`Step ${step.id} position:`, position);
+        // המרת הצעדים לצמתים ראשוניים בשביל הסידור האוטומטי
+        const initialNodes: Node[] = Object.entries(flowData.steps).map(([stepId, stepData]: [string, any]) => {
+          // בדיקה אם יש מיקום מוגדר בצעד
+          const position = stepData.position || { x: 0, y: 0 };
           
           return {
-            id: step.id,
-            type: step.type,
-            position: position,
+            id: stepId,
+            type: stepData.type,
+            position,
             data: {
-              ...step,
-              label: step.id,
-              isStartStep: parsedFlow.start === step.id
+              ...stepData,
+              label: stepData.label || stepId,
+              isStartStep: flowData.start === stepId
             }
           };
         });
         
-        // יצירת קשתות
-        const newEdges: Edge[] = [];
+        // יצירת קשתות ראשוניות
+        const initialEdges: Edge[] = [];
         
-        // קישורים בין צמתים
-        for (const step of stepsArray) {
-          // קישור רגיל בין צעד לצעד הבא
-          if (step.next) {
-            newEdges.push({
-              id: `${step.id}-${step.next}`,
-              source: step.id,
-              target: step.next,
-              animated: true,
+        // הוספת קשתות רגילות (next)
+        Object.entries(flowData.steps).forEach(([stepId, stepData]: [string, any]) => {
+          if (stepData.next) {
+            initialEdges.push({
+              id: `${stepId}-${stepData.next}`,
+              source: stepId,
+              target: stepData.next,
+              animated: true
             });
           }
           
-          // קישורים מסוג branches
-          if (step.branches) {
-            for (const [key, targetId] of Object.entries(step.branches)) {
+          // הוספת קשתות מסוג branches
+          if (stepData.branches) {
+            Object.entries(stepData.branches).forEach(([branchKey, targetId]: [string, any]) => {
               if (targetId) {
-                newEdges.push({
-                  id: `${step.id}-${targetId}-${key}`,
-                  source: step.id,
-                  target: targetId as string,
+                initialEdges.push({
+                  id: `${stepId}-${targetId}-${branchKey}`,
+                  source: stepId,
+                  target: targetId,
                   animated: true,
-                  label: key,
+                  label: branchKey
                 });
               }
-            }
+            });
           }
+        });
+        
+        // יצירת צמתים וקשתות מהתסריט עם מיקומים אוטומטיים
+        const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(initialNodes, initialEdges);
+        
+        // הוספת סגנון צבעים לקווים
+        const styledEdges = layoutedEdges.map(edge => ({
+          ...edge,
+          style: getEdgeStyle(edge, layoutedNodes)
+        }));
+        
+        // בדיקה אם הצמתים המקוריים כבר היה להם מיקומים תקפים
+        const nodesWithPositions = initialNodes.filter(node => 
+          node.position && (node.position.x !== 0 || node.position.y !== 0)
+        );
+        
+        // אם יש צמתים עם מיקומים, השתמש בהם; אחרת, השתמש בצמתים עם מיקום אוטומטי
+        if (nodesWithPositions.length > 0) {
+          setNodes(nodesWithPositions as any);
+        } else {
+          setNodes(layoutedNodes as any);
         }
         
-        // עדכון הצמתים והקשתות
-        setNodes(newNodes);
-        setEdges(newEdges);
-        
-        // סימון שיש צמתים
-        setNoSteps(newNodes.length === 0);
-        
-        // אין צורך בסידור אוטומטי
-        hasInitializedRef.current = true;
-        setIsInitialLoad(false);
-        
-      } catch (err) {
-        console.error('Error parsing flow data:', err);
-        // אם יש שגיאה בפענוח, נשתמש באימפורט הרגיל
-        importFlow(flowData);
+        setEdges(styledEdges);
+      } catch (error) {
+        console.error('Error creating nodes and edges:', error);
+        // במקרה של שגיאה, פשוט טען את התסריט ללא מיקום צמתים
       }
       
-      setCurrentFlowName(flowName);
-      setSaveFileName(flowName);
+      // יצירת אובייקט Flow חדש
+      importFlow(flowText);
+      
+      // סגירת הדיאלוג
       setShowFlowsDialog(false);
+      
       setSnackbar({
         open: true,
         message: `התסריט ${flowName} נטען בהצלחה`,
         severity: 'success'
       });
+      
+      // סימון שזה לא טעינה ראשונית
+      setIsInitialLoad(false);
     } catch (error) {
       console.error('Error loading flow:', error);
       setSnackbar({
@@ -690,50 +807,47 @@ const FlowEditor: React.FC = () => {
     if (nodes.length === 0) return;
     
     console.log('Applying auto-layout');
+    
+    // יצירת עותק של ה-flow הנוכחי
+    const updatedFlow = { ...flow };
+    
+    // סידור היררכי של הצמתים והקשתות
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(nodes, edges, 'TB');
     
     // Reset repositioned nodes tracking since we're doing a full layout
     repositionedNodeIds.current.clear();
     
-    // Update the ReactFlow nodes
-    setNodes(layoutedNodes as Node[]);
-    setEdges(layoutedEdges);
-    
-    // Update positions in the flow context
+    // עדכון המיקומים בflow
     layoutedNodes.forEach(node => {
-      const step = getStep(node.id);
-      if (step) {
-        console.log(`Updating step ${node.id} position to:`, node.position);
+      if (node.position && updatedFlow.steps[node.id]) {
+        // עדכון ישיר ב-flow
+        updatedFlow.steps[node.id] = {
+          ...updatedFlow.steps[node.id],
+          position: {
+            x: node.position.x,
+            y: node.position.y
+          }
+        };
         
-        // Make sure we have a valid position
-        if (node.position && (node.position.x !== 0 || node.position.y !== 0)) {
-          updateStep(node.id, {
-            ...step,
-            position: {
-              x: node.position.x,
-              y: node.position.y
-            }
-          }, false); // Don't trigger another layout
-          
-          // Mark this node as repositioned
-          repositionedNodeIds.current.add(node.id);
-        }
+        // סימון הצומת כממוקם
+        repositionedNodeIds.current.add(node.id);
       }
     });
     
-    // Force an immediate export to update the flow context
-    setTimeout(() => {
-      // Save the current flow state with updated positions
-      const updatedFlow = JSON.parse(exportFlow());
-      console.log('Updated flow with new positions:', updatedFlow);
-    }, 100);
+    // עדכון ה-flow עם המיקומים החדשים
+    setFlow(updatedFlow);
     
+    // עדכון הצמתים והקשתות בתצוגה
+    setNodes(layoutedNodes as Node[]);
+    setEdges(layoutedEdges);
+    
+    // דיווח על השינוי
     setSnackbar({
       open: true,
       message: 'סידור אוטומטי הושלם בהצלחה',
       severity: 'success'
     });
-  }, [nodes, edges, setNodes, setEdges, getStep, updateStep, exportFlow]);
+  }, [nodes, edges, setNodes, setEdges, flow, setFlow]);
 
   // A ref to track if we had at least one flow loaded
   const hasInitializedRef = useRef(false);
@@ -1102,6 +1216,127 @@ const FlowEditor: React.FC = () => {
     [saveEdgeLabel, cancelEdgeLabel]
   );
 
+  // הוספת פונקציית המחיקה
+  const handleDeleteFlow = async (flowName: string) => {
+    try {
+      // מוודאים שהמשתמש אכן רוצה למחוק את הקובץ
+      if (!window.confirm(`האם אתה בטוח שברצונך למחוק את התסריט "${flowName}"?`)) {
+        return;
+      }
+
+      const response = await fetch(`/api/flows/${flowName}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // רענון רשימת התסריטים
+      const updatedFlowsResponse = await fetch('/api/flows');
+      if (updatedFlowsResponse.ok) {
+        const updatedFlows = await updatedFlowsResponse.json();
+        setFlowsList(updatedFlows);
+      }
+
+      setSnackbar({
+        open: true,
+        message: `התסריט ${flowName} נמחק בהצלחה`,
+        severity: 'success'
+      });
+      
+      // אם התסריט הנוכחי נמחק, נאפס אותו
+      if (currentFlowName === flowName) {
+        createNewFlow();
+        setNodes([]);
+        setEdges([]);
+        setCurrentFlowName(null);
+      }
+    } catch (error) {
+      console.error(`Error deleting flow ${flowName}:`, error);
+      setSnackbar({
+        open: true,
+        message: `שגיאה במחיקת התסריט: ${error instanceof Error ? error.message : 'שגיאה לא ידועה'}`,
+        severity: 'error'
+      });
+    }
+  };
+
+  // הוספת פונקציית שכפול תסריט
+  const handleDuplicateFlow = async (flowName: string) => {
+    try {
+      // קריאת התסריט המקורי
+      const response = await fetch(`/api/flows/${flowName}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const flowData = await response.text();
+      
+      // יצירת שם חדש לתסריט המשוכפל
+      const nameParts = flowName.split('.');
+      const baseName = nameParts[0];
+      const extension = nameParts.length > 1 ? '.' + nameParts.pop() : '.json';
+      
+      // יצירת שם חדש בפורמט: copy_of_name.json או copy_2_of_name.json וכו'
+      let newFlowName = `copy_of_${baseName}${extension}`;
+      
+      // בדיקה אם כבר קיים תסריט בשם זה
+      let copyNumber = 1;
+      let flowExists = flowsList.includes(newFlowName);
+      
+      while (flowExists) {
+        copyNumber++;
+        newFlowName = `copy_${copyNumber}_of_${baseName}${extension}`;
+        flowExists = flowsList.includes(newFlowName);
+      }
+      
+      // שמירת התסריט החדש
+      const saveResponse = await fetch(`/api/flows/${newFlowName}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: flowData,
+      });
+      
+      if (!saveResponse.ok) {
+        throw new Error(`HTTP error! status: ${saveResponse.status}`);
+      }
+      
+      // רענון רשימת התסריטים
+      const updatedFlowsResponse = await fetch('/api/flows');
+      if (updatedFlowsResponse.ok) {
+        const updatedFlows = await updatedFlowsResponse.json();
+        setFlowsList(updatedFlows);
+      }
+      
+      setSnackbar({
+        open: true,
+        message: `התסריט ${flowName} שוכפל בהצלחה ל-${newFlowName}`,
+        severity: 'success'
+      });
+      
+    } catch (error) {
+      console.error(`Error duplicating flow ${flowName}:`, error);
+      setSnackbar({
+        open: true,
+        message: `שגיאה בשכפול התסריט: ${error instanceof Error ? error.message : 'שגיאה לא ידועה'}`,
+        severity: 'error'
+      });
+    }
+  };
+
+  // עדכון הסגנון של כל הקווים בכל פעם שהצמתים או הקווים משתנים
+  useEffect(() => {
+    setEdges((eds) =>
+      eds.map((edge) => ({
+        ...edge,
+        style: getEdgeStyle(edge, nodes),
+      }))
+    );
+  }, [nodes, setEdges]);
+
   return (
     <Box sx={{ display: 'flex', height: '100vh' }}>
       <EditorSidebar />
@@ -1291,6 +1526,7 @@ const FlowEditor: React.FC = () => {
           <MetadataEditor 
             onClose={() => setShowMetadata(false)} 
             onCompanyNameChange={handleCompanyNameChange}
+            onSave={handleSaveFlow}
           />
         </Drawer>
         
@@ -1305,12 +1541,41 @@ const FlowEditor: React.FC = () => {
             <List>
               {flowsList.length > 0 ? (
                 flowsList.map((flowName) => (
-                  <ListItemButton 
+                  <ListItem 
                     key={flowName}
-                    onClick={() => handleLoadFlow(flowName)}
+                    secondaryAction={
+                      <Box sx={{ display: 'flex' }}>
+                        <IconButton 
+                          edge="end" 
+                          color="primary" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDuplicateFlow(flowName);
+                          }}
+                          sx={{ mr: 1 }}
+                          title="שכפל תסריט"
+                        >
+                          <ContentCopyIcon />
+                        </IconButton>
+                        <IconButton 
+                          edge="end" 
+                          color="error" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteFlow(flowName);
+                          }}
+                          title="מחק תסריט"
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Box>
+                    }
+                    disablePadding
                   >
-                    <ListItemText primary={flowName} />
-                  </ListItemButton>
+                    <ListItemButton onClick={() => handleLoadFlow(flowName)}>
+                      <ListItemText primary={flowName} />
+                    </ListItemButton>
+                  </ListItem>
                 ))
               ) : (
                 <ListItem>

@@ -63,6 +63,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   }
   
+  // DELETE - מחיקת תסריט
+  else if (req.method === 'DELETE') {
+    try {
+      // בדיקה אם הקובץ קיים
+      if (!fs.existsSync(flowPath)) {
+        return res.status(404).json({ message: 'Flow not found' });
+      }
+      
+      // מחיקת הקובץ
+      fs.unlinkSync(flowPath);
+      
+      return res.status(200).json({ message: 'Flow deleted successfully' });
+    } catch (error) {
+      console.error(`Error deleting flow ${name}:`, error);
+      return res.status(500).json({ message: 'Error deleting flow file' });
+    }
+  }
+  
   // שיטות אחרות אינן נתמכות
   else {
     return res.status(405).json({ message: 'Method not allowed' });

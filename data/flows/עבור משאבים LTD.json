@@ -1,8 +1,8 @@
 {
   "metadata": {
-    "company_name": "משאבים LTD",
+    "company_name": "עבור משאבים LTD",
     "version": "1.0",
-    "last_updated": "2025-06-14T21:35:55.433Z"
+    "last_updated": "2024-03-21"
   },
   "configuration": {
     "rules": {
@@ -15,7 +15,7 @@
       "activation": {
         "enabled": true,
         "keywords": [
-          "פגישה"
+          "תספורת"
         ],
         "resetAfterHours": 24
       }
@@ -127,7 +127,7 @@
       "next": "main_menu",
       "messageFile": "intro.txt",
       "position": {
-        "x": 100,
+        "x": 48,
         "y": 100
       }
     },
@@ -136,32 +136,33 @@
       "type": "options",
       "userResponseWaiting": true,
       "options": {
-        "5": "1",
         "1 || פגישה || לקבוע פגישה || קביעת פגישה": "book",
         "2 || שאלות || מידע || פרטים": "questions",
         "3 || נציג || נציג אנושי || לדבר עם נציג": "human",
         "4 || הסרה || הסר || ביטול": "remove"
       },
       "branches": {
-        "5": "1",
-        "1 || פגישה || לקבוע פגישה || קביעת פגישה": "book",
-        "2 || שאלות || מידע || פרטים": "questions",
-        "3 || נציג || נציג אנושי || לדבר עם נציג": "human",
-        "4 || הסרה || הסר || ביטול": "remove"
+        "book": "start_booking_flow",
+        "questions": "faq1",
+        "human": "human_support",
+        "remove": "remove_candidate"
       },
       "messageFile": "main_menu.txt",
       "position": {
         "x": 0,
         "y": 320
-      },
-      "label": "main_menu"
+      }
     },
     "start_booking_flow": {
       "id": "start_booking_flow",
       "type": "message",
       "userResponseWaiting": false,
       "next": "ask_name",
-      "messageFile": "start_booking_flow.txt"
+      "messageFile": "start_booking_flow.txt",
+      "position": {
+        "x": -615,
+        "y": 640
+      }
     },
     "faq1": {
       "id": "faq1",
@@ -174,12 +175,16 @@
         "9 || הסרה || ביטול": "remove"
       },
       "branches": {
-        "1 || פגישה || לקבוע פגישה": "book",
-        "2 || המשך למידע נוסף": "next_faq",
-        "3 || נציג || נציג אנושי": "human",
-        "9 || הסרה || ביטול": "remove"
+        "book": "start_booking_flow",
+        "next_faq": "faq2",
+        "human": "human_support",
+        "remove": "remove_candidate"
       },
-      "messageFile": "faq1.txt"
+      "messageFile": "faq1.txt",
+      "position": {
+        "x": -205,
+        "y": 640
+      }
     },
     "faq2": {
       "id": "faq2",
@@ -192,26 +197,38 @@
         "9 || הסרה || ביטול": "remove"
       },
       "branches": {
-        "2": "menu",
-        "1 || פגישה || לקבוע פגישה": "book",
-        "3 || נציג || נציג אנושי": "human",
-        "9 || הסרה || ביטול": "remove"
+        "book": "start_booking_flow",
+        "menu": "main_menu",
+        "human": "human_support",
+        "remove": "remove_candidate"
       },
-      "messageFile": "faq2.txt"
+      "messageFile": "faq2.txt",
+      "position": {
+        "x": 205,
+        "y": 960
+      }
     },
     "human_support": {
       "id": "human_support",
       "type": "message",
       "userResponseWaiting": false,
       "messageFile": "human_support.txt",
-      "freeze": true
+      "freeze": true,
+      "position": {
+        "x": 205,
+        "y": 640
+      }
     },
     "remove_candidate": {
       "id": "remove_candidate",
       "type": "message",
       "userResponseWaiting": false,
       "messageFile": "remove_candidate.txt",
-      "freeze": true
+      "freeze": true,
+      "position": {
+        "x": 615,
+        "y": 640
+      }
     },
     "ask_name": {
       "id": "ask_name",
@@ -222,7 +239,11 @@
       "validation": {
         "type": "Name"
       },
-      "next": "confirm_full_name"
+      "next": "confirm_full_name",
+      "position": {
+        "x": -205,
+        "y": 960
+      }
     },
     "confirm_full_name": {
       "id": "confirm_full_name",
@@ -234,10 +255,14 @@
         "2 || לא || לא נכון || תיקון || שגוי": "retype_name"
       },
       "branches": {
-        "1 || כן || נכון || בסדר || אישור": "confirmed",
-        "2 || לא || לא נכון || תיקון || שגוי": "retype_name"
+        "confirmed": "ask_city",
+        "retype_name": "ask_name_again"
       },
-      "noMatchMessage": "אנא השב '1' או 'כן' אם השם נכון, או '2' או 'לא' כדי לעדכן את שמך."
+      "noMatchMessage": "אנא השב '1' או 'כן' אם השם נכון, או '2' או 'לא' כדי לעדכן את שמך.",
+      "position": {
+        "x": 0,
+        "y": 1280
+      }
     },
     "ask_name_again": {
       "id": "ask_name_again",
@@ -248,7 +273,11 @@
       "validation": {
         "type": "Name"
       },
-      "next": "confirm_full_name"
+      "next": "confirm_full_name",
+      "position": {
+        "x": 205,
+        "y": 1600
+      }
     },
     "ask_city": {
       "id": "ask_city",
@@ -268,7 +297,11 @@
           "הוראת_חזרה": "לחזרה להתחלה שלח את המילה ״תפריט״"
         }
       },
-      "next": "ask_vehicle"
+      "next": "ask_vehicle",
+      "position": {
+        "x": -205,
+        "y": 1600
+      }
     },
     "ask_vehicle": {
       "id": "ask_vehicle",
@@ -282,9 +315,13 @@
         "3 || לא נייד || ללא || אין || none": "none"
       },
       "branches": {
-        "1 || רכב || מכונית || אוטו || car": "car",
-        "2 || אופנוע || אופניים || בייק || bike": "bike",
-        "3 || לא נייד || ללא || אין || none": "none"
+        "car": "show_available_months",
+        "bike": "show_available_months",
+        "none": "not_suitable"
+      },
+      "position": {
+        "x": 0,
+        "y": 1920
       }
     },
     "show_available_months": {
@@ -300,7 +337,11 @@
       },
       "footerMessage": "\n(כדי לחזור לתפריט הראשי, רשום *חזור*)",
       "enabled": true,
-      "skipIfDisabled": "show_available_weeks"
+      "skipIfDisabled": "show_available_weeks",
+      "position": {
+        "x": -205,
+        "y": 2240
+      }
     },
     "show_available_weeks": {
       "id": "show_available_weeks",
@@ -315,7 +356,11 @@
       },
       "footerMessage": "כדי לחזור לראות חודש אחר, רשום *חזור*",
       "enabled": true,
-      "skipIfDisabled": "show_available_days"
+      "skipIfDisabled": "show_available_days",
+      "position": {
+        "x": 0,
+        "y": 2560
+      }
     },
     "show_available_days": {
       "id": "show_available_days",
@@ -331,7 +376,11 @@
       },
       "footerMessage": "בכדי לחזור לבחירת שבוע אחר, רשום *חזור*",
       "enabled": true,
-      "skipIfDisabled": "show_available_times"
+      "skipIfDisabled": "show_available_times",
+      "position": {
+        "x": 0,
+        "y": 2880
+      }
     },
     "show_available_times": {
       "id": "show_available_times",
@@ -344,14 +393,22 @@
       "options": {
         "חזור": "show_available_days"
       },
-      "footerMessage": "כדי לראות ימים"
+      "footerMessage": "כדי לראות ימים",
+      "position": {
+        "x": 0,
+        "y": 3200
+      }
     },
     "final_confirmation": {
       "id": "final_confirmation",
       "type": "message",
       "userResponseWaiting": false,
       "messageFile": "final_confirmation.txt",
-      "block": true
+      "block": true,
+      "position": {
+        "x": 0,
+        "y": 3520
+      }
     },
     "not_suitable": {
       "id": "not_suitable",

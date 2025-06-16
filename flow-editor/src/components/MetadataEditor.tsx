@@ -26,9 +26,10 @@ import { useFlow } from '../context/FlowContext';
 interface MetadataEditorProps {
   onClose: () => void;
   onCompanyNameChange?: (newName: string) => void;
+  onSave?: () => void;
 }
 
-const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameChange }) => {
+const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameChange, onSave }) => {
   const { flow, updateMetadata, updateConfiguration, updateIntegrations } = useFlow();
   const [expandedSection, setExpandedSection] = useState<string | false>('metadata');
 
@@ -139,6 +140,7 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameC
               value={flow.metadata.company_name || ''}
               onChange={(e) => handleMetadataChange('company_name', e.target.value)}
               sx={{ mb: 2 }}
+              helperText="שם החברה ישמש גם כשם הקובץ"
             />
             <TextField
               fullWidth
@@ -581,6 +583,11 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameC
       </Accordion>
 
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
+        {onSave && (
+          <Button variant="contained" color="primary" onClick={onSave}>
+            שמור שינויים
+          </Button>
+        )}
         <Button variant="outlined" onClick={onClose}>
           סגור
         </Button>
