@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect, useRef } from 'react';
+import React, { useCallback, useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import ReactFlow, {
   Node,
   Edge,
@@ -122,7 +122,12 @@ const getEdgeStyle = (edge: Edge, nodes: Node[] | any[]) => {
   };
 };
 
-const FlowEditor: React.FC = () => {
+// הוספת טייפינג לאקספוז של הפונקציות דרך ה-ref
+export interface FlowEditorHandle {
+  handleSaveFlow: () => Promise<boolean>;
+}
+
+const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
   const { flow, addStep, updateStep, deleteStep, getAllSteps, getStep, importFlow, exportFlow, undo, redo, canUndo, canRedo, createNewFlow, setFlow } = useFlow();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -1337,6 +1342,19 @@ const FlowEditor: React.FC = () => {
     );
   }, [nodes, setEdges]);
 
+  // חשיפת הפונקציות לשימוש דרך ה-ref
+  useImperativeHandle(ref, () => ({
+    handleSaveFlow: async () => {
+      try {
+        await handleSaveFlow();
+        return true;
+      } catch (error) {
+        console.error("Error in exposed handleSaveFlow:", error);
+        return false;
+      }
+    }
+  }));
+
   return (
     <Box sx={{ display: 'flex', height: '100vh' }}>
       <EditorSidebar />
@@ -1650,6 +1668,6 @@ const FlowEditor: React.FC = () => {
       </Box>
     </Box>
   );
-};
+});
 
 export default FlowEditor; 

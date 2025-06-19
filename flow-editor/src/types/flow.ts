@@ -55,15 +55,51 @@ export type StepType = 'message' | 'question' | 'options' | 'date';
 
 export interface ValidationRule {
   type: string;
-  message?: string;
   pattern?: string;
   min?: number;
   max?: number;
+  errorMessages?: {
+    [key: string]: string;
+  };
+  minDate?: string;
+  maxDate?: string;
+  futureOnly?: boolean;
+  pastOnly?: boolean;
+  minAge?: number;
+  maxAge?: number;
 }
 
 export interface Position {
   x: number;
   y: number;
+}
+
+export interface FreezeConfig {
+  enabled: boolean;
+  duration: number;
+  messaging: {
+    send_explanation: boolean;
+    message: string;
+  };
+}
+
+export interface BlockConfig {
+  enabled: boolean;
+  messaging: {
+    send_explanation: boolean;
+    message: string;
+  };
+  allow_unblock: boolean;
+  unblock_keyword: string;
+}
+
+export interface IntegrationConfig {
+  enabled: boolean;
+  googleCalendar?: boolean;
+  googleSheets?: boolean;
+  notifications?: boolean;
+  reminders?: boolean;
+  iPlan?: boolean;
 }
 
 export interface StepData {
@@ -79,8 +115,9 @@ export interface StepData {
   validation?: ValidationRule;
   enabled?: boolean;
   userResponseWaiting?: boolean;
-  block?: boolean;
-  freeze?: boolean;
+  block?: boolean | BlockConfig;
+  freeze?: boolean | FreezeConfig;
+  integrations?: IntegrationConfig;
   skipIfDisabled?: string;
   position?: Position;
 }

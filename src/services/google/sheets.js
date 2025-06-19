@@ -586,6 +586,53 @@ class GoogleSheetsService {
         }
     }
 
+    async deleteRow(rowId) {
+        if (!this.initialized || !this.config.enabled) {
+            return false;
+        }
+
+        try {
+            // rowId should be the actual row number (1-based)
+            const rowIndex = parseInt(rowId);
+            if (isNaN(rowIndex) || rowIndex <= 1) { // Don't delete header row
+                console.error('Invalid row ID for deletion:', rowId);
+                return false;
+            }
+
+            // First get the sheet ID
+            const sheetsResponse = await this.sheets.spreadsheets.get({
+                spreadsheetId: this.config.sheetId
+            });
+            
+            const sheetId = sheetsResponse.data.sheets[0].properties.sheetId;
+
+            // Delete the specific row (convert to 0-based index for API)
+            const request = {
+                spreadsheetId: this.config.sheetId,
+                resource: {
+                    requests: [{
+                        deleteDimension: {
+                            range: {
+                                sheetId: sheetId,
+                                dimension: 'ROWS',
+                                startIndex: rowIndex - 1, // Convert to 0-based
+                                endIndex: rowIndex
+                            }
+                        }
+                    }]
+                }
+            };
+
+            await this.sheets.spreadsheets.batchUpdate(request);
+            console.log(`GoogleSheetsService: Row ${rowId} deleted successfully`);
+            return true;
+
+        } catch (error) {
+            console.error('Error deleting row:', error);
+            return false;
+        }
+    }
+
     async _findExistingPhoneRow(phone) {
         if (!this.initialized || !this.config.enabled) {
             return -1;

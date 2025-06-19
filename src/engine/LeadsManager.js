@@ -261,9 +261,13 @@ class LeadsManager {
         });
     }
 
-    async blockLead(phoneNumber) {
+    async blockLead(phoneNumber, reason = 'manual_block', allowUnblock = false, unblockKeyword = null) {
         return this.createOrUpdateLead(phoneNumber, {
-            blocked: true
+            blocked: true,
+            blocked_reason: reason,
+            blocked_at: new Date().toISOString(),
+            allow_unblock: allowUnblock,
+            unblock_keyword: allowUnblock ? unblockKeyword : null
         });
     }
 

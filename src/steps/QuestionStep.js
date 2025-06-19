@@ -1,4 +1,4 @@
-const ValidatorRegistry = require('../engine/ValidatorRegistry');
+const validators = require('../engine/validators/index');
 
 class QuestionStep {
     static async process(step, session, input, flowEngine) {
@@ -9,29 +9,35 @@ class QuestionStep {
             };
 
             if (input) {
-                // השתמש במערכת הולידטורים החדשה
-                const validatorType = step.validation?.type;
-                if (!validatorType) {
-                    console.error('No validation type specified in step:', step.id);
-                    return { messages: ['שגיאה בהגדרת הולידציה'], waitForUser: true };
+                // Check if this is a confirmation of a suggestion
+                if (session.pendingSuggestion && step.options && step.branches) {
+                    // Check if input matches any option pattern for suggestion confirmation
+                    for (const optionPattern in step.options) {
+                        const patterns = optionPattern.split('||').map(p => p.trim());
+                        
+                        // Check if input matches any of the patterns
+                        if (patterns.some(pattern => 
+                            new RegExp(`^${escapeRegExp(pattern)}$`, 'i').test(input))) {
+                            
+                            const branch = step.options[optionPattern];
+                            if (step.branches[branch]) {
+                                // Set the confirmed suggestion as the value
+                                session.data[step.key] = session.pendingSuggestion;
+                                delete session.pendingSuggestion;
+                                
+                                // Move to the branch step
+                                session.currentStep = step.branches[branch];
+                                return flowEngine.processStepInternal(session.userId);
+                            }
+                        }
+                    }
                 }
+                
+                // Validate input using validators
+                const validationResult = validators.validate(input, step);
 
-                // הכנת אפשרויות ולידציה
-                const validationOptions = {
-                    ...step.validation.options,
-                    pendingSuggestion: session.pendingSuggestion
-                };
-
-                // הוספת הודעות מותאמות אישית לולידציה מתקדמת של ערים
-                if ((validatorType === 'City' || validatorType === 'Location') && step.cityValidationConfig) {
-                    validationOptions.messages = step.cityValidationConfig.messages;
-                }
-
-                // ביצוע הולידציה
-                const validationResult = ValidatorRegistry.validate(validatorType, input, validationOptions);
-
-                // טיפול בולידציה מתקדמת של ערים (תאימות לאחור)
-                if ((validatorType === 'City' || validatorType === 'Location') && 
+                // Legacy compatibility for Location validator which uses status field
+                if ((step.validation?.type === 'City' || step.validation?.type === 'Location') && 
                     validationResult.status && step.cityValidationConfig) {
                     
                     const cityValidationConfig = step.cityValidationConfig || {};
@@ -67,7 +73,7 @@ class QuestionStep {
                                 responseMessageText = configMessages.SUGGESTION_SERVICEABLE
                                     .replace(/{suggestedCity}/g, validationResult.suggestedCity || '');
                             } else {
-                                responseMessageText = `האם התכוונת ל*${validationResult.suggestedCity || ''}*?\nהשב כן במידה ולא תרשום שוב את שם העיר הרלוונטית.`;
+                                responseMessageText = `האם התכוונת ל*${validationResult.suggestedCity || ''}*?\nהשב כן לאישור או הקלד את שם העיר הנכון.`;
                             }
                             session.pendingSuggestion = validationResult.suggestedCity;
                             break;
@@ -102,12 +108,12 @@ class QuestionStep {
                     return { messages: [responseMessageText || 'אנא נסה עיר אחרת.'], waitForUser: true };
                 }
 
-                // ולידציה סטנדרטית חדשה
+                // Standard validation handling for all validation types
                 if (validationResult.isValid) {
                     delete session.pendingSuggestion;
                     session.data[step.key] = validationResult.value;
                     
-                    // העברת נתונים נוספים מהולידציה
+                    // Pass any additional data from validation result
                     if (validationResult.motoEnabled !== undefined) {
                         session.motoEnabled = validationResult.motoEnabled;
                     }
@@ -115,7 +121,7 @@ class QuestionStep {
                     session.currentStep = step.next;
                     return flowEngine.processStepInternal(session.userId);
                 } else {
-                    // טיפול בשגיאות ולידציה
+                    // Handle validation errors
                     if (validationResult.pendingSuggestion) {
                         session.pendingSuggestion = validationResult.pendingSuggestion;
                     } else {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Box, Button, Dialog, Typography, AppBar, Toolbar, Container, IconButton } from '@mui/material';
 import FlowEditor from '../../components/FlowEditor';
 import SaveIcon from '@mui/icons-material/Save';
@@ -17,6 +17,7 @@ const EditorPage: React.FC = () => {
   const { exportFlow, flow } = useFlow();
   const [currentFlowName, setCurrentFlowName] = useState<string>('');
   const [saveFileName, setSaveFileName] = useState<string>('');
+  const flowEditorRef = useRef<any>(null);
 
   // פונקציה לעדכון שם התסריט כאשר שם החברה משתנה
   const handleCompanyNameChange = useCallback((newName: string) => {
@@ -44,6 +45,37 @@ const EditorPage: React.FC = () => {
       }
     }
   }, [flow.metadata.company_name, currentFlowName]);
+  
+  // פונקציית שמירה שמשתמשת ב-FlowEditor לשמירה בפועל
+  const handleSaveFlow = async () => {
+    if (flowEditorRef.current && flowEditorRef.current.handleSaveFlow) {
+      return flowEditorRef.current.handleSaveFlow();
+    } else {
+      // שמירה ישירה דרך ה-API אם אין גישה לפונקציית FlowEditor
+      try {
+        const flowData = JSON.stringify(flow, null, 2);
+        const fileName = saveFileName || 'new_flow.json';
+        
+        const response = await fetch(`/api/flows/${fileName}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: flowData,
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        setCurrentFlowName(fileName);
+        return true;
+      } catch (error) {
+        console.error('Error saving flow:', error);
+        return false;
+      }
+    }
+  };
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
@@ -71,7 +103,7 @@ const EditorPage: React.FC = () => {
       </AppBar>
       
       <Box sx={{ flexGrow: 1, position: 'relative' }}>
-        <FlowEditor />
+        <FlowEditor ref={flowEditorRef} />
       </Box>
       
       {/* דיאלוג תצוגת JSON */}
@@ -107,23 +139,59 @@ const EditorPage: React.FC = () => {
           onSave={() => {
             // שמירת השינויים במטא-דאטה עם השם החדש
             const newFileName = saveFileName || 'new_flow.json';
+            const oldFileName = currentFlowName;
             
-            // שמירת התסריט עם השם החדש - מחיקת הקובץ הישן אם השם השתנה
-            if (currentFlowName && currentFlowName !== newFileName && flow.metadata.company_name) {
-              // קודם שומרים את הקובץ החדש
-              handleSaveFlow().then(() => {
-                // אם השמירה הצליחה ושם הקובץ השתנה, מוחקים את הקובץ הישן
-                if (currentFlowName !== newFileName) {
-                  fetch(`/api/flows/${currentFlowName}`, {
-                    method: 'DELETE'
-                  }).catch(error => {
-                    console.error('Error deleting old file:', error);
+            // בדיקה האם יש צורך בשינוי שם הקובץ
+            if (oldFileName && oldFileName !== newFileName && oldFileName.trim() !== '') {
+              console.log(`שינוי שם הקובץ מ-${oldFileName} ל-${newFileName}`);
+              
+              // קודם שומרים את השינויים בתוכן הקובץ
+              handleSaveFlow().then((success) => {
+                if (success) {
+                  // לאחר שמירת התוכן, שינוי שם הקובץ באמצעות ה-API
+                  fetch(`/api/flows/${oldFileName}`, {
+                    method: 'PUT',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      oldName: oldFileName,
+                      newName: newFileName
+                    })
+                  })
+                  .then(response => {
+                    if (response.ok) {
+                      console.log(`הקובץ שונה בהצלחה מ-${oldFileName} ל-${newFileName}`);
+                      setCurrentFlowName(newFileName);
+                    } else {
+                      console.error('שגיאה בשינוי שם הקובץ:', response.statusText);
+                      // אם שינוי השם נכשל, נשמור כקובץ חדש
+                      fetch(`/api/flows/${newFileName}`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(flow)
+                      })
+                      .then(() => {
+                        console.log(`נשמר כקובץ חדש: ${newFileName}`);
+                        setCurrentFlowName(newFileName);
+                      })
+                      .catch(error => console.error('שגיאה בשמירת הקובץ החדש:', error));
+                    }
+                  })
+                  .catch(error => {
+                    console.error('שגיאה בשינוי שם הקובץ:', error);
                   });
                 }
               });
             } else {
-              // אם אין שינוי בשם או אין שם קובץ נוכחי, פשוט שומרים
-              handleSaveFlow();
+              // אם אין צורך בשינוי שם, פשוט שומרים את התוכן
+              handleSaveFlow().then((success) => {
+                if (success) {
+                  setCurrentFlowName(newFileName);
+                }
+              });
             }
             
             setShowSettings(false);

@@ -301,57 +301,88 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameC
         </AccordionSummary>
         <AccordionDetails>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {/* Freeze Settings */}
-            <Box sx={{ borderLeft: '2px solid rgba(0, 0, 0, 0.1)', pl: 2 }}>
+            {/* הערה על הסרת הגדרות ההקפאה הגלובליות */}
+            <Box sx={{ borderLeft: '2px solid rgba(0, 0, 0, 0.1)', pl: 2, mb: 3 }}>
               <Typography variant="subtitle1" sx={{ mb: 1 }}>הגדרות הקפאה</Typography>
+              <Typography variant="body2" color="text.secondary">
+                הגדרות ההקפאה הועברו לרמת הצעד הבודד. 
+                ניתן להגדיר הקפאה עבור כל צעד בנפרד על-ידי עריכת הצעד והפעלת אפשרות ההקפאה.
+              </Typography>
+            </Box>
+
+            {/* Block Settings */}
+            <Box sx={{ borderLeft: '2px solid rgba(0, 0, 0, 0.1)', pl: 2, mb: 3 }}>
+              <Typography variant="subtitle1" sx={{ mb: 1 }}>הגדרות חסימה כלליות</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                הגדרות אלו משפיעות על התנהגות החסימה בכל התסריט.
+              </Typography>
+              
+              <TextField
+                fullWidth
+                type="number"
+                label="משך חסימה (דקות, 0 = לצמיתות)"
+                value={flow.configuration.client_management.block_duration || 0}
+                onChange={(e) => handleConfigurationChange('client_management', null, 'block_duration', parseInt(e.target.value) || 0)}
+                size="small"
+                sx={{ mb: 2 }}
+              />
+              
               <FormControlLabel
                 control={
                   <Switch
-                    checked={flow.configuration.client_management.freeze?.enabled || false}
-                    onChange={(e) => handleConfigurationChange('client_management', 'freeze', 'enabled', e.target.checked)}
+                    checked={flow.configuration.client_management.blockScheduledClients?.enabled || false}
+                    onChange={(e) => handleConfigurationChange('client_management', 'blockScheduledClients', 'enabled', e.target.checked)}
                   />
                 }
-                label="אפשר הקפאה"
+                label="חסום לקוחות עם פגישות"
+                sx={{ mb: 1 }}
               />
               
-              {flow.configuration.client_management.freeze?.enabled && (
-                <Box sx={{ ml: 2, mt: 1 }}>
-                  <TextField
-                    fullWidth
-                    type="number"
-                    label="משך הקפאה (דקות)"
-                    value={flow.configuration.client_management.freeze?.duration || 60}
-                    onChange={(e) => handleConfigurationChange('client_management', 'freeze', 'duration', parseInt(e.target.value))}
-                    size="small"
-                    sx={{ mb: 2 }}
+              {flow.configuration.client_management.blockScheduledClients?.enabled && (
+                <Box sx={{ ml: 3, mb: 2 }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={flow.configuration.client_management.blockScheduledClients?.blockPastAndPresent || false}
+                        onChange={(e) => handleConfigurationChange('client_management', 'blockScheduledClients', 'blockPastAndPresent', e.target.checked)}
+                      />
+                    }
+                    label="חסום פגישות עבר והווה"
+                    sx={{ mb: 1 }}
                   />
                   
                   <FormControlLabel
                     control={
                       <Switch
-                        checked={flow.configuration.client_management.freeze?.messaging?.send_explanation || false}
-                        onChange={(e) => handleConfigurationChange('client_management', 'freeze', 'messaging', { 
-                          ...flow.configuration.client_management.freeze?.messaging,
-                          send_explanation: e.target.checked 
-                        })}
+                        checked={flow.configuration.client_management.blockScheduledClients?.blockFutureAndPresent || false}
+                        onChange={(e) => handleConfigurationChange('client_management', 'blockScheduledClients', 'blockFutureAndPresent', e.target.checked)}
                       />
                     }
-                    label="שלח הסבר"
+                    label="חסום פגישות עתיד והווה"
+                    sx={{ mb: 1 }}
                   />
                   
-                  {flow.configuration.client_management.freeze?.messaging?.send_explanation && (
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={2}
-                      label="הודעת הקפאה"
-                      value={flow.configuration.client_management.freeze?.messaging?.message || ''}
-                      onChange={(e) => handleConfigurationChange('client_management', 'freeze', 'messaging', {
-                        ...flow.configuration.client_management.freeze?.messaging,
-                        message: e.target.value
-                      })}
-                      size="small"
-                      sx={{ mt: 1 }}
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={flow.configuration.client_management.blockScheduledClients?.allowRescheduling || false}
+                        onChange={(e) => handleConfigurationChange('client_management', 'blockScheduledClients', 'allowRescheduling', e.target.checked)}
+                      />
+                    }
+                    label="אפשר קביעת פגישה חדשה"
+                    sx={{ mb: 1 }}
+                  />
+                  
+                  {flow.configuration.client_management.blockScheduledClients?.allowRescheduling && (
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={flow.configuration.client_management.blockScheduledClients?.rescheduleOnlyFuture || false}
+                          onChange={(e) => handleConfigurationChange('client_management', 'blockScheduledClients', 'rescheduleOnlyFuture', e.target.checked)}
+                        />
+                      }
+                      label="קבע פגישה חדשה רק לעתיד"
+                      sx={{ ml: 2 }}
                     />
                   )}
                 </Box>

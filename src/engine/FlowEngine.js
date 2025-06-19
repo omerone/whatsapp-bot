@@ -13,7 +13,8 @@ class FlowEngine {
         this.messagesPath = messagesPath;
         this.leadsPath = leadsPath;
         this.whatsappClient = whatsappClient;
-        this.dataPath = path.dirname(leadsPath);
+        this.dataPath = path.dirname(flowPath);
+        console.log(`[FlowEngine] 📁 Data path set to: ${this.dataPath}`);
         this.flow = null;
         this.messages = {};
         this.sessions = new Map();
@@ -194,33 +195,97 @@ class FlowEngine {
             return null;
         }
 
+        console.log(`[FlowEngine] 🔄 Processing reset for user ${userId}`);
+
+        // Get current lead to check if there are scheduled meetings to delete
+        const currentLead = await this.leadsManager.getLead(userId);
+        
+        // If user has scheduled meetings and reset options allow deletion, delete them
+        if (currentLead && currentLead.is_schedule && currentLead.meeting && 
+            resetConfig.options?.delete_appointment) {
+            
+            console.log(`[FlowEngine] 🗑️ Deleting scheduled appointment for user ${userId}`);
+            
+            try {
+                // Delete from Google Calendar if integration is available
+                if (this.integrationManager && currentLead.meeting.calendar_event_id) {
+                    console.log(`[FlowEngine] 📅 Deleting calendar event: ${currentLead.meeting.calendar_event_id}`);
+                    await this.integrationManager.deleteCalendarEvent(currentLead.meeting.calendar_event_id);
+                }
+                
+                // Delete from Google Sheets if integration is available
+                if (this.integrationManager && (currentLead.meeting.sheet_row_phone || currentLead.meeting.phone)) {
+                    const phoneToDelete = currentLead.meeting.sheet_row_phone || currentLead.meeting.phone || userId;
+                    console.log(`[FlowEngine] 📊 Deleting sheet appointment for phone: ${phoneToDelete}`);
+                    await this.integrationManager.deleteSheetAppointment(phoneToDelete);
+                }
+                
+                console.log(`[FlowEngine] ✅ Successfully deleted appointment for user ${userId}`);
+                
+            } catch (error) {
+                console.error(`[FlowEngine] ❌ Error deleting appointment for user ${userId}:`, error);
+                // Continue with reset even if deletion failed
+            }
+        }
+
         // Reset session data
         session.data = {};
         session.currentStep = resetConfig.target_step || 'main_menu';
         session.isFirstMessage = false;
         session.isNewConversation = false;
         session.ignoreNextInput = false;
+        
+        // Clear meeting data from session
+        if (session.meetingData) {
+            delete session.meetingData;
+        }
 
-        // Update lead
-        await this.leadsManager.createOrUpdateLead(userId, {
+        // Update lead with reset values
+        const updateData = {
             current_step: session.currentStep,
             data: session.data,
             is_schedule: false,
             meeting: null,
-            last_sent_message: { sender: 'bot' },
+            last_sent_message: 'bot',
             relevant: true,
             last_interaction: new Date().toLocaleString('he-IL')
-        });
+        };
 
-        // Load and return the main menu message
-        const menuStep = this.flow.steps[session.currentStep];
-        const menuMessage = menuStep.messageFile ? 
-            await this.loadMessageFile(menuStep.messageFile) : 
-            menuStep.message;
+        // If reset options allow unblocking, clear block status
+        if (resetConfig.options?.allow_unblock) {
+            updateData.blocked = false;
+            updateData.blocked_reason = null;
+            updateData.blocked_at = null;
+            updateData.allow_unblock = false;
+            updateData.unblock_keyword = null;
+        }
+
+        // If reset options allow unfreezing, clear freeze status
+        if (resetConfig.options?.unfreeze) {
+            updateData.frozenUntil = null;
+            updateData.lastFreezeReason = null;
+        }
+
+        await this.leadsManager.createOrUpdateLead(userId, updateData);
+
+        console.log(`[FlowEngine] ✅ Reset completed for user ${userId}, redirecting to ${session.currentStep}`);
+
+        // Load and return the target step message
+        const targetStep = this.flow.steps[session.currentStep];
+        let messages = [];
+        
+        if (targetStep.messageFile) {
+            const messageContent = await this.loadMessageFile(targetStep.messageFile);
+            if (messageContent) {
+                messages.push(this.replacePlaceholders(messageContent, session.data));
+            }
+        } else if (targetStep.message) {
+            messages.push(this.replacePlaceholders(targetStep.message, session.data));
+        }
 
         return {
-            messages: [menuMessage],
-            waitForUser: true
+            messages,
+            waitForUser: targetStep.userResponseWaiting !== false
         };
     }
 
@@ -233,6 +298,32 @@ class FlowEngine {
 
         if (!this.initialized) {
             throw new Error('FlowEngine not initialized');
+        }
+
+        // Check if user is blocked before processing
+        const lead = await this.leadsManager.getLead(userId);
+        if (lead && lead.blocked) {
+            console.log(`[FlowEngine] 🚫 User ${userId} is blocked, ignoring message`);
+            
+            // Check if user sent unblock keyword
+            if (lead.allow_unblock && lead.unblock_keyword && userInput && 
+                userInput.trim().toLowerCase() === lead.unblock_keyword.toLowerCase()) {
+                console.log(`[FlowEngine] 🔓 Unblocking user ${userId} with keyword: ${userInput}`);
+                await this.leadsManager.createOrUpdateLead(userId, {
+                    blocked: false,
+                    blocked_reason: null,
+                    blocked_at: null,
+                    allow_unblock: false,
+                    unblock_keyword: null
+                });
+                // Continue processing after unblocking
+            } else {
+                // User is blocked and didn't send unblock keyword - ignore message
+                return {
+                    messages: [],
+                    waitForUser: false
+                };
+            }
         }
 
         const session = await this.getSession(userId);
@@ -334,6 +425,62 @@ class FlowEngine {
                 throw new Error(`Step ${session.currentStep} not found in flow`);
             }
 
+            // Check for freeze property on any step type BEFORE processing
+            if (step.freeze) {
+                console.log(`[FlowEngine] Step ${step.id} has freeze property, freezing client ${userId}`);
+                await this.freezeClient(session.userId, step.id);
+                
+                // Get message content for the step before freezing
+                let messages = [];
+                
+                if (step.messageHeader) {
+                    messages.push(this.replacePlaceholders(step.messageHeader, session.data));
+                }
+                
+                if (step.messageFile) {
+                    const messageContent = await this.loadMessageFile(step.messageFile);
+                    if (messageContent) {
+                        messages.push(this.replacePlaceholders(messageContent, session.data));
+                    }
+                }
+                
+                if (step.message) {
+                    messages.push(this.replacePlaceholders(step.message, session.data));
+                }
+                
+                if (step.footerMessage) {
+                    messages.push(this.replacePlaceholders(step.footerMessage, session.data));
+                }
+                
+                // If no messages were found using standard fields, try to get message using the step handler
+                if (messages.length === 0) {
+                    const handler = this.stepHandlers[step.type];
+                    if (handler) {
+                        const tempResult = await handler.process(step, session, null, this);
+                        if (tempResult && tempResult.messages) {
+                            messages = tempResult.messages;
+                        }
+                    }
+                }
+                
+                // Return messages and wait for user (freeze always forces wait)
+                return {
+                    messages,
+                    waitForUser: true
+                };
+            }
+
+            // Check if this step has blocking enabled and user sent input
+            if (step.block && userInput !== null) {
+                console.log(`[FlowEngine] 🚫 Step ${step.id} has blocking and user sent input - blocking client ${userId}`);
+                await this.blockClient(userId, step.id);
+                // Return empty messages since blocking should only send explanation once
+                return {
+                    messages: [],
+                    waitForUser: false
+                };
+            }
+
             // Get the appropriate step handler
             const handler = this.stepHandlers[step.type];
             if (!handler) {
@@ -359,15 +506,16 @@ class FlowEngine {
                 await this.leadsManager.updateLastMessage(userId, 'client', userInput);
             }
 
-            // Handle block property if present
-            if (step.block === true) {
-                console.log(`[FlowEngine] 🚫 Blocking client ${userId} at step ${step.id}`);
-                await this.leadsManager.blockLead(userId);
-                return result;
+            // Use userResponseWaiting from step configuration to determine wait behavior
+            // If step explicitly sets userResponseWaiting, use that value
+            if (step.userResponseWaiting !== undefined) {
+                result.waitForUser = step.userResponseWaiting;
+                console.log(`[FlowEngine] 📝 Step ${step.id} userResponseWaiting=${step.userResponseWaiting}, setting waitForUser=${result.waitForUser}`);
             }
 
-            // Handle auto-continuation for steps that don't wait for user
-            if (result.waitForUser === false && !session.ignoreNextInput) {
+            // Handle auto-continuation for steps that don't wait for user (but not if we're about to block)
+            if (result.waitForUser === false && !session.ignoreNextInput && !step.block) {
+                console.log(`[FlowEngine] ⏭️ Auto-continuing from step ${step.id} (waitForUser=false)`);
                 // Continue to next step
                 const nextResult = await this.processStepInternal(userId, null);
                 if (nextResult && nextResult.messages) {
@@ -376,6 +524,18 @@ class FlowEngine {
                         waitForUser: nextResult.waitForUser
                     };
                 }
+            }
+
+            // Handle integrations if present
+            if (step.integrations?.enabled) {
+                console.log(`[FlowEngine] 🔗 Processing integrations for step ${step.id}`);
+                await this.handleStepIntegrations(userId, step, session);
+            }
+
+            // If this step has blocking but no user input yet, just wait for input
+            if (step.block && userInput === null) {
+                console.log(`[FlowEngine] 📝 Step ${step.id} has blocking - waiting for user input`);
+                result.waitForUser = true;
             }
 
             return result;
@@ -389,8 +549,110 @@ class FlowEngine {
         }
     }
 
+    async blockClient(userId, stepId = null) {
+        let blockConfig;
+        
+        // First check if there's a step-specific block configuration
+        if (stepId && this.flow.steps[stepId] && this.flow.steps[stepId].block && 
+            typeof this.flow.steps[stepId].block === 'object') {
+            blockConfig = this.flow.steps[stepId].block;
+            console.log(`[FlowEngine] Using step-specific block configuration for step ${stepId}`);
+        } else if (stepId && this.flow.steps[stepId] && this.flow.steps[stepId].block === true) {
+            // When block is just true without configuration, use default values
+            blockConfig = {
+                enabled: true,
+                messaging: {
+                    send_explanation: true,
+                    message: "לצערנו אינך יכול להמשיך בתהליך כרגע. תודה על ההבנה."
+                },
+                allow_unblock: false,
+                unblock_keyword: "שחרר"
+            };
+            console.log(`[FlowEngine] Using default block configuration for step ${stepId}`);
+        } else {
+            console.log(`[FlowEngine] No block configuration found for step ${stepId}`);
+            return;
+        }
+        
+        if (!blockConfig?.enabled) {
+            return;
+        }
+
+        // Get current lead to check if already blocked
+        const currentLead = await this.leadsManager.getLead(userId);
+        
+        // Check if already blocked to prevent duplicate messages
+        if (currentLead && currentLead.blocked) {
+            console.log(`[FlowEngine] Client ${userId} is already blocked, not sending duplicate message`);
+            return;
+        }
+        
+        // Get global block duration if configured
+        const blockDuration = this.flow.configuration?.client_management?.block_duration || 0;
+        
+        // Update lead with block info
+        const updateData = {
+            blocked: true,
+            blocked_reason: stepId || 'unknown',
+            blocked_at: new Date().toISOString(),
+            allow_unblock: blockConfig.allow_unblock || false,
+            unblock_keyword: blockConfig.allow_unblock ? blockConfig.unblock_keyword : null
+        };
+        
+        // If block duration is set, add unblock time
+        if (blockDuration > 0) {
+            const unblockTime = new Date();
+            unblockTime.setMinutes(unblockTime.getMinutes() + blockDuration);
+            updateData.unblock_at = unblockTime.toISOString();
+        }
+
+        await this.leadsManager.createOrUpdateLead(userId, updateData);
+
+        // Send explanation message if enabled
+        if (blockConfig.messaging?.send_explanation && blockConfig.messaging?.message) {
+            const explanationText = blockConfig.messaging.message;
+            
+            try {
+                await this.whatsappClient.sendMessage(`${userId.split('@')[0]}@c.us`, explanationText);
+                
+                // Track that we sent the message
+                await this.leadsManager.createOrUpdateLead(userId, {
+                    last_block_message_sent: new Date().toISOString(),
+                    last_sent_message: 'bot'
+                });
+                
+                console.log(`[FlowEngine] Block explanation message sent to ${userId}`);
+            } catch (error) {
+                console.error(`[FlowEngine] Error sending block explanation to ${userId}:`, error);
+            }
+        }
+
+        console.log(`[FlowEngine] Client ${userId} blocked (reason: ${stepId || 'unknown'}, allow_unblock: ${blockConfig.allow_unblock})`);
+    }
+
     async freezeClient(userId, stepId = null) {
-        const freezeConfig = this.flow.configuration?.client_management?.freeze;
+        let freezeConfig;
+        
+        // First check if there's a step-specific freeze configuration
+        if (stepId && this.flow.steps[stepId] && this.flow.steps[stepId].freeze && 
+            typeof this.flow.steps[stepId].freeze === 'object') {
+            freezeConfig = this.flow.steps[stepId].freeze;
+            console.log(`[FlowEngine] Using step-specific freeze configuration for step ${stepId}`);
+        } else if (stepId && this.flow.steps[stepId] && this.flow.steps[stepId].freeze === true) {
+            // When freeze is just true without configuration, use default values
+            freezeConfig = {
+                enabled: true,
+                duration: 60,
+                messaging: {
+                    send_explanation: true,
+                    message: "תחזור אלינו בעוד {duration} דקות. תודה על הסבלנות! 🙏"
+                }
+            };
+            console.log(`[FlowEngine] Using default freeze configuration for step ${stepId}`);
+        } else {
+            console.log(`[FlowEngine] No freeze configuration found for step ${stepId}`);
+            return;
+        }
         
         if (!freezeConfig?.enabled) {
             return;
@@ -434,6 +696,87 @@ class FlowEngine {
         console.log(`[FlowEngine] Client ${userId} frozen until ${frozenUntil.toLocaleString('he-IL')} (reason: ${stepId || 'unknown'})`);
     }
 
+    async handleStepIntegrations(userId, step, session) {
+        try {
+            // Check if we have meeting data to process
+            if (!session.meetingData) {
+                console.log(`[FlowEngine] No meeting data available for integrations in step ${step.id}`);
+                return;
+            }
+
+            const integrationConfig = step.integrations;
+            const meetingData = session.meetingData;
+            const lead = await this.leadsManager.getLead(userId);
+
+            console.log(`[FlowEngine] 🔗 Processing integrations:`, {
+                stepId: step.id,
+                googleCalendar: integrationConfig.googleCalendar,
+                googleSheets: integrationConfig.googleSheets,
+                notifications: integrationConfig.notifications,
+                reminders: integrationConfig.reminders,
+                iPlan: integrationConfig.iPlan
+            });
+
+            // Handle individual integrations based on configuration
+            if (this.integrationManager) {
+                // Google Calendar
+                if (integrationConfig.googleCalendar) {
+                    try {
+                        console.log(`[FlowEngine] 📅 Processing Google Calendar integration...`);
+                        await this.integrationManager.handleCalendarIntegration(meetingData, lead);
+                    } catch (error) {
+                        console.error(`[FlowEngine] ❌ Google Calendar integration failed:`, error);
+                    }
+                }
+
+                // Google Sheets
+                if (integrationConfig.googleSheets) {
+                    try {
+                        console.log(`[FlowEngine] 📊 Processing Google Sheets integration...`);
+                        await this.integrationManager.handleSheetsIntegration(meetingData, lead);
+                    } catch (error) {
+                        console.error(`[FlowEngine] ❌ Google Sheets integration failed:`, error);
+                    }
+                }
+
+                // Notifications
+                if (integrationConfig.notifications) {
+                    try {
+                        console.log(`[FlowEngine] 📢 Processing notifications integration...`);
+                        await this.integrationManager._sendMeetingNotifications(meetingData, lead);
+                    } catch (error) {
+                        console.error(`[FlowEngine] ❌ Notifications integration failed:`, error);
+                    }
+                }
+
+                // Reminders
+                if (integrationConfig.reminders) {
+                    try {
+                        console.log(`[FlowEngine] ⏰ Processing reminders integration...`);
+                        await this.integrationManager.handleRemindersIntegration(meetingData, lead);
+                    } catch (error) {
+                        console.error(`[FlowEngine] ❌ Reminders integration failed:`, error);
+                    }
+                }
+
+                // iPlan
+                if (integrationConfig.iPlan) {
+                    try {
+                        console.log(`[FlowEngine] 📋 Processing iPlan integration...`);
+                        await this.integrationManager.handleIPlanIntegration(meetingData, lead);
+                    } catch (error) {
+                        console.error(`[FlowEngine] ❌ iPlan integration failed:`, error);
+                    }
+                }
+            }
+
+            console.log(`[FlowEngine] ✅ Completed processing integrations for step ${step.id}`);
+
+        } catch (error) {
+            console.error(`[FlowEngine] ❌ Error in handleStepIntegrations:`, error);
+        }
+    }
+
     cleanupOldSessions() {
         const now = Date.now();
         if (now - this.lastCleanup < this.cleanupInterval) {
@@ -449,6 +792,37 @@ class FlowEngine {
 
     clearSession(userId) {
         this.sessions.delete(userId);
+    }
+    
+    // Helper method to replace placeholders in text with values from data
+    replacePlaceholders(text, data) {
+        if (!text || !data) return text;
+        
+        let processedText = text;
+        for (const key in data) {
+            if (data.hasOwnProperty(key)) {
+                const placeholder = `{${key}}`;
+                processedText = processedText.replace(
+                    new RegExp(placeholder.replace(/[.*+?^${}()|[\\]]/g, '\\$&'), 'g'), 
+                    data[key]
+                );
+            }
+        }
+        
+        // Replace meeting-related placeholders if available
+        if (data.meeting) {
+            const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+            const [day, month, year] = data.meeting.date.split('/');
+            const date = new Date(year, month - 1, day);
+            const dayName = dayNames[date.getDay()];
+            
+            processedText = processedText
+                .replace(/{dayName}/g, dayName)
+                .replace(/{selectedDate}/g, data.meeting.date)
+                .replace(/{selectedTime}/g, data.meeting.time);
+        }
+        
+        return processedText;
     }
 }
 

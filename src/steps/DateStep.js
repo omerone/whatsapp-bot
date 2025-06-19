@@ -461,45 +461,28 @@ class DateStep {
                 };
                 session.is_schedule = true;
 
-                // Handle integrations when moving to final_confirmation
-                if (step.next === 'final_confirmation') {
-                    const userId = session.userId;
-                    const lead = await flowEngine.leadsManager.getLead(userId);
-                    
-                    // Prepare meeting data for integrations
-                    const meetingData = {
-                        meeting_date: session.selectedDate,
-                        meeting_time: session.selectedTime,
-                        full_name: lead?.data?.full_name || '',
-                        city_name: lead?.data?.city_name || '',
-                        phone: userId.split('@')[0],
-                        mobility: lead?.data?.mobility || ''
-                    };
+                // Store meeting data in session for later processing
+                session.meetingData = {
+                    meeting_date: session.selectedDate,
+                    meeting_time: session.selectedTime,
+                    full_name: session.data?.full_name || '',
+                    city_name: session.data?.city_name || '',
+                    phone: session.userId.split('@')[0],
+                    mobility: session.data?.mobility || ''
+                };
 
-                    // First update lead data to ensure it's saved
-                    await flowEngine.leadsManager.updateLeadData(userId, {
-                        full_name: meetingData.full_name,
-                        city_name: meetingData.city_name,
-                        mobility: meetingData.mobility
-                    });
+                // Update lead data to ensure it's saved
+                await flowEngine.leadsManager.updateLeadData(session.userId, {
+                    full_name: session.meetingData.full_name,
+                    city_name: session.meetingData.city_name,
+                    mobility: session.meetingData.mobility
+                });
 
-                    // Then mark as scheduled with meeting details
-                    await flowEngine.leadsManager.markLeadScheduled(userId, {
-                        date: session.selectedDate,
-                        time: session.selectedTime
-                    });
-
-                    // Handle all integrations (Google Sheets, Calendar, notifications)
-                    if (flowEngine.integrationManager) {
-                        try {
-                            console.log(`✅ Processing meeting: ${userId}-${session.selectedDate}-${session.selectedTime}`);
-                            await flowEngine.integrationManager.handleMeetingScheduled(meetingData, lead);
-                        } catch (error) {
-                            console.error('Error handling integrations:', error);
-                            // Continue with the flow even if integrations fail
-                        }
-                    }
-                }
+                // Mark as scheduled with meeting details
+                await flowEngine.leadsManager.markLeadScheduled(session.userId, {
+                    date: session.selectedDate,
+                    time: session.selectedTime
+                });
 
                 if (step.next) {
                     return { valid: true, action: 'navigate', targetStep: step.next };

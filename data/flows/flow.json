@@ -207,7 +207,7 @@
     "human_support": {
       "id": "human_support",
       "type": "message",
-      "userResponseWaiting": true,
+      "userResponseWaiting": false,
       "messageFile": "human_support.txt",
       "freeze": {
         "enabled": true,
@@ -225,7 +225,7 @@
     "remove_candidate": {
       "id": "remove_candidate",
       "type": "message",
-      "userResponseWaiting": true,
+      "userResponseWaiting": false,
       "messageFile": "remove_candidate.txt",
       "freeze": {
         "enabled": true,
@@ -435,7 +435,7 @@
     "final_confirmation": {
       "id": "final_confirmation",
       "type": "message",
-      "userResponseWaiting": true,
+      "userResponseWaiting": false,
       "messageFile": "final_confirmation.txt",
       "block":{
         "messaging": {
@@ -448,7 +448,7 @@
       "integrations": {
         "enabled": true,
         "googleCalendar": false ,
-        "googleSheets": false,
+        "googleSheets": true,
         "notifications": true,
         "reminders": false,
         "iPlan": false
@@ -461,7 +461,7 @@
     "not_suitable": {
       "id": "not_suitable",
       "type": "message",
-      "userResponseWaiting": true,
+      "userResponseWaiting": false,
       "messageFile": "not_suitable.txt",
       "freeze": {
         "enabled": true,

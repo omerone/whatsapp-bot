@@ -1,7 +1,8 @@
 import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
-import { Paper, Typography, Box } from '@mui/material';
+import { Paper, Typography, Box, Chip } from '@mui/material';
 import { StepType } from '../../types/flow';
+import VerifiedIcon from '@mui/icons-material/Verified';
 
 const getStepColor = (type: StepType) => {
   switch (type) {
@@ -34,12 +35,14 @@ const getStepIcon = (type: StepType) => {
 };
 
 const StepNode = ({ id, data, selected }: NodeProps) => {
-  const { type, label, message, messageHeader, footerMessage } = data;
+  const { type, label, message, messageHeader, footerMessage, validation } = data;
   const backgroundColor = getStepColor(type as StepType);
   const icon = getStepIcon(type as StepType);
   
   // תצוגת המזהה על הבלוק - הסרת המילה "צעד" והצגת המזהה עצמו
   const displayLabel = id;
+
+  const hasValidation = type === 'question' && validation?.type;
 
   return (
     <Paper
@@ -63,6 +66,16 @@ const StepNode = ({ id, data, selected }: NodeProps) => {
         <Typography variant="h6" sx={{ fontSize: '1.2rem' }}>
           {icon} {displayLabel}
         </Typography>
+        {hasValidation && (
+          <Chip 
+            size="small" 
+            icon={<VerifiedIcon fontSize="small" />} 
+            label={`${validation.type}`}
+            color="primary"
+            variant="outlined"
+            sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
+          />
+        )}
       </Box>
 
       {messageHeader && (

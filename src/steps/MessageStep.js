@@ -91,21 +91,8 @@ class MessageStep {
                 }
             }
 
-            // Handle freeze flag
-            if (step.freeze) {
-                // Freeze the client
-                await flowEngine.freezeClient(session.userId, step.id);
-                // Return messages but don't move to next step
-                return {
-                    messages,
-                    waitForUser: true
-                };
-            }
-
-            // Handle block property
-            if (step.block) {
-                await flowEngine.leadsManager.blockLead(session.userId);
-            }
+            // Note: Block handling is done in FlowEngine.processStepInternal, not here
+            // This prevents duplicate block messages
 
             // If this is not a waiting step and has a next step
             if (!step.userResponseWaiting && step.next) {

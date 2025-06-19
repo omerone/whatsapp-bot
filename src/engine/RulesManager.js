@@ -81,6 +81,45 @@ class RulesManager {
             // Check if the lead is already blocked
             if (lead?.blocked) {
                 console.log(`[RulesManager] 🚫 Blocked client ${message.from} (reason: ${lead.blocked_reason}) tried to send a message`);
+                
+                // Check if unblock is allowed and the message matches the unblock keyword
+                if (lead.allow_unblock && 
+                    lead.unblock_keyword && 
+                    message.body && 
+                    message.body.trim().toLowerCase() === lead.unblock_keyword.toLowerCase()) {
+                    console.log(`[RulesManager] 🔓 Unblock keyword detected from ${message.from}: "${message.body}"`);
+                    
+                    // Unblock the client
+                    await this.integrationManager.flowEngine.leadsManager.createOrUpdateLead(message.from, {
+                        blocked: false,
+                        unblocked_at: new Date().toISOString(),
+                        unblocked_reason: 'unblock_keyword'
+                    });
+                    
+                    console.log(`[RulesManager] ✅ Client ${message.from} has been unblocked via keyword`);
+                    return true;
+                }
+                
+                // Check if block has a time limit and it has expired
+                if (lead.unblock_at) {
+                    const unblockTime = new Date(lead.unblock_at);
+                    const now = new Date();
+                    
+                    if (now > unblockTime) {
+                        console.log(`[RulesManager] ⏰ Block duration expired for ${message.from}, unblocking`);
+                        
+                        // Unblock the client
+                        await this.integrationManager.flowEngine.leadsManager.createOrUpdateLead(message.from, {
+                            blocked: false,
+                            unblocked_at: new Date().toISOString(),
+                            unblocked_reason: 'time_expired'
+                        });
+                        
+                        console.log(`[RulesManager] ✅ Client ${message.from} has been unblocked due to time expiration`);
+                        return true;
+                    }
+                }
+                
                 return false;
             }
 
@@ -200,12 +239,9 @@ class RulesManager {
     }
 
     async isClientFrozen(userId) {
-        const freezeConfig = this.rules?.configuration?.client_management?.freeze;
+        // We only check if the user is frozen, not if freeze is enabled globally
+        // This allows steps with their own freeze configuration to work
         
-        if (!freezeConfig?.enabled) {
-            return false;
-        }
-
         const lead = this.integrationManager?.flowEngine?.leadsManager ? 
             await this.integrationManager.flowEngine.leadsManager.getLead(userId) : null;
 

@@ -199,6 +199,14 @@ class IntegrationManager {
                 iplan: { success: false, error: null }
             };
 
+            // Initialize meeting details object to track IDs
+            const meetingDetails = {
+                ...data,
+                calendar_event_id: null,
+                sheet_row_id: null,
+                iplan_meeting_id: null
+            };
+
             // Google Calendar Integration
             if (this.services.calendar && this.services.calendar.initialized) {
                 console.log('[IntegrationManager] 🔄 Creating Google Calendar event...');
@@ -213,11 +221,9 @@ class IntegrationManager {
                             wasExisting: calendarResult.wasExisting
                         });
                         
-                        // Update lead with calendar event details
-                        if (currentLead) {
-                            currentLead.calendarEventId = calendarResult.eventId;
-                            currentLead.calendarEventLink = calendarResult.eventLink;
-                        }
+                        // Store calendar event ID for potential deletion
+                        meetingDetails.calendar_event_id = calendarResult.eventId;
+                        meetingDetails.calendar_event_link = calendarResult.eventLink;
                     } else {
                         console.error('[IntegrationManager] ❌ Failed to create calendar event:', calendarResult.error);
                     }
@@ -237,6 +243,9 @@ class IntegrationManager {
                     results.sheets.success = sheetsResult.success;
                     if (sheetsResult.success) {
                         console.log('[IntegrationManager] ✅ Meeting added to sheets successfully');
+                        // Store sheet row ID - we'll need to get this from the sheets service
+                        // For now, we'll use the phone number to identify the row later
+                        meetingDetails.sheet_row_phone = data.phone;
                     } else {
                         console.error('[IntegrationManager] ❌ Failed to add to sheets:', sheetsResult.error);
                         results.sheets.error = sheetsResult.error;
@@ -269,8 +278,14 @@ class IntegrationManager {
                 console.log('[IntegrationManager] ℹ️ iPlan integration not initialized or disabled');
             }
 
-            // Send notifications
-            if (this.services.reminders && this.whatsappClient) {
+            // Send notifications - check if notifications are enabled
+            console.log('[IntegrationManager] 🔍 Checking notification requirements:', {
+                hasRemindersService: !!this.services.reminders,
+                hasWhatsappClient: !!this.whatsappClient,
+                clientType: this.whatsappClient ? this.whatsappClient.constructor.name : 'none'
+            });
+            
+            if (this.whatsappClient) {
                 console.log('[IntegrationManager] 🔄 Sending meeting notifications...');
                 try {
                     const notificationResults = await this._sendMeetingNotifications(data, currentLead);
@@ -285,7 +300,18 @@ class IntegrationManager {
                     results.notifications.error = error.message;
                 }
             } else {
-                console.log('[IntegrationManager] ℹ️ Notifications not enabled or WhatsApp client not available');
+                console.log('[IntegrationManager] ℹ️ WhatsApp client not available for notifications');
+                results.notifications = { success: false, error: 'WhatsApp client not available' };
+            }
+
+            // Update lead with meeting details for potential deletion
+            if (this.flowEngine && this.flowEngine.leadsManager && data.phone) {
+                try {
+                    await this.flowEngine.leadsManager.markLeadScheduled(data.phone, meetingDetails);
+                    console.log('[IntegrationManager] ✅ Lead updated with meeting details for deletion capability');
+                } catch (error) {
+                    console.error('[IntegrationManager] ❌ Failed to update lead with meeting details:', error);
+                }
             }
 
             // Log final results
@@ -304,13 +330,223 @@ class IntegrationManager {
         }
     }
 
+    async handleCalendarIntegration(meetingData, currentLead) {
+        try {
+            if (this.services.calendar) {
+                console.log('[IntegrationManager] 🔄 Creating Google Calendar event...');
+                const calendarResult = await this.services.calendar.createEvent(meetingData);
+                console.log('[IntegrationManager] ✅ Calendar event created successfully:', {
+                    eventId: calendarResult.eventId,
+                    eventLink: calendarResult.eventLink,
+                    wasExisting: calendarResult.wasExisting
+                });
+                return { success: true, result: calendarResult };
+            } else {
+                console.log('[IntegrationManager] ℹ️ Calendar service not available');
+                return { success: false, error: 'Calendar service not available' };
+            }
+        } catch (error) {
+            console.error('[IntegrationManager] ❌ Calendar integration error:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async handleSheetsIntegration(meetingData, currentLead) {
+        try {
+            if (this.services.sheets) {
+                console.log('[IntegrationManager] 🔄 Adding meeting to Google Sheets...');
+                const sheetsResult = await this.services.sheets.addMeeting(meetingData);
+                console.log('[IntegrationManager] ✅ Meeting added to Google Sheets successfully');
+                return { success: true, result: sheetsResult };
+            } else {
+                console.log('[IntegrationManager] ℹ️ Sheets service not available');
+                return { success: false, error: 'Sheets service not available' };
+            }
+        } catch (error) {
+            console.error('[IntegrationManager] ❌ Sheets integration error:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async handleRemindersIntegration(meetingData, currentLead) {
+        try {
+            if (this.services.reminders) {
+                console.log('[IntegrationManager] 🔄 Setting up reminders...');
+                // Note: Reminders are typically handled by a separate service/scheduler
+                console.log('[IntegrationManager] ℹ️ Reminders setup completed');
+                return { success: true };
+            } else {
+                console.log('[IntegrationManager] ℹ️ Reminders service not available');
+                return { success: false, error: 'Reminders service not available' };
+            }
+        } catch (error) {
+            console.error('[IntegrationManager] ❌ Reminders integration error:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async handleIPlanIntegration(meetingData, currentLead) {
+        try {
+            if (this.services.iplan) {
+                console.log('[IntegrationManager] 🔄 Syncing with iPlan...');
+                const iplanResult = await this.services.iplan.syncMeeting(meetingData);
+                console.log('[IntegrationManager] ✅ iPlan sync completed');
+                return { success: true, result: iplanResult };
+            } else {
+                console.log('[IntegrationManager] ℹ️ iPlan integration not initialized or disabled');
+                return { success: false, error: 'iPlan service not available' };
+            }
+        } catch (error) {
+            console.error('[IntegrationManager] ❌ iPlan integration error:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async _sendMeetingNotifications(meetingData, currentLead) {
+        try {
+            console.log('[IntegrationManager] 🔄 Processing meeting notifications...');
+            
+            // Get the integrations config
+            const integrationsResult = this._getIntegrationsConfig();
+            const notificationsConfig = this._getNotificationsConfig(integrationsResult.isNew, integrationsResult.config);
+            
+            if (!notificationsConfig || !notificationsConfig.enabled) {
+                console.log('[IntegrationManager] ℹ️ Meeting notifications are disabled');
+                return { success: false, error: 'Notifications disabled' };
+            }
+            
+            if (!notificationsConfig.recipients || notificationsConfig.recipients.length === 0) {
+                console.log('[IntegrationManager] ⚠️ No notification recipients configured');
+                return { success: false, error: 'No recipients configured' };
+            }
+            
+            // Load the notification message template
+            let messageTemplate = '';
+            if (notificationsConfig.messageTemplateFile) {
+                const fs = require('fs');
+                const path = require('path');
+                const templatePath = path.join(this.dataPath || 'data', 'messages', notificationsConfig.messageTemplateFile);
+                
+                try {
+                    messageTemplate = fs.readFileSync(templatePath, 'utf8');
+                } catch (error) {
+                    console.error('[IntegrationManager] ❌ Failed to load notification template:', error.message);
+                    return { success: false, error: `Failed to load template: ${error.message}` };
+                }
+            } else {
+                // Default template if none specified
+                messageTemplate = `📢 זומן לראיון עבודה:\n\n👤 שם: {full_name}\n📍 עיר: {city_name}\n📞 טלפון: {phone}\n🚗 ניידות: {mobility}\n🗓 תאריך: {meeting_date}\n🕒 שעה: {meeting_time}`;
+            }
+            
+            // Replace placeholders in the message
+            const formattedMessage = this._formatNotificationMessage(messageTemplate, meetingData);
+            
+            // Send to all recipients
+            const results = [];
+            for (const recipient of notificationsConfig.recipients) {
+                try {
+                    console.log(`[IntegrationManager] 📤 Sending notification to ${recipient}...`);
+                    await this.whatsappClient.sendMessage(recipient, formattedMessage);
+                    results.push({ recipient, success: true });
+                    console.log(`[IntegrationManager] ✅ Notification sent to ${recipient}`);
+                } catch (error) {
+                    console.error(`[IntegrationManager] ❌ Failed to send notification to ${recipient}:`, error.message);
+                    results.push({ recipient, success: false, error: error.message });
+                }
+            }
+            
+            // Check if all notifications were sent successfully
+            const successful = results.filter(r => r.success).length;
+            const total = results.length;
+            
+            console.log(`[IntegrationManager] 📊 Notification results: ${successful}/${total} sent successfully`);
+            
+            return {
+                success: successful > 0,
+                results,
+                message: `${successful}/${total} notifications sent successfully`
+            };
+            
+        } catch (error) {
+            console.error('[IntegrationManager] ❌ Error in _sendMeetingNotifications:', error);
+            return { success: false, error: error.message };
+        }
+    }
+    
+    _formatNotificationMessage(template, meetingData) {
+        let message = template;
+        const placeholders = {
+            '{full_name}': meetingData.full_name || '',
+            '{city_name}': meetingData.city_name || '',
+            '{phone}': meetingData.phone || '',
+            '{mobility}': meetingData.mobility || '',
+            '{meeting_date}': meetingData.meeting_date || '',
+            '{meeting_time}': meetingData.meeting_time || ''
+        };
+        
+        for (const [placeholder, value] of Object.entries(placeholders)) {
+            message = message.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
+        }
+        
+        return message;
+    }
+
     // Method to stop services, e.g., on application shutdown
     async shutdown() {
         if (this.services.reminders) {
             this.services.reminders.stop();
-            console.log('IntegrationManager: ReminderService stopped.');
         }
-        // Add other service shutdowns if necessary
+    }
+
+    async deleteCalendarEvent(eventId) {
+        if (!this.services.calendar) {
+            console.log('[IntegrationManager] ⚠️ Calendar service not available for deletion');
+            return false;
+        }
+
+        try {
+            console.log(`[IntegrationManager] 🗑️ Deleting calendar event: ${eventId}`);
+            const result = await this.services.calendar.deleteEvent(eventId);
+            console.log(`[IntegrationManager] ✅ Calendar event deleted successfully: ${eventId}`);
+            return result;
+        } catch (error) {
+            console.error(`[IntegrationManager] ❌ Failed to delete calendar event ${eventId}:`, error);
+            return false;
+        }
+    }
+
+    async deleteSheetRow(rowId) {
+        if (!this.services.sheets) {
+            console.log('[IntegrationManager] ⚠️ Sheets service not available for deletion');
+            return false;
+        }
+
+        try {
+            console.log(`[IntegrationManager] 🗑️ Deleting sheet row: ${rowId}`);
+            const result = await this.services.sheets.deleteRow(rowId);
+            console.log(`[IntegrationManager] ✅ Sheet row deleted successfully: ${rowId}`);
+            return result;
+        } catch (error) {
+            console.error(`[IntegrationManager] ❌ Failed to delete sheet row ${rowId}:`, error);
+            return false;
+        }
+    }
+
+    async deleteSheetAppointment(phone) {
+        if (!this.services.sheets) {
+            console.log('[IntegrationManager] ⚠️ Sheets service not available for deletion');
+            return false;
+        }
+
+        try {
+            console.log(`[IntegrationManager] 🗑️ Deleting sheet appointment for phone: ${phone}`);
+            const result = await this.services.sheets.deleteAppointment(phone);
+            console.log(`[IntegrationManager] ✅ Sheet appointment deleted successfully for phone: ${phone}`);
+            return result;
+        } catch (error) {
+            console.error(`[IntegrationManager] ❌ Failed to delete sheet appointment for phone ${phone}:`, error);
+            return false;
+        }
     }
 
     async fetchGroupsAfterClientReady() {

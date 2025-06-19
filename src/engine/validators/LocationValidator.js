@@ -4,10 +4,19 @@ const cityGroups = require('../../../data/city-groups.json');
 const stringSimilarity = require('string-similarity');
 
 /**
- * LocationValidator - ולידטור מאוחד לערים ואזורים
- * מחליף את CityValidator ו-AreaValidator במחלקה אחת מודולרית
+ * LocationValidator - ולידטור למיקומים וערים
  */
 class LocationValidator extends BaseValidator {
+    // הודעות ברירת מחדל
+    static defaultMessages = {
+        'קלט_ריק': 'לא הזנת עיר. אנא נסה שנית.',
+        'עיר_לא_זמינה': 'כתבת את העיר {cityName}, אך לצערנו איננו פועלים בה כרגע. \n במידה וזו טעות הזן את עיר מגוריך.',
+        'הצעה_עיר_לא_זמינה': 'זיהינו את העיר *{suggestedCity}*, אך איננו פועלים בה כרגע. \nבמידה וזו טעות הזן את עיר מגוריך.',
+        'עיר_לא_מוכרת': 'לא הצלחנו לזהות את העיר שהזנת ({originalInput}). אנא נסה/י שנית או הקש/י שם עיר מוכרת.',
+        'הוראת_חזרה': 'לחזרה להתחלה שלח את המילה ״תפריט״',
+        'SUGGESTION_SERVICEABLE': 'האם התכוונת ל*{suggestedCity}*?\nהשב כן לאישור או הקלד את שם העיר הנכון.'
+    };
+
     // כינויים לערים
     static cityAliases = {
         'תל אביב': ['תל אביב יפו', 'תא', 'תל-אביב', 'תל אביב-יפו', 'תל אביב יפו'],
@@ -278,17 +287,61 @@ class LocationValidator extends BaseValidator {
      * @returns {Object} - תוצאת ולידציה
      */
     static validate(input, options = {}) {
-        try {
-            // אם יש הגדרות הודעות, נשתמש בולידציה מתקדמת
-            if (options.messages || options.pendingSuggestion !== undefined) {
-                return this.validateAdvanced(input, options.pendingSuggestion);
-            }
-            
-            // אחרת נשתמש בולידציה פשוטה
-            return this.validateSimple(input);
-        } catch (error) {
-            console.error('LocationValidator validation error:', error);
-            return this.createResponse(false, null, 'שגיאה בבדיקת העיר. אנא נסה שנית.');
+        this._initialize();
+        const messages = { ...this.defaultMessages, ...options.messages };
+        
+        if (this.isEmpty(input)) {
+            return this.createResponse(false, null, messages['קלט_ריק']);
+        }
+
+        const normalizedInput = this.normalizeInput(input);
+        
+        // Use the advanced validation method
+        const result = this.validateAdvanced(normalizedInput, options.pendingSuggestion);
+        
+        // Convert the advanced result to the standard format
+        switch (result.status) {
+            case 'VALID':
+                return this.createResponse(true, result.value, null, { 
+                    motoEnabled: result.motoEnabled 
+                });
+                
+            case 'CONFIRMED_VALID_SUGGESTION':
+                return this.createResponse(true, result.value, null, { 
+                    motoEnabled: result.motoEnabled 
+                });
+                
+            case 'SUGGESTION_SERVICEABLE':
+                return this.createResponse(false, null, 
+                    messages['SUGGESTION_SERVICEABLE']?.replace('{suggestedCity}', result.suggestedCity) || 
+                    `האם התכוונת ל*${result.suggestedCity}*?\nהשב כן לאישור או הקלד את שם העיר הנכון.`, 
+                    { 
+                        suggestedCity: result.suggestedCity,
+                        pendingSuggestion: result.suggestedCity
+                    }
+                );
+                
+            case 'עיר_לא_זמינה':
+                return this.createResponse(false, null, 
+                    messages['עיר_לא_זמינה']?.replace('{cityName}', result.cityName) || 
+                    `כתבת את העיר ${result.cityName}, אך לצערנו איננו פועלים בה כרגע.`
+                );
+                
+            case 'הצעה_עיר_לא_זמינה':
+                return this.createResponse(false, null, 
+                    messages['הצעה_עיר_לא_זמינה']?.replace('{suggestedCity}', result.suggestedCity) || 
+                    `זיהינו את העיר *${result.suggestedCity}*, אך איננו פועלים בה כרגע.`
+                );
+                
+            case 'עיר_לא_מוכרת':
+                return this.createResponse(false, null, 
+                    messages['עיר_לא_מוכרת']?.replace('{originalInput}', result.originalInput) || 
+                    `לא הצלחנו לזהות את העיר שהזנת (${result.originalInput}). אנא נסה/י שנית.`
+                );
+                
+            case 'קלט_ריק':
+            default:
+                return this.createResponse(false, null, messages['קלט_ריק']);
         }
     }
 

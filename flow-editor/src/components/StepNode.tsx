@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
-import { Box, Paper, Typography, IconButton } from '@mui/material';
+import { Box, Paper, Typography, IconButton, Chip } from '@mui/material';
 import {
   Message as MessageIcon,
   QuestionAnswer as QuestionIcon,
@@ -8,6 +8,8 @@ import {
   CalendarToday as DateIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  AcUnit as FreezeIcon,
+  Block as BlockIcon
 } from '@mui/icons-material';
 import { StepType } from '../types/flow';
 
@@ -27,7 +29,7 @@ const getStepIcon = (type: StepType) => {
 };
 
 const StepNode: React.FC<NodeProps> = ({ data }) => {
-  const { type, label, messageHeader, message, footerMessage } = data;
+  const { type, label, messageHeader, message, footerMessage, freeze, block } = data;
 
   return (
     <Paper
@@ -47,6 +49,28 @@ const StepNode: React.FC<NodeProps> = ({ data }) => {
         <Typography variant="subtitle1" sx={{ ml: 1, flexGrow: 1 }}>
           {label}
         </Typography>
+        
+        <Box sx={{ display: 'flex', gap: 0.5, mr: 1 }}>
+          {freeze && (
+            <Chip 
+              icon={<FreezeIcon fontSize="small" />} 
+              label="הקפאה" 
+              size="small" 
+              color="info" 
+              sx={{ height: 24 }}
+            />
+          )}
+          {block && (
+            <Chip 
+              icon={<BlockIcon fontSize="small" />} 
+              label="חסימה" 
+              size="small" 
+              color="error" 
+              sx={{ height: 24 }}
+            />
+          )}
+        </Box>
+        
         <IconButton size="small">
           <EditIcon fontSize="small" />
         </IconButton>

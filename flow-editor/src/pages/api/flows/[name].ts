@@ -15,6 +15,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const flowPath = `/Users/omermaoz/whatssapp-bot/data/flows/${name}`;
+  const flowsDir = `/Users/omermaoz/whatssapp-bot/data/flows`;
 
   // GET - קריאת תסריט
   if (req.method === 'GET') {
@@ -38,6 +39,44 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } catch (error) {
       console.error(`Error reading flow ${name}:`, error);
       return res.status(500).json({ message: 'Error reading flow file' });
+    }
+  }
+  
+  // PUT - עדכון שם של תסריט קיים
+  else if (req.method === 'PUT') {
+    try {
+      const { oldName, newName } = req.body;
+      
+      if (!oldName || !newName || typeof oldName !== 'string' || typeof newName !== 'string') {
+        return res.status(400).json({ message: 'Both oldName and newName are required' });
+      }
+      
+      // בדיקת תקינות השמות
+      if (oldName.includes('..') || oldName.includes('/') || oldName.includes('\\') ||
+          newName.includes('..') || newName.includes('/') || newName.includes('\\')) {
+        return res.status(400).json({ message: 'Invalid flow name' });
+      }
+      
+      const oldPath = path.join(flowsDir, oldName);
+      const newPath = path.join(flowsDir, newName);
+      
+      // בדיקה שהקובץ הישן קיים
+      if (!fs.existsSync(oldPath)) {
+        return res.status(404).json({ message: `Original file ${oldName} not found` });
+      }
+      
+      // בדיקה שהקובץ החדש לא קיים כבר
+      if (fs.existsSync(newPath)) {
+        return res.status(409).json({ message: `File with name ${newName} already exists` });
+      }
+      
+      // שינוי שם הקובץ
+      fs.renameSync(oldPath, newPath);
+      
+      return res.status(200).json({ message: `Flow renamed from ${oldName} to ${newName}` });
+    } catch (error) {
+      console.error(`Error renaming flow:`, error);
+      return res.status(500).json({ message: 'Error renaming flow file' });
     }
   }
   

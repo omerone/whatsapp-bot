@@ -20,16 +20,16 @@
       "enabled": true,
       "userResponseWaiting": true,
       "position": {
-        "x": 81.9178211978332,
-        "y": 702.0307688971394
+        "x": 298.9178211978332,
+        "y": 676.0307688971394
       },
       "options": {
-        "כן || 1 ": "2",
-        "לא || 2": "5"
+        "לא || 2": "5",
+        "כן || 1 || בטח": "2"
       },
       "branches": {
-        "כן || 1 ": "2",
-        "לא || 2": "5"
+        "לא || 2": "5",
+        "כן || 1 || בטח": "2"
       }
     },
     "2": {
@@ -93,6 +93,18 @@
         "y": 951.9013818150795
       },
       "freeze": true
+    }
+  },
+  "integrations": {
+    "enabled": {
+      "": true
+    },
+    "googleWorkspace": {
+      "calendar": {
+        "enabled": true,
+        "calendarId": "6c1877e19bcec67cf66fc0235c0420790d1534e7abea9b1dd64bd44d0a440dae@group.calendar.google.com",
+        "eventDescription": "נקבעה"
+      }
     }
   }
 }
