@@ -2,7 +2,5 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/api/flows/[name]": "pages/api/flows/[name].js",
-  "/api/flows": "pages/api/flows.js",
   "/": "pages/index.js"
 }

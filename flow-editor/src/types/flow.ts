@@ -106,6 +106,7 @@ export interface StepData {
   id: string;
   type: StepType;
   label?: string;
+  key?: string;
   messageHeader?: string;
   message?: string;
   footerMessage?: string;
@@ -118,9 +119,14 @@ export interface StepData {
   block?: boolean | BlockConfig;
   freeze?: boolean | FreezeConfig;
   integrations?: IntegrationConfig;
+  integration?: Record<string, any>;
+  reminders?: Record<string, any>;
   skipIfDisabled?: string;
   position?: Position;
   noMatchMessage?: string;
+  resolution?: string;
+  limit?: number;
+  startFromToday?: boolean;
 }
 
 export interface Step extends StepData {

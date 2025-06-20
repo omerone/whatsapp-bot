@@ -713,9 +713,22 @@ const StepEditor: React.FC<StepEditorProps> = ({ stepId, onClose }) => {
           </>
         )}
 
-        {/* Validation */}
+        {/* Question Key Field */}
         {editedStep.type === 'question' && (
           <>
+            <Typography variant="subtitle1" sx={{ mb: 1 }}>הגדרות שאלה</Typography>
+            
+            <TextField
+              fullWidth
+              label="מפתח שמירה"
+              value={editedStep.key || ''}
+              onChange={(e) => handleChange('key', e.target.value)}
+              sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              helperText="מפתח ייחודי לשמירת התשובה (לדוגמה: name, email, age)"
+              placeholder="לדוגמה: name"
+              required
+            />
+            
             <Typography variant="subtitle1" sx={{ mb: 1 }}>אימות וולידציה</Typography>
             <FormControl fullWidth sx={{ mb: 2 }}>
               <InputLabel>סוג אימות</InputLabel>
