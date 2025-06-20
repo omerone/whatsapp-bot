@@ -14,6 +14,22 @@ class MessageStep {
                         }
                     }
                 }
+
+                // Replace date/time placeholders in header
+                if (session.data && session.data.meeting_date && session.data.meeting_time) {
+                    const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+                    const [day, month, year] = session.data.meeting_date.split('/');
+                    const date = new Date(year, month - 1, day);
+                    const dayName = dayNames[date.getDay()];
+                    
+                    headerMessage = headerMessage
+                        .replace(/{dayName}/g, dayName)
+                        .replace(/{selectedDate}/g, session.data.meeting_date)
+                        .replace(/{selectedTime}/g, session.data.meeting_time)
+                        .replace(/{meeting_date}/g, session.data.meeting_date)
+                        .replace(/{meeting_time}/g, session.data.meeting_time);
+                }
+
                 messages.push(headerMessage);
             }
 
@@ -33,16 +49,18 @@ class MessageStep {
                     }
 
                     // Replace date/time placeholders
-                    if (session.meeting) {
+                    if (session.data && session.data.meeting_date && session.data.meeting_time) {
                         const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
-                        const [day, month, year] = session.meeting.date.split('/');
+                        const [day, month, year] = session.data.meeting_date.split('/');
                         const date = new Date(year, month - 1, day);
                         const dayName = dayNames[date.getDay()];
                         
                         processedMessage = processedMessage
                             .replace(/{dayName}/g, dayName)
-                            .replace(/{selectedDate}/g, session.meeting.date)
-                            .replace(/{selectedTime}/g, session.meeting.time);
+                            .replace(/{selectedDate}/g, session.data.meeting_date)
+                            .replace(/{selectedTime}/g, session.data.meeting_time)
+                            .replace(/{meeting_date}/g, session.data.meeting_date)
+                            .replace(/{meeting_time}/g, session.data.meeting_time);
                     }
 
                     messages.push(processedMessage);
@@ -60,6 +78,22 @@ class MessageStep {
                         }
                     }
                 }
+
+                // Replace date/time placeholders in direct message
+                if (session.data && session.data.meeting_date && session.data.meeting_time) {
+                    const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+                    const [day, month, year] = session.data.meeting_date.split('/');
+                    const date = new Date(year, month - 1, day);
+                    const dayName = dayNames[date.getDay()];
+                    
+                    directMessage = directMessage
+                        .replace(/{dayName}/g, dayName)
+                        .replace(/{selectedDate}/g, session.data.meeting_date)
+                        .replace(/{selectedTime}/g, session.data.meeting_time)
+                        .replace(/{meeting_date}/g, session.data.meeting_date)
+                        .replace(/{meeting_time}/g, session.data.meeting_time);
+                }
+
                 messages.push(directMessage);
             } else if (!step.messageFile && !step.messageHeader) {
                 throw new Error('Step has neither messageFile, message, nor messageHeader');
@@ -76,6 +110,22 @@ class MessageStep {
                         }
                     }
                 }
+
+                // Replace date/time placeholders in footer
+                if (session.data && session.data.meeting_date && session.data.meeting_time) {
+                    const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+                    const [day, month, year] = session.data.meeting_date.split('/');
+                    const date = new Date(year, month - 1, day);
+                    const dayName = dayNames[date.getDay()];
+                    
+                    footerMessage = footerMessage
+                        .replace(/{dayName}/g, dayName)
+                        .replace(/{selectedDate}/g, session.data.meeting_date)
+                        .replace(/{selectedTime}/g, session.data.meeting_time)
+                        .replace(/{meeting_date}/g, session.data.meeting_date)
+                        .replace(/{meeting_time}/g, session.data.meeting_time);
+                }
+
                 messages.push(footerMessage);
             }
 

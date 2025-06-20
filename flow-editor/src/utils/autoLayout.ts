@@ -84,43 +84,13 @@ export function getLayoutedElements(
   if (nodes.length === 0) {
     return { nodes, edges };
   }
-  
-  // בדיקה אם כל הצמתים כבר יש להם מיקום מוגדר
-  const allNodesHavePosition = nodes.every(node => 
-    node.position && (node.position.x !== 0 || node.position.y !== 0)
-  );
-
-  // Even if nodes have positions, we should check for overlaps
-  const positionsToCheck = nodes.map(node => node.position);
-  let needsRelayout = false;
-  
-  // Check if any nodes are overlapping
-  if (allNodesHavePosition) {
-    for (let i = 0; i < positionsToCheck.length; i++) {
-      for (let j = i + 1; j < positionsToCheck.length; j++) {
-        if (checkNodeOverlap(positionsToCheck[i], positionsToCheck[j])) {
-          needsRelayout = true;
-          break;
-        }
-      }
-      if (needsRelayout) break;
-    }
-  }
-
-  // אם כל הצמתים כבר יש להם מיקום ואין חפיפות, נחזיר אותם כמו שהם
-  if (allNodesHavePosition && !needsRelayout) {
-    return { 
-      nodes: nodes.map(node => ({
-        ...node,
-        targetPosition: direction === 'LR' ? 'left' : 'top',
-        sourcePosition: direction === 'LR' ? 'right' : 'bottom',
-      })), 
-      edges 
-    };
-  }
 
   // בניית עץ היררכי מורחב
-  const { nodeMap, childrenMap, edgesBySource, levels } = buildHierarchy(nodes, edges);
+  const { nodeMap, childrenMap, edgesBySource, levels, rootId } = buildHierarchy(nodes, edges);
+  
+  // סידור פשוט יותר - שכבות
+  const positions: Record<string, { x: number; y: number }> = {};
+  const usedPositions: {x: number, y: number}[] = [];
   
   // קיבוץ nodes לפי level
   const levelsArr: string[][] = [];
@@ -129,65 +99,75 @@ export function getLayoutedElements(
     levelsArr[lvl].push(id);
   });
 
-  // חישוב X/Y לכל node: כל רמה בשורה, כל siblings בריווח שווה
-  const positions: Record<string, { x: number; y: number }> = {};
-  const usedPositions: {x: number, y: number}[] = [];
-  
+  // סידור כל רמה בנפרד
   for (let lvl = 0; lvl < levelsArr.length; lvl++) {
     const ids = levelsArr[lvl];
     if (!ids || ids.length === 0) continue;
     
-    const totalWidth = (ids.length - 1) * (NODE_DIMENSIONS.width + NODE_DIMENSIONS.spacingX);
+    // מיון הצמתים ברמה
+    const sortedIds = ids.sort((a, b) => {
+      const priorityOrder = [
+        'intro', 'main_menu', 'start_booking_flow', 'ask_name', 'ask_name_again', 'confirm_full_name',
+        'ask_city', 'ask_vehicle', 'show_available_months', 'show_available_weeks',
+        'show_available_days', 'show_available_times', 'final_confirmation',
+        'faq1', 'faq2', 'human_support', 'remove_candidate', 'not_suitable'
+      ];
+      
+      const priorityA = priorityOrder.indexOf(a);
+      const priorityB = priorityOrder.indexOf(b);
+      
+      if (priorityA !== -1 && priorityB !== -1) {
+        return priorityA - priorityB;
+      }
+      if (priorityA !== -1) return -1;
+      if (priorityB !== -1) return 1;
+      
+      return a.localeCompare(b);
+    });
     
-    for (let i = 0; i < ids.length; i++) {
-      // שמירה על המיקום הקיים אם יש כזה וזה לא חופף עם אחרים
-      const node = nodeMap[ids[i]];
-      if (!needsRelayout && node.position && (node.position.x !== 0 || node.position.y !== 0)) {
-        let canKeepPosition = true;
-        
-        // Check if this position overlaps with any already used positions
+    // חישוב מיקומים
+    const spacing = NODE_DIMENSIONS.width + NODE_DIMENSIONS.spacingX + 80;
+    const totalWidth = (sortedIds.length - 1) * spacing;
+    const startX = -totalWidth / 2;
+    const y = lvl * (NODE_DIMENSIONS.height + NODE_DIMENSIONS.spacingY + 120);
+    
+    sortedIds.forEach((nodeId, index) => {
+      const x = startX + (index * spacing);
+      
+      // בדיקה לחפיפה
+      let finalPos = { x, y };
+      let attempts = 0;
+      while (attempts < 5) {
+        let hasOverlap = false;
         for (const usedPos of usedPositions) {
-          if (checkNodeOverlap(node.position, usedPos)) {
-            canKeepPosition = false;
+          if (checkNodeOverlap(finalPos, usedPos)) {
+            hasOverlap = true;
             break;
           }
         }
         
-        if (canKeepPosition) {
-          positions[ids[i]] = node.position;
-          usedPositions.push(node.position);
-          continue;
-        }
+        if (!hasOverlap) break;
+        
+        finalPos = {
+          x: x + (attempts * 30) * (index % 2 === 0 ? 1 : -1),
+          y: y + (attempts * 15)
+        };
+        attempts++;
       }
       
-      const baseX = -totalWidth / 2 + i * (NODE_DIMENSIONS.width + NODE_DIMENSIONS.spacingX);
-      let baseY = lvl * (NODE_DIMENSIONS.height + NODE_DIMENSIONS.spacingY + 50);
-      
-      // התאמת גובה למקרים מיוחדים
-      const nodeType = node.type;
-      if (nodeType === 'options') {
-        baseY += 30; // מרווח נוסף לצמתי אפשרויות
-      }
-      
-      // הוספת מעט אקראיות להימנע מקווים ישרים מדי
-      const randomOffset = {
-        x: Math.random() * 20 - 10, 
-        y: Math.random() * 10
-      };
-      
-      // מציאת מיקום פנוי
-      const freePos = findFreeNodePosition(
-        usedPositions, 
-        { 
-          x: baseX + randomOffset.x, 
-          y: baseY + randomOffset.y 
-        }
-      );
-      
-      positions[ids[i]] = freePos;
+      positions[nodeId] = finalPos;
+      usedPositions.push(finalPos);
+    });
+  }
+  
+  // טיפול בצמתים שלא חוברו (אם יש)
+  nodes.forEach(node => {
+    if (!positions[node.id]) {
+      const freePos = findFreeNodePosition(usedPositions, { x: 0, y: 0 });
+      positions[node.id] = freePos;
       usedPositions.push(freePos);
     }
-  }
+  });
 
   // עדכון nodes עם מיקום
   const layoutedNodes = nodes.map((node) => {

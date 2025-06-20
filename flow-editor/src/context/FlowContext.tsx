@@ -83,7 +83,8 @@ export const FlowProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // וידוא שיש כל השדות הנדרשים
     const stepToAdd: Step = {
       ...step,
-      enabled: step.enabled !== undefined ? step.enabled : true,
+      // רק מוסיפים enabled אם הוא מוגדר במפורש (כלומר false)
+      ...(step.enabled !== undefined && { enabled: step.enabled }),
       userResponseWaiting: step.userResponseWaiting !== undefined ? step.userResponseWaiting : step.type !== 'message',
     };
     

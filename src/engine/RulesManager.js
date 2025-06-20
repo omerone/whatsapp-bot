@@ -28,46 +28,58 @@ class RulesManager {
             // STRICT BLOCKING: Check all blocked sources rules first
             // These checks must happen before any other processing
 
-            // 1. Block groups immediately
-            if (message.from.includes('@g.us')) {
-                console.log(`[RulesManager] 👥 Blocking message from group: ${message.from}`);
+            // 1. Block groups if ignoreGroups is true
+            if (message.from.includes('@g.us') && blockedSourcesRules.ignoreGroups === true) {
+                console.log(`[RulesManager] 👥 Blocking message from group: ${message.from} (ignoreGroups: true)`);
                 await this.blockAndRecord(message.from, 'is_group');
                 return false;
+            } else if (message.from.includes('@g.us')) {
+                console.log(`[RulesManager] 👥 Allowing message from group: ${message.from} (ignoreGroups not true)`);
             }
 
-            // 2. Block status messages immediately
-            if (message.from === 'status@broadcast') {
-                console.log(`[RulesManager] 📢 Blocking status broadcast message`);
+            // 2. Block status messages if ignoreStatus is true
+            if (message.from === 'status@broadcast' && blockedSourcesRules.ignoreStatus === true) {
+                console.log(`[RulesManager] 📢 Blocking status broadcast message (ignoreStatus: true)`);
                 await this.blockAndRecord(message.from, 'is_status');
                 return false;
+            } else if (message.from === 'status@broadcast') {
+                console.log(`[RulesManager] 📢 Allowing status broadcast message (ignoreStatus not true)`);
             }
 
-            // 3. Block contacts
-            try {
-                const contact = await message.getContact();
-                if (contact && contact.isMyContact) {
-                    console.log(`[RulesManager] 📱 Blocking message from contact: ${message.from}`);
-                    await this.blockAndRecord(message.from, 'is_contact');
+            // 3. Block contacts if ignoreContacts is true
+            if (blockedSourcesRules.ignoreContacts === true) {
+                try {
+                    const contact = await message.getContact();
+                    if (contact && contact.isMyContact) {
+                        console.log(`[RulesManager] 📱 Blocking message from contact: ${message.from} (ignoreContacts: true)`);
+                        await this.blockAndRecord(message.from, 'is_contact');
+                        return false;
+                    }
+                } catch (error) {
+                    console.error('[RulesManager] Error checking contact:', error);
+                    await this.blockAndRecord(message.from, 'contact_check_failed');
                     return false;
                 }
-            } catch (error) {
-                console.error('[RulesManager] Error checking contact:', error);
-                await this.blockAndRecord(message.from, 'contact_check_failed');
-                return false;
+            } else {
+                console.log(`[RulesManager] 📞 Processing contact message from: ${message.from} (ignoreContacts not true)`);
             }
 
-            // 4. Block archived chats
-            try {
-                const chat = await message.getChat();
-                if (chat && chat.archived) {
-                    console.log(`[RulesManager] 📁 Blocking message from archived chat: ${message.from}`);
-                    await this.blockAndRecord(message.from, 'is_archived');
+            // 4. Block archived chats if ignoreArchived is true
+            if (blockedSourcesRules.ignoreArchived === true) {
+                try {
+                    const chat = await message.getChat();
+                    if (chat && chat.archived) {
+                        console.log(`[RulesManager] 📁 Blocking message from archived chat: ${message.from} (ignoreArchived: true)`);
+                        await this.blockAndRecord(message.from, 'is_archived');
+                        return false;
+                    }
+                } catch (error) {
+                    console.error('[RulesManager] Error checking archived status:', error);
+                    await this.blockAndRecord(message.from, 'archive_check_failed');
                     return false;
                 }
-            } catch (error) {
-                console.error('[RulesManager] Error checking archived status:', error);
-                await this.blockAndRecord(message.from, 'archive_check_failed');
-                return false;
+            } else {
+                console.log(`[RulesManager] 📁 Processing archived chat message from: ${message.from} (ignoreArchived not true)`);
             }
 
             // Only after passing ALL conversation checks, proceed with other checks

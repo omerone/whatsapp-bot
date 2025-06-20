@@ -234,7 +234,7 @@ class FlowEngine {
         session.isFirstMessage = false;
         session.isNewConversation = false;
         session.ignoreNextInput = false;
-        
+
         // Clear meeting data from session
         if (session.meetingData) {
             delete session.meetingData;
@@ -425,49 +425,72 @@ class FlowEngine {
                 throw new Error(`Step ${session.currentStep} not found in flow`);
             }
 
+            // Check if step is disabled
+            if (step.enabled === false) {
+                console.log(`[FlowEngine] 🚫 Step ${step.id} is disabled, skipping to next step`);
+                
+                // If skipIfDisabled is specified, go to that step
+                if (step.skipIfDisabled) {
+                    console.log(`[FlowEngine] 🔄 Skipping to step ${step.skipIfDisabled}`);
+                    session.currentStep = step.skipIfDisabled;
+                    return await this.processStepInternal(userId, userInput);
+                } else {
+                    // If no skip target specified, return error
+                    return {
+                        messages: ['השלב הזה אינו זמין כרגע. אנא כתוב "תפריט" להתחלה מחדש.'],
+                        waitForUser: true
+                    };
+                }
+            }
+
             // Check for freeze property on any step type BEFORE processing
-            if (step.freeze) {
-                console.log(`[FlowEngine] Step ${step.id} has freeze property, freezing client ${userId}`);
-                await this.freezeClient(session.userId, step.id);
+            // Only freeze if user has sent input (not on first visit to step)
+            if (step.freeze && userInput !== null) {
+                console.log(`[FlowEngine] Step ${step.id} has freeze property and user sent input, freezing client ${userId}`);
                 
-                // Get message content for the step before freezing
-                let messages = [];
+                // Check if client is already frozen to avoid sending duplicate messages
+                const currentLead = await this.leadsManager.getLead(userId);
+                const now = new Date();
+                const isAlreadyFrozen = currentLead?.frozenUntil && new Date(currentLead.frozenUntil) > now;
                 
-                if (step.messageHeader) {
-                    messages.push(this.replacePlaceholders(step.messageHeader, session.data));
-                }
-                
-                if (step.messageFile) {
-                    const messageContent = await this.loadMessageFile(step.messageFile);
-                    if (messageContent) {
-                        messages.push(this.replacePlaceholders(messageContent, session.data));
+                if (isAlreadyFrozen) {
+                    console.log(`[FlowEngine] Client ${userId} is already frozen, only sending freeze message`);
+                    // Client is already frozen, only send the freeze explanation message
+                    const freezeConfig = this.getFreezConfig(step);
+                    if (freezeConfig?.messaging?.send_explanation && freezeConfig.messaging.message) {
+                        const explanationText = freezeConfig.messaging.message.replace('{duration}', freezeConfig.duration || 60);
+                        return {
+                            messages: [explanationText],
+                            waitForUser: true
+                        };
+                    } else {
+                        // No freeze message configured, return empty
+                        return {
+                            messages: [],
+                            waitForUser: true
+                        };
+                    }
+                } else {
+                    // Client is not yet frozen, freeze them
+                    await this.freezeClient(session.userId, step.id);
+                    
+                    // After freezing, only return freeze message, not step messages
+                    const freezeConfig = this.getFreezConfig(step);
+                    if (freezeConfig?.messaging?.send_explanation && freezeConfig.messaging.message) {
+                        // The freeze message was already sent by freezeClient, so don't return it again
+                        // Just return empty messages to avoid duplicate step messages
+                        return {
+                            messages: [],
+                            waitForUser: true
+                        };
+                    } else {
+                        // No freeze message configured, return empty
+                        return {
+                            messages: [],
+                            waitForUser: true
+                        };
                     }
                 }
-                
-                if (step.message) {
-                    messages.push(this.replacePlaceholders(step.message, session.data));
-                }
-                
-                if (step.footerMessage) {
-                    messages.push(this.replacePlaceholders(step.footerMessage, session.data));
-                }
-                
-                // If no messages were found using standard fields, try to get message using the step handler
-                if (messages.length === 0) {
-                    const handler = this.stepHandlers[step.type];
-                    if (handler) {
-                        const tempResult = await handler.process(step, session, null, this);
-                        if (tempResult && tempResult.messages) {
-                            messages = tempResult.messages;
-                        }
-                    }
-                }
-                
-                // Return messages and wait for user (freeze always forces wait)
-                return {
-                    messages,
-                    waitForUser: true
-                };
             }
 
             // Check if this step has blocking enabled and user sent input
@@ -526,9 +549,16 @@ class FlowEngine {
                 }
             }
 
-            // Handle integrations if present
+            // Handle integrations if present - both old system and new system
             if (step.integrations?.enabled) {
                 console.log(`[FlowEngine] 🔗 Processing integrations for step ${step.id}`);
+                
+                // New system: step-level integrations via ReminderService
+                if (step.type === 'message' && this.integrationManager?.reminderService) {
+                    await this.integrationManager.reminderService.processStepReminders(userId, step);
+                }
+                
+                // Old system: meeting-based integrations
                 await this.handleStepIntegrations(userId, step, session);
             }
 
@@ -628,6 +658,29 @@ class FlowEngine {
         }
 
         console.log(`[FlowEngine] Client ${userId} blocked (reason: ${stepId || 'unknown'}, allow_unblock: ${blockConfig.allow_unblock})`);
+    }
+
+    getFreezConfig(step) {
+        let freezeConfig;
+        
+        // First check if there's a step-specific freeze configuration
+        if (step && step.freeze && typeof step.freeze === 'object') {
+            freezeConfig = step.freeze;
+        } else if (step && step.freeze === true) {
+            // When freeze is just true without configuration, use default values
+            freezeConfig = {
+                enabled: true,
+                duration: 60,
+                messaging: {
+                    send_explanation: true,
+                    message: "תחזור אלינו בעוד {duration} דקות. תודה על הסבלנות! 🙏"
+                }
+            };
+        } else {
+            return null;
+        }
+        
+        return freezeConfig;
     }
 
     async freezeClient(userId, stepId = null) {

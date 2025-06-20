@@ -1,14 +1,14 @@
 class OptionStep {
     static async process(step, session, input, flowEngine) {
         // If we have input, try to process the selection
-        if (input) {
+        if (input && input.trim()) {
             const normalizedInput = input.trim().toLowerCase();
             
             // Find the matching option
             let selectedOption = null;
             let selectedKey = null;
 
-            for (const [key, value] of Object.entries(step.options)) {
+            for (const [key, value] of Object.entries(step.branches || {})) {
                 const options = key.split('||').map(opt => opt.trim().toLowerCase());
                 
                 // Check if input matches any of the options (case insensitive)
@@ -32,23 +32,23 @@ class OptionStep {
                 if (selectedOption) break;
             }
 
-            if (selectedOption && step.branches[selectedOption]) {
+            if (selectedOption) {
                 // Store the selection
                 if (step.key) {
                     session.data[step.key] = selectedOption;
                 }
                 
-                console.log(`✅ OptionStep: User input "${input}" matched option "${selectedKey}" → "${selectedOption}" → "${step.branches[selectedOption]}"`);
+                console.log(`✅ OptionStep: User input "${input}" matched option "${selectedKey}" → target step "${selectedOption}"`);
                 
                 // Update the lead with the client's message
                 await flowEngine.leadsManager.updateLastMessage(session.userId, 'client', input);
                 
                 // Move to the selected branch
-                session.currentStep = step.branches[selectedOption];
+                session.currentStep = selectedOption;
                 return flowEngine.processStepInternal(session.userId);
             } else {
                 // Create a comprehensive list of valid options for the error message
-                const validOptions = Object.keys(step.options)
+                const validOptions = Object.keys(step.branches || {})
                     .map(key => {
                         const options = key.split('||').map(opt => opt.trim());
                         return options.length > 1 ? `${options[0]} (${options.slice(1).join(', ')})` : options[0];
@@ -71,6 +71,28 @@ class OptionStep {
         }
 
         // If we're just starting this step or had an invalid selection
+        // BUT if user sent empty/whitespace input, show error
+        if (input && !input.trim()) {
+            const validOptions = Object.keys(step.branches || {})
+                .map(key => {
+                    const options = key.split('||').map(opt => opt.trim());
+                    return options.length > 1 ? `${options[0]} (${options.slice(1).join(', ')})` : options[0];
+                })
+                .join(' | ');
+
+            console.log(`❌ OptionStep: User sent empty/whitespace input in step "${step.id}"`);
+            
+            // Update the lead with the invalid input
+            await flowEngine.leadsManager.updateLastMessage(session.userId, 'client', input);
+            
+            const errorMessage = step.noMatchMessage || `בחירה לא תקינה, אנא בחר מהאפשרויות הבאות: ${validOptions}`;
+            
+            return {
+                messages: [errorMessage],
+                waitForUser: true
+            };
+        }
+
         const messages = [];
 
         // Process message header if exists
@@ -84,6 +106,22 @@ class OptionStep {
                     }
                 }
             }
+
+            // Replace date/time placeholders in header
+            if (session.data && session.data.meeting_date && session.data.meeting_time) {
+                const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+                const [day, month, year] = session.data.meeting_date.split('/');
+                const date = new Date(year, month - 1, day);
+                const dayName = dayNames[date.getDay()];
+                
+                headerMessage = headerMessage
+                    .replace(/{dayName}/g, dayName)
+                    .replace(/{selectedDate}/g, session.data.meeting_date)
+                    .replace(/{selectedTime}/g, session.data.meeting_time)
+                    .replace(/{meeting_date}/g, session.data.meeting_date)
+                    .replace(/{meeting_time}/g, session.data.meeting_time);
+            }
+
             messages.push(headerMessage);
         }
 
@@ -97,6 +135,22 @@ class OptionStep {
                 }
             }
         }
+
+        // Replace date/time placeholders in main message
+        if (messageToSend && session.data && session.data.meeting_date && session.data.meeting_time) {
+            const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+            const [day, month, year] = session.data.meeting_date.split('/');
+            const date = new Date(year, month - 1, day);
+            const dayName = dayNames[date.getDay()];
+            
+            messageToSend = messageToSend
+                .replace(/{dayName}/g, dayName)
+                .replace(/{selectedDate}/g, session.data.meeting_date)
+                .replace(/{selectedTime}/g, session.data.meeting_time)
+                .replace(/{meeting_date}/g, session.data.meeting_date)
+                .replace(/{meeting_time}/g, session.data.meeting_time);
+        }
+
         messages.push(messageToSend);
 
         // Process footer message if exists
@@ -110,6 +164,22 @@ class OptionStep {
                     }
                 }
             }
+
+            // Replace date/time placeholders in footer
+            if (session.data && session.data.meeting_date && session.data.meeting_time) {
+                const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+                const [day, month, year] = session.data.meeting_date.split('/');
+                const date = new Date(year, month - 1, day);
+                const dayName = dayNames[date.getDay()];
+                
+                footerMessage = footerMessage
+                    .replace(/{dayName}/g, dayName)
+                    .replace(/{selectedDate}/g, session.data.meeting_date)
+                    .replace(/{selectedTime}/g, session.data.meeting_time)
+                    .replace(/{meeting_date}/g, session.data.meeting_date)
+                    .replace(/{meeting_time}/g, session.data.meeting_time);
+            }
+
             messages.push(footerMessage);
         }
 

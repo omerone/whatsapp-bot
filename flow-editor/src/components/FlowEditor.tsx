@@ -36,7 +36,9 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Tooltip
+  Tooltip,
+  Divider,
+  Chip
 } from '@mui/material';
 import { Settings as SettingsIcon } from '@mui/icons-material';
 import FolderIcon from '@mui/icons-material/Folder';
@@ -63,26 +65,26 @@ const nodeTypes: NodeTypes = {
   date: StepNode,
 };
 
-// מערך צבעים שונים לשימוש בקווים
+// מערך צבעים מודרניים לשימוש בקווים
 const EDGE_COLORS = [
-  '#FF5733', // אדום-כתום
-  '#33FF57', // ירוק בהיר
-  '#3357FF', // כחול
-  '#FF33F5', // ורוד
-  '#F5FF33', // צהוב
-  '#33FFF5', // טורקיז
-  '#FF8C33', // כתום
-  '#8C33FF', // סגול
-  '#33FFAA', // ירוק-טורקיז
-  '#FF3333', // אדום
+  '#2563eb', // כחול מודרני
+  '#7c3aed', // סגול מודרני
+  '#10b981', // ירוק מודרני
+  '#f59e0b', // כתום מודרני
+  '#ef4444', // אדום מודרני
+  '#06b6d4', // טורקיז מודרני
+  '#8b5cf6', // סגול בהיר
+  '#14b8a6', // ירוק-טורקיז
+  '#f97316', // כתום בהיר
+  '#ec4899', // ורוד מודרני
 ];
 
-// מיפוי צבעים לפי סוג צעד
+// מיפוי צבעים לפי סוג צעד - מותאם לנושא החדש
 const STEP_TYPE_COLORS = {
-  message: '#3357FF', // כחול
-  question: '#FF5733', // אדום-כתום
-  options: '#33FF57', // ירוק בהיר
-  date: '#FF33F5', // ורוד
+  message: '#2563eb', // כחול מודרני
+  question: '#7c3aed', // סגול מודרני
+  options: '#10b981', // ירוק מודרני
+  date: '#f59e0b', // כתום מודרני
 };
 
 // פונקציה להגדרת צבע קו לפי סוג החיבור
@@ -118,7 +120,8 @@ const getEdgeStyle = (edge: Edge, nodes: Node[] | any[]) => {
   
   return {
     stroke: color,
-    strokeWidth: 2,
+    strokeWidth: 3,
+    strokeDasharray: edge.animated ? '5,5' : 'none',
   };
 };
 
@@ -264,7 +267,7 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
         messageHeader: '',
         message: '',
         footerMessage: '',
-        enabled: true,
+        // לא מוסיפים enabled: true כברירת מחדל - רק אם השלב מושבת
         userResponseWaiting: type !== 'message',
         position,
       };
@@ -350,6 +353,65 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
 
   const handleExport = () => {
     setShowSaveDialog(true);
+  };
+
+  // שמירה אוטומטית לתסריט הנוכחי
+  const handleAutoSave = async () => {
+    if (!currentFlowName) {
+      // אם אין תסריט פתוח, פתח דיאלוג שמירה
+      setShowSaveDialog(true);
+      return;
+    }
+
+    try {
+      console.log('Auto-saving current flow:', currentFlowName);
+      
+      // עדכון המיקומים הנוכחיים של הצמתים
+      const updatedFlow = { ...flow };
+      
+      nodes.forEach(node => {
+        if (node.position && updatedFlow.steps[node.id]) {
+          updatedFlow.steps[node.id] = {
+            ...updatedFlow.steps[node.id],
+            position: {
+              x: node.position.x,
+              y: node.position.y
+            }
+          };
+        }
+      });
+      
+      // עדכון הקונטקסט
+      setFlow(updatedFlow);
+      
+      // שמירה לשרת
+      const flowData = JSON.stringify(updatedFlow, null, 2);
+      const response = await fetch(`/api/flows/${currentFlowName}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: flowData,
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      setSnackbar({
+        open: true,
+        message: `התסריט ${currentFlowName} נשמר בהצלחה`,
+        severity: 'success'
+      });
+      
+    } catch (error) {
+      console.error('Error auto-saving flow:', error);
+      setSnackbar({
+        open: true,
+        message: `שגיאה בשמירת התסריט: ${error instanceof Error ? error.message : 'שגיאה לא ידועה'}`,
+        severity: 'error'
+      });
+    }
   };
 
   const handleSaveFlow = async () => {
@@ -717,13 +779,16 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
           if (stepData.branches) {
             Object.entries(stepData.branches).forEach(([branchKey, targetId]: [string, any]) => {
               if (targetId) {
-                initialEdges.push({
-                  id: `${stepId}-${targetId}-${branchKey}`,
-                  source: stepId,
-                  target: targetId,
-                  animated: true,
-                  label: branchKey
-                });
+                // הסרת קווים שמכילות "חזור" מהויזואליזציה לגמרי
+                if (!branchKey.includes('חזור')) {
+                  initialEdges.push({
+                    id: `${stepId}-${targetId}-${branchKey}`,
+                    source: stepId,
+                    target: targetId,
+                    animated: true,
+                    label: branchKey
+                  });
+                }
               }
             });
           }
@@ -787,12 +852,16 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
       setEdges([]);
       setNoSteps(true);
       setNoStart(false);
+      setSelectedStep(null);
+      setShowMetadata(false);
+      setIsInitialLoad(false);
+      
       // Reset repositioned nodes tracking
       repositionedNodeIds.current.clear();
       
       setSnackbar({
         open: true,
-        message: 'תסריט חדש נוצר בהצלחה',
+        message: 'תסריט חדש נוצר בהצלחה. כעת תוכל לגרור בלוקים מהסיידבר',
         severity: 'success'
       });
       setCurrentFlowName(null);
@@ -931,13 +1000,16 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
         if (step.branches) {
           for (const [key, targetId] of Object.entries(step.branches)) {
             if (targetId) {
-              newEdges.push({
-                id: `${step.id}-${targetId}-${key}`,
-                source: step.id,
-                target: targetId as string,
-                animated: true,
-                label: key,
-              });
+              // הסרת קווים שמכילות "חזור" מהויזואליזציה לגמרי
+              if (!key.includes('חזור')) {
+                newEdges.push({
+                  id: `${step.id}-${targetId}-${key}`,
+                  source: step.id,
+                  target: targetId as string,
+                  animated: true,
+                  label: key,
+                });
+              }
             }
           }
         }
@@ -1368,67 +1440,156 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
             flexDirection: 'column',
           }}
         >
-          <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6">
-              עורך תסריט שיחה {currentFlowName ? `- ${currentFlowName}` : ''}
+          {/* Header מודרני ומשופר */}
+          <Box sx={{ 
+            p: 3, 
+            background: 'linear-gradient(135deg, #2563eb10, #7c3aed05)',
+            borderBottom: '1px solid',
+            borderColor: 'grey.200',
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center' 
+          }}>
+            <Box>
+              <Typography variant="h4" sx={{ 
+                fontWeight: 700,
+                color: 'grey.800',
+                mb: 0.5,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1
+              }}>
+                🎯 עורך תסריט שיחה
             </Typography>
-            <Box sx={{ display: 'flex', gap: 1 }}>
+              {currentFlowName && (
+                <Typography variant="subtitle1" sx={{ 
+                  color: 'primary.main',
+                  fontWeight: 500,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1
+                }}>
+                  📋 {currentFlowName}
+                </Typography>
+              )}
+            </Box>
+            
+            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+              <Tooltip title="יצירת תסריט חדש">
               <Button
-                variant="outlined"
+                  variant="contained"
                 onClick={handleCreateNew}
-                sx={{ minWidth: 0 }}
+                  sx={{ 
+                    minWidth: 0,
+                    borderRadius: 2,
+                    px: 2.5,
+                    py: 1,
+                    fontWeight: 600
+                  }}
               >
-                תסריט חדש
+                  ➕ תסריט חדש
               </Button>
-              <Button
-                variant="outlined"
-                startIcon={<DownloadIcon />}
-                onClick={handleExport}
-                sx={{ minWidth: 0 }}
-              >
-                שמור
-              </Button>
-              <Button
-                variant="outlined"
-                component="label"
-                startIcon={<UploadFileIcon />}
-                sx={{ minWidth: 0 }}
-              >
-                טען
-                <input type="file" accept="application/json" hidden onChange={handleImport} />
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<UndoIcon />}
+              </Tooltip>
+              
+                            <Box sx={{ display: 'flex', gap: 1 }}>
+                <Tooltip title="שמירת התסריט">
+                  <Button
+                    variant="outlined"
+                    startIcon={<DownloadIcon />}
+                    onClick={() => setShowSaveDialog(true)}
+                    sx={{ borderRadius: 2 }}
+                  >
+                    שמור
+                  </Button>
+                </Tooltip>
+                
+                <Tooltip title="טעינת תסריט">
+                  <Button
+                    variant="outlined"
+                    component="label"
+                    startIcon={<UploadFileIcon />}
+                    sx={{ borderRadius: 2 }}
+                  >
+                    טען
+                    <input type="file" accept="application/json" hidden onChange={handleImport} />
+                  </Button>
+                </Tooltip>
+              </Box>
+              
+              <Divider orientation="vertical" flexItem sx={{ mx: 1, height: 40 }} />
+              
+              <Box sx={{ display: 'flex', gap: 0.5 }}>
+                <Tooltip title="בטל פעולה אחרונה">
+                  <IconButton
                 onClick={undo}
                 disabled={!canUndo}
-                sx={{ minWidth: 0 }}
+                    sx={{ 
+                      borderRadius: 2,
+                      backgroundColor: canUndo ? 'action.hover' : 'transparent'
+                    }}
               >
-                בטל
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<RedoIcon />}
+                    <UndoIcon />
+                  </IconButton>
+                </Tooltip>
+                
+                <Tooltip title="חזור על פעולה">
+                  <IconButton
                 onClick={redo}
                 disabled={!canRedo}
-                sx={{ minWidth: 0 }}
+                    sx={{ 
+                      borderRadius: 2,
+                      backgroundColor: canRedo ? 'action.hover' : 'transparent'
+                    }}
               >
-                חזור
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<AutoFixHighIcon />}
+                    <RedoIcon />
+                  </IconButton>
+                </Tooltip>
+                
+                <Tooltip title="סידור אוטומטי של הבלוקים">
+                  <IconButton
                 onClick={applyAutoLayout}
-                sx={{ minWidth: 0 }}
+                    sx={{ borderRadius: 2 }}
               >
-                סידור אוטומטי
-              </Button>
-              <IconButton onClick={handleShowFlows}>
+                    <AutoFixHighIcon />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+              
+              <Divider orientation="vertical" flexItem sx={{ mx: 1, height: 40 }} />
+              
+              <Box sx={{ display: 'flex', gap: 0.5 }}>
+                <Tooltip title="רשימת תסריטים">
+                  <IconButton 
+                    onClick={handleShowFlows}
+                    sx={{ 
+                      borderRadius: 2,
+                      backgroundColor: 'primary.main',
+                      color: 'white',
+                      '&:hover': {
+                        backgroundColor: 'primary.dark'
+                      }
+                    }}
+                  >
                 <FolderIcon />
               </IconButton>
-              <IconButton onClick={() => setShowMetadata(true)}>
+                </Tooltip>
+                
+                <Tooltip title="הגדרות מטא-דאטה">
+                  <IconButton 
+                    onClick={() => setShowMetadata(true)}
+                    sx={{ 
+                      borderRadius: 2,
+                      backgroundColor: 'secondary.main',
+                      color: 'white',
+                      '&:hover': {
+                        backgroundColor: 'secondary.dark'
+                      }
+                    }}
+                  >
                 <SettingsIcon />
               </IconButton>
+                </Tooltip>
+              </Box>
             </Box>
           </Box>
           <Box sx={{ flexGrow: 1, position: 'relative' }}>
@@ -1456,7 +1617,11 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
               elementsSelectable={true}
               style={{ width: '100%', height: '100%' }}
             >
-              <Background />
+              <Background 
+                color="#e2e8f0" 
+                gap={20} 
+                size={1}
+              />
               <Controls />
             </ReactFlow>
             {noSteps && (
@@ -1467,19 +1632,76 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
                   left: '50%', 
                   transform: 'translate(-50%, -50%)',
                   textAlign: 'center',
-                  color: 'gray',
                   zIndex: 10,
-                  backgroundColor: 'rgba(255,255,255,0.8)',
-                  padding: 2,
-                  borderRadius: 2
+                  backgroundColor: 'rgba(255,255,255,0.95)',
+                  padding: 4,
+                  borderRadius: 4,
+                  border: '2px dashed',
+                  borderColor: 'grey.300',
+                  maxWidth: 400,
+                  backdropFilter: 'blur(8px)'
                 }}
               >
-                <Typography variant="h6" sx={{ mb: 2 }}>
-                  לא קיימים צעדים בתסריט
+                <Typography variant="h3" sx={{ mb: 1, fontSize: '3rem' }}>
+                  🎯
                 </Typography>
-                <Typography variant="body1">
-                  גרור בלוקים מהסיידבר כדי להתחיל לבנות את התסריט שלך
+                <Typography variant="h5" sx={{ 
+                  mb: 2,
+                  fontWeight: 600,
+                  color: 'grey.700'
+                }}>
+                  התחל לבנות את התסריט שלך
                 </Typography>
+                <Typography variant="body1" sx={{ 
+                  color: 'grey.600',
+                  lineHeight: 1.6,
+                  mb: 3
+                }}>
+                  גרור בלוקים מהסיידבר השמאלי כדי להתחיל לבנות את תסריט השיחה שלך
+                </Typography>
+                <Box sx={{ 
+                  display: 'flex', 
+                  justifyContent: 'center', 
+                  gap: 2,
+                  flexWrap: 'wrap'
+                }}>
+                  <Chip 
+                    label="💬 הודעה" 
+                    variant="outlined" 
+                    sx={{ 
+                      borderColor: '#2563eb40',
+                      color: '#2563eb',
+                      fontWeight: 500
+                    }} 
+                  />
+                  <Chip 
+                    label="❓ שאלה" 
+                    variant="outlined" 
+                    sx={{ 
+                      borderColor: '#7c3aed40',
+                      color: '#7c3aed',
+                      fontWeight: 500
+                    }} 
+                  />
+                  <Chip 
+                    label="📋 אפשרויות" 
+                    variant="outlined" 
+                    sx={{ 
+                      borderColor: '#10b98140',
+                      color: '#10b981',
+                      fontWeight: 500
+                    }} 
+                  />
+                  <Chip 
+                    label="📅 תאריך" 
+                    variant="outlined" 
+                    sx={{ 
+                      borderColor: '#f59e0b40',
+                      color: '#f59e0b',
+                      fontWeight: 500
+                    }} 
+                  />
+                </Box>
               </Box>
             )}
             
@@ -1610,48 +1832,123 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
         <Dialog
           open={showSaveDialog}
           onClose={() => setShowSaveDialog(false)}
-          maxWidth="sm"
+          maxWidth="md"
           fullWidth
         >
-          <DialogTitle>שמירת תסריט</DialogTitle>
-          <DialogContent>
-            <Box sx={{ mt: 2, mb: 2 }}>
-              <TextField
-                fullWidth
-                label="שם קובץ"
-                value={saveFileName}
-                onChange={(e) => setSaveFileName(e.target.value)}
-                placeholder="flow.json"
-                helperText="הזן שם קובץ עם סיומת .json"
-                sx={{ mb: 2 }}
-              />
+          <DialogTitle sx={{ 
+            background: 'linear-gradient(135deg, #2563eb15, #7c3aed10)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2
+          }}>
+            <Box sx={{
+              width: 40,
+              height: 40,
+              borderRadius: 2,
+              backgroundColor: 'primary.main',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              fontSize: '1.2rem'
+            }}>
+              💾
+            </Box>
+            <Typography variant="h5" sx={{ fontWeight: 600 }}>
+              שמירת תסריט
+            </Typography>
+          </DialogTitle>
+          <DialogContent sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {/* אפשרות 1: שמירה לתסריט הנוכחי */}
+              {currentFlowName && (
+                <Paper elevation={0} sx={{ p: 3, backgroundColor: 'success.light' + '10', borderRadius: 3, border: '2px solid', borderColor: 'success.main' + '30' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <Box sx={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 2,
+                      backgroundColor: 'success.main',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'white',
+                      fontSize: '1rem'
+                    }}>
+                      ✅
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 600, color: 'success.dark' }}>
+                      שמור לתסריט הנוכחי
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
+                    שמור את השינויים לתסריט הפתוח: <strong>{currentFlowName}</strong>
+                  </Typography>
+                  <Button 
+                    variant="contained" 
+                    color="success"
+                    onClick={handleAutoSave}
+                    sx={{ borderRadius: 2, fontWeight: 600 }}
+                    fullWidth
+                  >
+                    💾 שמור שינויים
+                  </Button>
+                </Paper>
+              )}
               
-              <Typography variant="body2" sx={{ mb: 2 }}>
-                בחר היכן לשמור את התסריט:
-              </Typography>
-              
-              <Box sx={{ display: 'flex', gap: 2 }}>
+              {/* אפשרות 2: שמירה כקובץ חדש */}
+              <Paper elevation={0} sx={{ p: 3, backgroundColor: 'primary.light' + '10', borderRadius: 3, border: '2px solid', borderColor: 'primary.main' + '30' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                  <Box sx={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 2,
+                    backgroundColor: 'primary.main',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontSize: '1rem'
+                  }}>
+                    📄
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.dark' }}>
+                    שמור כתסריט חדש
+                  </Typography>
+                </Box>
+                <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
+                  שמור את התסריט כקובץ חדש עם שם חדש
+                </Typography>
+                
+                <TextField
+                  fullWidth
+                  label="שם התסריט החדש"
+                  value={saveFileName}
+                  onChange={(e) => setSaveFileName(e.target.value)}
+                  placeholder={flow.metadata?.company_name || "תסריט_חדש.json"}
+                  helperText="הזן שם לתסריט החדש (ללא סיומת .json)"
+                  sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                />
+                
                 <Button 
                   variant="contained" 
                   onClick={handleLocalSave}
                   disabled={!saveFileName}
+                  sx={{ borderRadius: 2 }}
+                  fullWidth
                 >
-                  שמור במחשב
+                  💻 שמור במחשב
                 </Button>
-                
-                <Button 
-                  variant="contained" 
-                  onClick={handleSaveFlow}
-                  disabled={!saveFileName}
-                  color="primary"
-                >
-                  שמור בשרת
-                </Button>
-              </Box>
+              </Paper>
             </Box>
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setShowSaveDialog(false)}>ביטול</Button>
+          <DialogActions sx={{ p: 3, pt: 0 }}>
+            <Button 
+              onClick={() => setShowSaveDialog(false)}
+              sx={{ borderRadius: 2, px: 3 }}
+            >
+              ביטול
+            </Button>
           </DialogActions>
         </Dialog>
         

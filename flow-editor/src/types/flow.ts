@@ -120,6 +120,7 @@ export interface StepData {
   integrations?: IntegrationConfig;
   skipIfDisabled?: string;
   position?: Position;
+  noMatchMessage?: string;
 }
 
 export interface Step extends StepData {

@@ -401,8 +401,8 @@ class DateStep {
 
     static async validateDateChoice(input, session, step, flowEngine) {
         if (input && input.trim() === 'חזור') {
-            if (step && step.options && step.options['חזור']) {
-                return { valid: true, action: 'navigate', targetStep: step.options['חזור'] };
+            if (step && step.branches && step.branches['חזור']) {
+                return { valid: true, action: 'navigate', targetStep: step.branches['חזור'] };
             } else {
                 console.warn(`"חזור" command received, but no specific back step defined for step ID: ${step ? step.id : 'unknown'}. Defaulting to main_menu or error.`);
                 return { valid: false, error: 'אפשרות החזרה אינה מוגדרת כראוי לשלב זה.' };
@@ -455,11 +455,12 @@ class DateStep {
                 break;
             case 'hours':
                 session.selectedTime = selectedValue;
-                session.meeting = {
-                    date: session.selectedDate,
-                    time: selectedValue
-                };
                 session.is_schedule = true;
+
+                // Store meeting data in session.data for variable replacement
+                session.data = session.data || {};
+                session.data.meeting_date = session.selectedDate;
+                session.data.meeting_time = selectedValue;
 
                 // Store meeting data in session for later processing
                 session.meetingData = {

@@ -70,6 +70,11 @@ class ReminderService {
         if (!this.remindersEnabled) {
             return;
         }
+
+        // Check step-level reminders (always check these)
+        await this.checkStepReminders();
+
+        // Check global reminder configurations
         if (!this.reminderConfigurations || this.reminderConfigurations.length === 0) {
             return;
         }
@@ -161,8 +166,10 @@ class ReminderService {
             }
 
             if (!leadObject.meeting) leadObject.meeting = {};
-            leadObject.meeting.date = apptData.meeting_date;
-            leadObject.meeting.time = apptData.meeting_time;
+            // Update lead data instead of meeting object
+            leadObject.data = leadObject.data || {};
+            leadObject.data.meeting_date = apptData.meeting_date;
+            leadObject.data.meeting_time = apptData.meeting_time;
             if (!leadObject.meeting.reminders_sent) leadObject.meeting.reminders_sent = [];
             leadObject.is_schedule = true;
 
@@ -349,18 +356,262 @@ class ReminderService {
     }
 
     _formatMessage(template, lead) {
-        let message = template;
-        const placeholders = {
-            '{full_name}': lead.data?.full_name || '',
-            '{meeting_date}': lead.meeting?.date || '',
-            '{meeting_time}': lead.meeting?.time || ''
-            // Add more placeholders as needed
-        };
-
-        for (const placeholder in placeholders) {
-            message = message.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\\\\]]/g, '\\\\$&'), 'g'), placeholders[placeholder]);
+        if (!template || !lead) {
+            return template || '';
         }
-        return message;
+
+        let formattedMessage = template;
+
+        // Replace meeting data placeholders using lead.data
+        if (lead.data) {
+            if (lead.data.meeting_date) {
+                formattedMessage = formattedMessage.replace(/\{meeting_date\}/g, lead.data.meeting_date);
+            }
+            if (lead.data.meeting_time) {
+                formattedMessage = formattedMessage.replace(/\{meeting_time\}/g, lead.data.meeting_time);
+            }
+            
+            // Replace other lead data placeholders
+            Object.keys(lead.data).forEach(key => {
+                const placeholder = new RegExp(`\\{${key}\\}`, 'g');
+                formattedMessage = formattedMessage.replace(placeholder, lead.data[key] || '');
+            });
+        }
+
+        return formattedMessage;
+    }
+
+    // New method to process step-level reminders
+    async processStepReminders(leadId, stepData) {
+        try {
+            if (!stepData || !stepData.integrations?.enabled) {
+                return;
+            }
+
+            const lead = await this.leadsManager.getLead(leadId);
+            if (!lead || lead.blocked) {
+                return;
+            }
+
+            // Process notifications
+            if (stepData.integrations.notifications && stepData.integration?.notifications) {
+                await this._processStepNotifications(lead, stepData);
+            }
+
+            // Process reminders
+            if (stepData.integrations.reminders && stepData.reminders?.enabled) {
+                await this._processStepRemindersConfig(lead, stepData);
+            }
+
+            // Process Google Calendar
+            if (stepData.integrations.googleCalendar && stepData.integration?.calendar) {
+                await this._processStepGoogleCalendar(lead, stepData);
+            }
+
+            // Process Google Sheets
+            if (stepData.integrations.googleSheets && stepData.integration?.sheets) {
+                await this._processStepGoogleSheets(lead, stepData);
+            }
+
+            // Process iPlan
+            if (stepData.integrations.iPlan && stepData.integration?.iplan) {
+                await this._processStepIPlan(lead, stepData);
+            }
+
+        } catch (error) {
+            console.error(`ReminderService: Error processing step integrations for ${leadId}:`, error);
+        }
+    }
+
+    async _processStepNotifications(lead, stepData) {
+        try {
+            const notificationConfig = stepData.integration.notifications;
+            if (!notificationConfig.recipients || !notificationConfig.message) {
+                return;
+            }
+
+            const recipients = notificationConfig.recipients.split(',').map(r => r.trim());
+            const message = this._formatMessage(notificationConfig.message, lead);
+
+            for (const recipient of recipients) {
+                if (recipient) {
+                    try {
+                        console.log(`ReminderService: Sending step notification to ${recipient}`);
+                        await this.whatsappClient.sendMessage(recipient, message);
+                    } catch (error) {
+                        console.error(`ReminderService: Failed to send notification to ${recipient}:`, error);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('ReminderService: Error processing step notifications:', error);
+        }
+    }
+
+    async _processStepRemindersConfig(lead, stepData) {
+        try {
+            const remindersConfig = stepData.reminders;
+            if (!remindersConfig.reminders || !Array.isArray(remindersConfig.reminders)) {
+                return;
+            }
+
+            // Get meeting date and time from lead data
+            const meetingDate = lead.data?.meeting_date;
+            const meetingTime = lead.data?.meeting_time;
+            
+            if (!meetingDate || !meetingTime) {
+                console.warn('ReminderService: No meeting date/time found for step reminders');
+                return;
+            }
+
+            const meetingDateTime = this._parseMeetingDateTime(meetingDate, meetingTime);
+            if (!meetingDateTime) {
+                console.warn('ReminderService: Could not parse meeting date/time for step reminders');
+                return;
+            }
+
+            const now = new Date();
+            
+            for (const reminder of remindersConfig.reminders) {
+                const reminderTime = new Date(meetingDateTime.getTime() - (reminder.hours * 60 * 60 * 1000));
+                
+                if (now >= reminderTime && now < new Date(reminderTime.getTime() + (60 * 60 * 1000))) {
+                    const reminderKey = `step_${stepData.id}_${reminder.id}_${reminder.hours}h`;
+                    
+                    if (!lead.meeting) lead.meeting = {};
+                    if (!lead.meeting.reminders_sent) lead.meeting.reminders_sent = [];
+                    
+                    if (!lead.meeting.reminders_sent.includes(reminderKey)) {
+                        const message = this._formatMessage(reminder.message, lead);
+                        
+                        try {
+                            await this.whatsappClient.sendMessage(lead.id, message);
+                            lead.meeting.reminders_sent.push(reminderKey);
+                            await this.leadsManager.updateLead(lead.id, lead);
+                            console.log(`ReminderService: Sent step reminder ${reminderKey} to ${lead.id}`);
+                        } catch (error) {
+                            console.error(`ReminderService: Failed to send step reminder to ${lead.id}:`, error);
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('ReminderService: Error processing step reminders:', error);
+        }
+    }
+
+    async _processStepGoogleCalendar(lead, stepData) {
+        try {
+            if (!this.integrationManager?.services?.calendar) {
+                console.warn('ReminderService: Google Calendar service not available');
+                return;
+            }
+
+            const calendarConfig = stepData.integration.calendar;
+            const meetingDate = lead.data?.meeting_date;
+            const meetingTime = lead.data?.meeting_time;
+            
+            if (!meetingDate || !meetingTime) {
+                console.warn('ReminderService: No meeting date/time for Google Calendar integration');
+                return;
+            }
+
+            const eventData = {
+                summary: calendarConfig.message || 'פגישה',
+                description: this._formatMessage(calendarConfig.message || '', lead),
+                start: {
+                    dateTime: `${meetingDate}T${meetingTime}:00`,
+                    timeZone: 'Asia/Jerusalem'
+                },
+                end: {
+                    dateTime: `${meetingDate}T${meetingTime}:00`,
+                    timeZone: 'Asia/Jerusalem'
+                },
+                attendees: [
+                    {
+                        email: lead.data?.email || '',
+                        displayName: lead.data?.full_name || ''
+                    }
+                ]
+            };
+
+            await this.integrationManager.services.calendar.createEvent(eventData);
+            console.log(`ReminderService: Created calendar event for ${lead.id}`);
+        } catch (error) {
+            console.error('ReminderService: Error processing Google Calendar integration:', error);
+        }
+    }
+
+    async _processStepGoogleSheets(lead, stepData) {
+        try {
+            if (!this.integrationManager?.services?.sheets) {
+                console.warn('ReminderService: Google Sheets service not available');
+                return;
+            }
+
+            const sheetsConfig = stepData.integration.sheets;
+            const data = {
+                timestamp: new Date().toISOString(),
+                name: lead.data?.full_name || '',
+                phone: lead.id.replace('@c.us', ''),
+                meeting_date: lead.data?.meeting_date || '',
+                meeting_time: lead.data?.meeting_time || '',
+                message: this._formatMessage(sheetsConfig.message || '', lead)
+            };
+
+            await this.integrationManager.services.sheets.appendRow(data);
+            console.log(`ReminderService: Added data to Google Sheets for ${lead.id}`);
+        } catch (error) {
+            console.error('ReminderService: Error processing Google Sheets integration:', error);
+        }
+    }
+
+    async _processStepIPlan(lead, stepData) {
+        try {
+            const iplanConfig = stepData.integration.iplan;
+            const data = {
+                name: lead.data?.full_name || '',
+                phone: lead.id.replace('@c.us', ''),
+                meeting_date: lead.data?.meeting_date || '',
+                meeting_time: lead.data?.meeting_time || '',
+                message: this._formatMessage(iplanConfig.message || '', lead)
+            };
+
+            // Here you would implement iPlan API integration
+            console.log(`ReminderService: iPlan integration data for ${lead.id}:`, data);
+        } catch (error) {
+            console.error('ReminderService: Error processing iPlan integration:', error);
+        }
+    }
+
+    // Method to check and send all step-level reminders
+    async checkStepReminders() {
+        const leads = await this.leadsManager.getAllLeads();
+        
+        for (const [leadId, lead] of Object.entries(leads)) {
+            if (!lead.is_schedule || !lead.data.meeting_date || !lead.data.meeting_time) {
+                continue;
+            }
+
+            // Get the flow configuration to check for step reminders
+            try {
+                const flowPath = path.join(process.cwd(), 'data', 'flows');
+                const flowFiles = fs.readdirSync(flowPath).filter(f => f.endsWith('.json'));
+                
+                for (const flowFile of flowFiles) {
+                    const flowData = JSON.parse(fs.readFileSync(path.join(flowPath, flowFile), 'utf8'));
+                    
+                    // Check each step for reminder configuration
+                    for (const [stepId, stepData] of Object.entries(flowData.steps || {})) {
+                        if (stepData.integration?.reminders?.enabled) {
+                            await this.processStepReminders(leadId, stepData);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error(`ReminderService: Error processing step reminders for ${leadId}:`, error);
+            }
+        }
     }
 }
 

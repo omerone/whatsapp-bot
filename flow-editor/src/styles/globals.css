@@ -1,0 +1,221 @@
+/* Global CSS for Flow Editor */
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Rubik', Arial, sans-serif;
+  direction: rtl;
+  text-align: right;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Custom scrollbar for Hebrew interface */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+  border: 1px solid #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* React Flow specific improvements */
+.react-flow {
+  font-family: 'Rubik', Arial, sans-serif;
+  direction: rtl;
+}
+
+.react-flow__node {
+  font-family: 'Rubik', Arial, sans-serif;
+}
+
+.react-flow__edge-text {
+  font-family: 'Rubik', Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Handle styles */
+.react-flow__handle {
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  width: 12px;
+  height: 12px;
+}
+
+.react-flow__handle-top {
+  top: -6px;
+}
+
+.react-flow__handle-bottom {
+  bottom: -6px;
+}
+
+/* Selection box */
+.react-flow__selection {
+  background: rgba(37, 99, 235, 0.1);
+  border: 1px solid #2563eb;
+}
+
+/* Controls styling */
+.react-flow__controls {
+  direction: ltr;
+}
+
+.react-flow__controls-button {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #64748b;
+  transition: all 0.2s ease;
+}
+
+.react-flow__controls-button:hover {
+  background: #f8fafc;
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+/* Smooth animations */
+.react-flow__node {
+  transition: all 0.2s ease;
+}
+
+.react-flow__edge {
+  transition: all 0.2s ease;
+}
+
+/* Custom chip improvements */
+.MuiChip-root {
+  font-family: 'Rubik', Arial, sans-serif;
+  font-weight: 500;
+}
+
+/* Dialog improvements */
+.MuiDialog-paper {
+  border-radius: 16px !important;
+}
+
+.MuiDialogTitle-root {
+  font-family: 'Rubik', Arial, sans-serif;
+  font-weight: 600;
+}
+
+/* Button improvements */
+.MuiButton-root {
+  font-family: 'Rubik', Arial, sans-serif;
+  text-transform: none;
+  font-weight: 500;
+}
+
+/* TextField improvements */
+.MuiTextField-root .MuiOutlinedInput-root {
+  font-family: 'Rubik', Arial, sans-serif;
+}
+
+/* Loading states */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.loading {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Backdrop blur effect */
+.backdrop-blur {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Gradient backgrounds */
+.gradient-primary {
+  background: linear-gradient(135deg, #2563eb15, #7c3aed10);
+}
+
+.gradient-secondary {
+  background: linear-gradient(135deg, #7c3aed15, #ec489910);
+}
+
+/* Shadow utilities */
+.shadow-soft {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.shadow-medium {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.shadow-large {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Focus states */
+.focus-ring {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+.focus-ring:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .react-flow__node {
+    border-width: 2px;
+  }
+  
+  .react-flow__edge {
+    stroke-width: 3px;
+  }
+}
+
+/* Dark mode preparation */
+@media (prefers-color-scheme: dark) {
+  /* Future dark mode styles can be added here */
+}
+
+/* Print styles */
+@media print {
+  .react-flow__controls,
+  .MuiButton-root,
+  .MuiIconButton-root {
+    display: none !important;
+  }
+  
+  .react-flow__node {
+    break-inside: avoid;
+  }
+} 

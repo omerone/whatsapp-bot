@@ -1,8 +1,8 @@
 {
   "metadata": {
-    "company_name": "עבור משאבים LTD",
+    "company_name": "flow",
     "version": "1.0",
-    "last_updated": "2024-03-21"
+    "last_updated": "2025-06-20T11:23:15.131Z"
   },
   "configuration": {
     "rules": {
@@ -110,10 +110,6 @@
       "syncTasks": false
     }
   },
-
-
-
-  
   "start": "intro",
   "steps": {
     "intro": {
@@ -123,30 +119,25 @@
       "next": "main_menu",
       "messageFile": "intro.txt",
       "position": {
-        "x": 48,
-        "y": 100
+        "x": 0,
+        "y": 0
       }
     },
     "main_menu": {
       "id": "main_menu",
       "type": "options",
       "userResponseWaiting": true,
-      "options": {
-        "1 || פגישה || לקבוע פגישה || קביעת פגישה": "book",
-        "2 || שאלות || מידע || פרטים": "questions",
-        "3 || נציג || נציג אנושי || לדבר עם נציג": "human",
-        "4 || הסרה || הסר || ביטול": "remove"
-      },
       "branches": {
-        "book": "start_booking_flow",
-        "questions": "faq1",
-        "human": "human_support",
-        "remove": "remove_candidate"
+        "1 || פגישה || לקבוע פגישה || קביעת פגישה": "start_booking_flow",
+        "2 || שאלות || מידע || פרטים": "faq1",
+        "3 || נציג || נציג אנושי || לדבר עם נציג": "human_support",
+        "4 || הסרה || הסר || ביטול": "remove_candidate"
       },
+      "noMatchMessage": "אנא בחר אחת מהאפשרויות המוצגות:\n1️⃣ לקביעת פגישה\n2️⃣ לשאלות נפוצות\n3️⃣ למענה אנושי\n4️⃣ להסרת מועמדות",
       "messageFile": "main_menu.txt",
       "position": {
         "x": 0,
-        "y": 320
+        "y": 300
       }
     },
     "start_booking_flow": {
@@ -156,58 +147,46 @@
       "next": "ask_name",
       "messageFile": "start_booking_flow.txt",
       "position": {
-        "x": -615,
-        "y": 640
+        "x": -600,
+        "y": 900
       }
     },
     "faq1": {
       "id": "faq1",
       "type": "options",
       "userResponseWaiting": true,
-      "options": {
-        "1 || פגישה || לקבוע פגישה": "book",
-        "2 || המשך למידע נוסף": "next_faq",
-        "3 || נציג || נציג אנושי": "human",
-        "9 || הסרה || ביטול": "remove"
-      },
       "branches": {
-        "book": "start_booking_flow",
-        "next_faq": "faq2",
-        "human": "human_support",
-        "remove": "remove_candidate"
+        "1 || פגישה || לקבוע פגישה": "start_booking_flow",
+        "2 || המשך למידע נוסף": "faq2",
+        "3 || נציג || נציג אנושי": "human_support",
+        "9 || הסרה || ביטול": "remove_candidate"
       },
       "messageFile": "faq1.txt",
       "position": {
-        "x": -205,
-        "y": 640
+        "x": -200,
+        "y": 900
       }
     },
     "faq2": {
       "id": "faq2",
       "type": "options",
       "userResponseWaiting": true,
-      "options": {
-        "2": "menu",
-        "1 || פגישה || לקבוע פגישה": "book",
-        "3 || נציג || נציג אנושי": "human",
-        "9 || הסרה || ביטול": "remove"
-      },
       "branches": {
-        "book": "start_booking_flow",
-        "menu": "main_menu",
-        "human": "human_support",
-        "remove": "remove_candidate"
+        "2": "main_menu",
+        "1 || פגישה || לקבוע פגישה": "start_booking_flow",
+        "3 || נציג || נציג אנושי": "human_support",
+        "9 || הסרה || ביטול": "remove_candidate"
       },
       "messageFile": "faq2.txt",
       "position": {
-        "x": 205,
-        "y": 960
+        "x": 367.1745138669266,
+        "y": 1215.8033264262249
       }
     },
     "human_support": {
       "id": "human_support",
       "type": "message",
-      "userResponseWaiting": false,
+      "userResponseWaiting": true,
       "messageFile": "human_support.txt",
       "freeze": {
         "enabled": true,
@@ -218,14 +197,14 @@
         }
       },
       "position": {
-        "x": 205,
-        "y": 640
+        "x": 200,
+        "y": 900
       }
     },
     "remove_candidate": {
       "id": "remove_candidate",
       "type": "message",
-      "userResponseWaiting": false,
+      "userResponseWaiting": true,
       "messageFile": "remove_candidate.txt",
       "freeze": {
         "enabled": true,
@@ -236,8 +215,8 @@
         }
       },
       "position": {
-        "x": 615,
-        "y": 640
+        "x": 600,
+        "y": 900
       }
     },
     "ask_name": {
@@ -260,8 +239,8 @@
       },
       "next": "confirm_full_name",
       "position": {
-        "x": -205,
-        "y": 960
+        "x": -243.5971487775216,
+        "y": 1188.0589632952197
       }
     },
     "confirm_full_name": {
@@ -269,18 +248,14 @@
       "type": "options",
       "userResponseWaiting": true,
       "message": "האם השם המלא שלך הוא *{full_name}*?\n1 - כן\n2 - לא, אעדכן את השם",
-      "options": {
-        "1 || כן || נכון || בסדר || אישור": "confirmed",
-        "2 || לא || לא נכון || תיקון || שגוי": "retype_name"
-      },
       "branches": {
-        "confirmed": "ask_city",
-        "retype_name": "ask_name_again"
+        "1 || כן || נכון || בסדר || אישור": "ask_city",
+        "2 || לא || לא נכון || תיקון || שגוי": "ask_name_again"
       },
       "noMatchMessage": "אנא השב '1' או 'כן' אם השם נכון, או '2' או 'לא' כדי לעדכן את שמך.",
       "position": {
-        "x": 0,
-        "y": 1280
+        "x": -56.458654278490506,
+        "y": 1532.285110073109
       }
     },
     "ask_name_again": {
@@ -294,8 +269,8 @@
       },
       "next": "confirm_full_name",
       "position": {
-        "x": 205,
-        "y": 1600
+        "x": -200,
+        "y": 2100
       }
     },
     "ask_city": {
@@ -314,26 +289,13 @@
           "הוראת_חזרה": "לחזרה להתחלה שלח את המילה ״תפריט״"
         }
       },
-      "cityValidationConfig": {
-        "messages": {
-          "קלט_ריק": "לא הזנת עיר. אנא נסה שנית.",
-          "עיר_לא_זמינה": "כתבת את העיר {cityName}, אך לצערנו איננו פועלים בה כרגע. \nבמידה וזו טעות הזן את עיר מגוריך.",
-          "הצעה_עיר_לא_זמינה": "זיהינו את העיר *{suggestedCity}*, אך איננו פועלים בה כרגע. \nבמידה וזו טעות הזן את עיר מגוריך.",
-          "עיר_לא_מוכרת": "לא הצלחנו לזהות את העיר שהזנת ({originalInput}). אנא נסה/י שנית או הקש/י שם עיר מוכרת.",
-          "SUGGESTION_SERVICEABLE": "האם התכוונת ל*{suggestedCity}*?\nהשב כן לאישור או הקלד את שם העיר הנכון.",
-          "הוראת_חזרה": "לחזרה להתחלה שלח את המילה ״תפריט״"
-        }
-      },
-      "options": {
-        "כן || אכן || נכון || בדיוק || כן בהחלט": "confirm_suggestion"
-      },
       "branches": {
-        "confirm_suggestion": "ask_vehicle"
+        "כן || אכן || נכון || בדיוק || כן בהחלט": "ask_vehicle"
       },
       "next": "ask_vehicle",
       "position": {
-        "x": -205,
-        "y": 1600
+        "x": 200,
+        "y": 2100
       }
     },
     "ask_vehicle": {
@@ -342,20 +304,17 @@
       "userResponseWaiting": true,
       "message": "*מה רמת הניידות שלך?*\n1 - רכב\n2 - אופנוע\n3 - לא נייד",
       "key": "mobility",
-      "options": {
-        "1 || רכב || מכונית || אוטו || car": "car",
-        "2 || אופנוע || אופניים || בייק || bike": "bike",
-        "3 || לא נייד || ללא || אין || none": "none"
-      },
       "branches": {
-        "car": "show_available_months",
-        "bike": "show_available_months",
-        "none": "not_suitable"
+        "1 || רכב || מכונית || אוטו": "show_available_months",
+        "2 || אופנוע || אופניים || בייק": "show_available_months",
+        "3 || לא נייד || ללא || אין": "not_suitable"
       },
+      "noMatchMessage": "בחירה לא תקינה, אנא בחר מהאפשרויות הבאות: 1 (רכב, מכונית, אוטו) | 2 (אופנוע, אופניים, בייק) | 3 (לא נייד, ללא, אין)",
       "position": {
         "x": 0,
-        "y": 1920
-      }
+        "y": 2400
+      },
+      "label": "ask_vehicle"
     },
     "show_available_months": {
       "id": "show_available_months",
@@ -365,15 +324,15 @@
       "limit": 12,
       "resolution": "months",
       "next": "show_available_weeks",
-      "options": {
+      "branches": {
         "חזור": "main_menu"
       },
       "footerMessage": "\n(כדי לחזור לתפריט הראשי, רשום *חזור*)",
       "enabled": true,
       "skipIfDisabled": "show_available_weeks",
       "position": {
-        "x": -205,
-        "y": 2240
+        "x": -200,
+        "y": 3000
       }
     },
     "show_available_weeks": {
@@ -384,7 +343,7 @@
       "limit": 5,
       "resolution": "weeks",
       "next": "show_available_days",
-      "options": {
+      "branches": {
         "חזור": "show_available_months"
       },
       "footerMessage": "כדי לחזור לראות חודש אחר, רשום *חזור*",
@@ -392,7 +351,7 @@
       "skipIfDisabled": "show_available_days",
       "position": {
         "x": 0,
-        "y": 2560
+        "y": 3300
       }
     },
     "show_available_days": {
@@ -404,7 +363,7 @@
       "resolution": "days",
       "startFromToday": false,
       "next": "show_available_times",
-      "options": {
+      "branches": {
         "חזור": "show_available_weeks"
       },
       "footerMessage": "בכדי לחזור לבחירת שבוע אחר, רשום *חזור*",
@@ -412,7 +371,7 @@
       "skipIfDisabled": "show_available_times",
       "position": {
         "x": 0,
-        "y": 2880
+        "y": 3600
       }
     },
     "show_available_times": {
@@ -423,21 +382,21 @@
       "limit": 20,
       "resolution": "hours",
       "next": "final_confirmation",
-      "options": {
+      "branches": {
         "חזור": "show_available_days"
       },
       "footerMessage": "כדי לראות ימים",
       "position": {
         "x": 0,
-        "y": 3200
+        "y": 3900
       }
     },
     "final_confirmation": {
       "id": "final_confirmation",
       "type": "message",
-      "userResponseWaiting": false,
+      "userResponseWaiting": true,
       "messageFile": "final_confirmation.txt",
-      "block":{
+      "block": {
         "messaging": {
           "send_explanation": true,
           "message": "לצערנו אינך יכול להמשיך בתהליך כרגע. תודה על ההבנה."
@@ -447,21 +406,21 @@
       },
       "integrations": {
         "enabled": true,
-        "googleCalendar": false ,
-        "googleSheets": true,
+        "googleCalendar": false,
+        "googleSheets": false,
         "notifications": true,
         "reminders": false,
         "iPlan": false
       },
       "position": {
         "x": 0,
-        "y": 3520
+        "y": 4200
       }
     },
     "not_suitable": {
       "id": "not_suitable",
       "type": "message",
-      "userResponseWaiting": false,
+      "userResponseWaiting": true,
       "messageFile": "not_suitable.txt",
       "freeze": {
         "enabled": true,
@@ -472,8 +431,8 @@
         }
       },
       "position": {
-        "x": 205,
-        "y": 2240
+        "x": 200,
+        "y": 3000
       }
     }
   }

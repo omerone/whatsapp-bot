@@ -1,12 +1,42 @@
 {
   "metadata": {
-    "company_name": "",
+    "company_name": "תספורות עומר",
     "version": "1.0.0",
-    "last_updated": "2025-06-16T10:43:41.330Z"
+    "last_updated": "2025-06-19T22:10:26.158Z"
   },
   "configuration": {
-    "rules": {},
-    "client_management": {}
+    "rules": {
+      "activation": {
+        "enabled": true,
+        "keywords": [
+          "תספורת",
+          "להסתפר"
+        ]
+      },
+      "blockedSources": {
+        "ignoreArchived": true,
+        "ignoreGroups": true,
+        "ignoreStatus": true,
+        "ignoreContacts": false
+      }
+    },
+    "client_management": {
+      "blockScheduledClients": {
+        "enabled": false,
+        "blockPastAndPresent": true,
+        "allowRescheduling": false,
+        "rescheduleOnlyFuture": false
+      },
+      "reset": {
+        "enabled": true,
+        "keyword": "תפריט",
+        "options": {
+          "delete_appointment": true,
+          "unfreeze": true
+        },
+        "target_step": "1"
+      }
+    }
   },
   "start": "1",
   "steps": {
@@ -17,11 +47,10 @@
       "messageHeader": "",
       "message": "שלום ! האם אתה מעוניין לקבוע תספורת? ",
       "footerMessage": "",
-      "enabled": true,
       "userResponseWaiting": true,
       "position": {
-        "x": 298.9178211978332,
-        "y": 676.0307688971394
+        "x": 100,
+        "y": 100
       },
       "options": {
         "לא || 2": "5",
@@ -39,11 +68,10 @@
       "messageHeader": "תסמן לפי מספר את היום שמתאים לך.",
       "message": "",
       "footerMessage": "",
-      "enabled": true,
       "userResponseWaiting": true,
       "position": {
-        "x": 82.45093826729803,
-        "y": 951.331947560848
+        "x": -200,
+        "y": 600
       },
       "resolution": "days",
       "next": "3"
@@ -55,11 +83,10 @@
       "messageHeader": "תסמן לפי מספר את השעה שמתאימה לך",
       "message": "",
       "footerMessage": "",
-      "enabled": true,
       "userResponseWaiting": true,
       "position": {
-        "x": 69.95487894605262,
-        "y": 1129.8341544274526
+        "x": 0,
+        "y": 900
       },
       "resolution": "hours",
       "next": "4"
@@ -69,15 +96,29 @@
       "type": "message",
       "label": "4",
       "messageHeader": "",
-      "message": "נקבעה תספורת בתאריך {}",
+      "message": "נקבעה לך תספורת !\nבתאריך: {meeting_date} \nובשעה:{meeting_time}\n\nלא לאחר בבקשה :)",
       "footerMessage": "",
-      "enabled": false,
-      "userResponseWaiting": false,
+      "userResponseWaiting": true,
       "position": {
-        "x": 95.3957759003172,
-        "y": 1357.60851595356
+        "x": 0,
+        "y": 1200
       },
-      "freeze": true
+      "freeze": {
+        "enabled": true,
+        "duration": 1440,
+        "messaging": {
+          "send_explanation": true,
+          "message": "תחזור אלינו בעוד {duration} דקות. תודה על הסבלנות! 🙏"
+        }
+      },
+      "integrations": {
+        "enabled": true,
+        "googleCalendar": true,
+        "googleSheets": false,
+        "notifications": false,
+        "reminders": false,
+        "iPlan": false
+      }
     },
     "5": {
       "id": "5",
@@ -86,25 +127,40 @@
       "messageHeader": "",
       "message": "מעולה, במידה ותרצה לקבוע תספורת תרשום את המילים ״קביעת תספורת״",
       "footerMessage": "",
-      "enabled": true,
-      "userResponseWaiting": false,
+      "userResponseWaiting": true,
       "position": {
-        "x": 454.3560199035189,
-        "y": 951.9013818150795
+        "x": 200,
+        "y": 600
       },
       "freeze": true
     }
   },
   "integrations": {
-    "enabled": {
-      "": true
-    },
+    "enabled": true,
     "googleWorkspace": {
+      "enabled": true,
       "calendar": {
         "enabled": true,
         "calendarId": "6c1877e19bcec67cf66fc0235c0420790d1534e7abea9b1dd64bd44d0a440dae@group.calendar.google.com",
-        "eventDescription": "נקבעה"
+        "eventDurationMinutes": 60,
+        "timeZone": "Asia/Jerusalem",
+        "eventTitle": "תספורת עם {full_name}",
+        "eventDescription": "תספורת עם {full_name}\nטלפון: {phone}\nעיר: {city_name}",
+        "maxParticipantsPerSlot": 3,
+        "preventDuplicates": true
       }
+    },
+    "reminders": {
+      "enabled": false,
+      "configurations": [
+        {
+          "id": "reminder_1h_before",
+          "offset": "-1h",
+          "messageFile": "reminder_1h_before.txt",
+          "source": "google_sheet",
+          "enabled": false
+        }
+      ]
     }
   }
 }

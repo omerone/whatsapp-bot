@@ -17,6 +17,10 @@ import {
   ListItemText,
   ListItemSecondaryAction,
   Chip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -30,7 +34,7 @@ interface MetadataEditorProps {
 }
 
 const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameChange, onSave }) => {
-  const { flow, updateMetadata, updateConfiguration, updateIntegrations } = useFlow();
+  const { flow, updateMetadata, updateConfiguration, updateIntegrations, getAllSteps } = useFlow();
   const [expandedSection, setExpandedSection] = useState<string | false>('metadata');
 
   const handleMetadataChange = (field: string, value: any) => {
@@ -413,14 +417,23 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameC
                     sx={{ mb: 2 }}
                   />
                   
-                  <TextField
-                    fullWidth
-                    label="צעד יעד"
-                    value={flow.configuration.client_management.reset?.target_step || ''}
-                    onChange={(e) => handleConfigurationChange('client_management', 'reset', 'target_step', e.target.value)}
-                    size="small"
-                    sx={{ mb: 2 }}
-                  />
+                  <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                    <InputLabel>צעד יעד</InputLabel>
+                    <Select
+                      value={flow.configuration.client_management.reset?.target_step || ''}
+                      label="צעד יעד"
+                      onChange={(e) => handleConfigurationChange('client_management', 'reset', 'target_step', e.target.value)}
+                    >
+                      <MenuItem value="">
+                        <em>בחר צעד יעד</em>
+                      </MenuItem>
+                      {getAllSteps().map((step) => (
+                        <MenuItem key={step.id} value={step.id}>
+                          {step.id} - {step.type}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                   
                   <Typography variant="body2" sx={{ mb: 1 }}>אפשרויות איפוס</Typography>
                   <Box sx={{ ml: 2 }}>
@@ -477,138 +490,337 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameC
           <Typography variant="h6">אינטגרציות</Typography>
         </AccordionSummary>
         <AccordionDetails>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={flow.integrations?.enabled || false}
-                  onChange={(e) => handleIntegrationsChange('enabled', null, '', e.target.checked)}
-                />
-              }
-              label="אפשר אינטגרציות"
-            />
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {/* הפעלה כללית */}
+            <Paper elevation={0} sx={{ p: 2, backgroundColor: 'grey.50', borderRadius: 2 }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={flow.integrations?.enabled || false}
+                    onChange={(e) => handleIntegrationsChange('enabled', null, '', e.target.checked)}
+                  />
+                }
+                label="🔗 אפשר אינטגרציות"
+                sx={{ fontWeight: 600 }}
+              />
+            </Paper>
 
             {/* Google Workspace */}
-            <Typography variant="subtitle1">Google Workspace</Typography>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={flow.integrations?.googleWorkspace?.enabled || false}
-                  onChange={(e) => handleIntegrationsChange('googleWorkspace', null, 'enabled', e.target.checked)}
+            {flow.integrations?.enabled && (
+              <Paper elevation={0} sx={{ p: 3, backgroundColor: '#f8f9fa', borderRadius: 3, border: '1px solid #e9ecef' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                  <Box sx={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 2,
+                    backgroundColor: '#4285f4',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontSize: '1.2rem'
+                  }}>
+                    🏢
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#4285f4' }}>
+                    Google Workspace
+                  </Typography>
+                </Box>
+                
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={flow.integrations?.googleWorkspace?.enabled || false}
+                      onChange={(e) => handleIntegrationsChange('googleWorkspace', null, 'enabled', e.target.checked)}
+                    />
+                  }
+                  label="אפשר Google Workspace"
+                  sx={{ mb: 2 }}
                 />
-              }
-              label="אפשר Google Workspace"
-            />
 
-            {/* Google Sheets */}
-            <Box sx={{ ml: 2 }}>
-              <Typography variant="subtitle2">Google Sheets</Typography>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={flow.integrations?.googleWorkspace?.sheets?.enabled || false}
-                    onChange={(e) => handleIntegrationsChange('googleWorkspace', 'sheets', 'enabled', e.target.checked)}
-                  />
-                }
-                label="אפשר Google Sheets"
-              />
-              <TextField
-                fullWidth
-                label="מזהה גיליון"
-                value={flow.integrations?.googleWorkspace?.sheets?.sheetId || ''}
-                onChange={(e) => handleIntegrationsChange('googleWorkspace', 'sheets', 'sheetId', e.target.value)}
-              />
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={flow.integrations?.googleWorkspace?.sheets?.filterByDateTime || false}
-                    onChange={(e) => handleIntegrationsChange('googleWorkspace', 'sheets', 'filterByDateTime', e.target.checked)}
-                  />
-                }
-                label="סנן לפי תאריך ושעה"
-              />
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={flow.integrations?.googleWorkspace?.sheets?.preventDuplicates || false}
-                    onChange={(e) => handleIntegrationsChange('googleWorkspace', 'sheets', 'preventDuplicates', e.target.checked)}
-                  />
-                }
-                label="מנע כפילויות"
-              />
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={flow.integrations?.googleWorkspace?.sheets?.updateExistingRows || false}
-                    onChange={(e) => handleIntegrationsChange('googleWorkspace', 'sheets', 'updateExistingRows', e.target.checked)}
-                  />
-                }
-                label="עדכן שורות קיימות"
-              />
-            </Box>
+                {/* Google Sheets */}
+                {flow.integrations?.googleWorkspace?.enabled && (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <Paper elevation={0} sx={{ p: 2, backgroundColor: 'white', borderRadius: 2, border: '1px solid #34a853' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                        <Box sx={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 1.5,
+                          backgroundColor: '#34a853',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'white',
+                          fontSize: '1rem'
+                        }}>
+                          📊
+                        </Box>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#34a853' }}>
+                          Google Sheets
+                        </Typography>
+                      </Box>
+                      
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={flow.integrations?.googleWorkspace?.sheets?.enabled || false}
+                              onChange={(e) => handleIntegrationsChange('googleWorkspace', 'sheets', 'enabled', e.target.checked)}
+                            />
+                          }
+                          label="אפשר Google Sheets"
+                        />
+                        
+                        {flow.integrations?.googleWorkspace?.sheets?.enabled && (
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, ml: 3 }}>
+                            <TextField
+                              fullWidth
+                              label="מזהה גיליון"
+                              value={flow.integrations?.googleWorkspace?.sheets?.sheetId || ''}
+                              onChange={(e) => handleIntegrationsChange('googleWorkspace', 'sheets', 'sheetId', e.target.value)}
+                              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                            />
+                            
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                              <FormControlLabel
+                                control={
+                                  <Switch
+                                    checked={flow.integrations?.googleWorkspace?.sheets?.filterByDateTime || false}
+                                    onChange={(e) => handleIntegrationsChange('googleWorkspace', 'sheets', 'filterByDateTime', e.target.checked)}
+                                  />
+                                }
+                                label="סנן לפי תאריך ושעה"
+                              />
+                              <FormControlLabel
+                                control={
+                                  <Switch
+                                    checked={flow.integrations?.googleWorkspace?.sheets?.preventDuplicates || false}
+                                    onChange={(e) => handleIntegrationsChange('googleWorkspace', 'sheets', 'preventDuplicates', e.target.checked)}
+                                  />
+                                }
+                                label="מנע כפילויות"
+                              />
+                              <FormControlLabel
+                                control={
+                                  <Switch
+                                    checked={flow.integrations?.googleWorkspace?.sheets?.updateExistingRows || false}
+                                    onChange={(e) => handleIntegrationsChange('googleWorkspace', 'sheets', 'updateExistingRows', e.target.checked)}
+                                  />
+                                }
+                                label="עדכן שורות קיימות"
+                              />
+                            </Box>
+                          </Box>
+                        )}
+                      </Box>
+                    </Paper>
 
-            {/* Google Calendar */}
-            <Box sx={{ ml: 2 }}>
-              <Typography variant="subtitle2">Google Calendar</Typography>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={flow.integrations?.googleWorkspace?.calendar?.enabled || false}
-                    onChange={(e) => handleIntegrationsChange('googleWorkspace', 'calendar', 'enabled', e.target.checked)}
-                  />
-                }
-                label="אפשר Google Calendar"
-              />
-              <TextField
-                fullWidth
-                label="מזהה יומן"
-                value={flow.integrations?.googleWorkspace?.calendar?.calendarId || ''}
-                onChange={(e) => handleIntegrationsChange('googleWorkspace', 'calendar', 'calendarId', e.target.value)}
-              />
-              <TextField
-                fullWidth
-                type="number"
-                label="משך אירוע (דקות)"
-                value={flow.integrations?.googleWorkspace?.calendar?.eventDurationMinutes || 60}
-                onChange={(e) => handleIntegrationsChange('googleWorkspace', 'calendar', 'eventDurationMinutes', parseInt(e.target.value))}
-              />
-              <TextField
-                fullWidth
-                label="אזור זמן"
-                value={flow.integrations?.googleWorkspace?.calendar?.timeZone || 'Asia/Jerusalem'}
-                onChange={(e) => handleIntegrationsChange('googleWorkspace', 'calendar', 'timeZone', e.target.value)}
-              />
-              <TextField
-                fullWidth
-                label="כותרת אירוע"
-                value={flow.integrations?.googleWorkspace?.calendar?.eventTitle || ''}
-                onChange={(e) => handleIntegrationsChange('googleWorkspace', 'calendar', 'eventTitle', e.target.value)}
-              />
-              <TextField
-                fullWidth
-                multiline
-                rows={3}
-                label="תיאור אירוע"
-                value={flow.integrations?.googleWorkspace?.calendar?.eventDescription || ''}
-                onChange={(e) => handleIntegrationsChange('googleWorkspace', 'calendar', 'eventDescription', e.target.value)}
-              />
-              <TextField
-                fullWidth
-                type="number"
-                label="מספר משתתפים מקסימלי"
-                value={flow.integrations?.googleWorkspace?.calendar?.maxParticipantsPerSlot || 1}
-                onChange={(e) => handleIntegrationsChange('googleWorkspace', 'calendar', 'maxParticipantsPerSlot', parseInt(e.target.value))}
-              />
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={flow.integrations?.googleWorkspace?.calendar?.preventDuplicates || false}
-                    onChange={(e) => handleIntegrationsChange('googleWorkspace', 'calendar', 'preventDuplicates', e.target.checked)}
-                  />
-                }
-                label="מנע כפילויות"
-              />
-            </Box>
+                    {/* Google Calendar */}
+                    <Paper elevation={0} sx={{ p: 2, backgroundColor: 'white', borderRadius: 2, border: '1px solid #ea4335' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                        <Box sx={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 1.5,
+                          backgroundColor: '#ea4335',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'white',
+                          fontSize: '1rem'
+                        }}>
+                          🗓️
+                        </Box>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#ea4335' }}>
+                          Google Calendar
+                        </Typography>
+                      </Box>
+                      
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={flow.integrations?.googleWorkspace?.calendar?.enabled || false}
+                              onChange={(e) => handleIntegrationsChange('googleWorkspace', 'calendar', 'enabled', e.target.checked)}
+                            />
+                          }
+                          label="אפשר Google Calendar"
+                        />
+                        
+                        {flow.integrations?.googleWorkspace?.calendar?.enabled && (
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, ml: 3 }}>
+                            <TextField
+                              fullWidth
+                              label="מזהה יומן"
+                              value={flow.integrations?.googleWorkspace?.calendar?.calendarId || ''}
+                              onChange={(e) => handleIntegrationsChange('googleWorkspace', 'calendar', 'calendarId', e.target.value)}
+                              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                            />
+                            
+                            <Box sx={{ display: 'flex', gap: 2 }}>
+                              <TextField
+                                fullWidth
+                                type="number"
+                                label="משך אירוע (דקות)"
+                                value={flow.integrations?.googleWorkspace?.calendar?.eventDurationMinutes || 60}
+                                onChange={(e) => handleIntegrationsChange('googleWorkspace', 'calendar', 'eventDurationMinutes', parseInt(e.target.value))}
+                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                              />
+                              <TextField
+                                fullWidth
+                                label="אזור זמן"
+                                value={flow.integrations?.googleWorkspace?.calendar?.timeZone || 'Asia/Jerusalem'}
+                                onChange={(e) => handleIntegrationsChange('googleWorkspace', 'calendar', 'timeZone', e.target.value)}
+                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                              />
+                            </Box>
+                            
+                            <TextField
+                              fullWidth
+                              label="כותרת אירוע"
+                              value={flow.integrations?.googleWorkspace?.calendar?.eventTitle || ''}
+                              onChange={(e) => handleIntegrationsChange('googleWorkspace', 'calendar', 'eventTitle', e.target.value)}
+                              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                            />
+                            
+                            <TextField
+                              fullWidth
+                              multiline
+                              rows={3}
+                              label="תיאור אירוע"
+                              value={flow.integrations?.googleWorkspace?.calendar?.eventDescription || ''}
+                              onChange={(e) => handleIntegrationsChange('googleWorkspace', 'calendar', 'eventDescription', e.target.value)}
+                              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                            />
+                            
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                              <TextField
+                                fullWidth
+                                type="number"
+                                label="מספר משתתפים מקסימלי"
+                                value={flow.integrations?.googleWorkspace?.calendar?.maxParticipantsPerSlot || 1}
+                                onChange={(e) => handleIntegrationsChange('googleWorkspace', 'calendar', 'maxParticipantsPerSlot', parseInt(e.target.value))}
+                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                              />
+                              
+                              <FormControlLabel
+                                control={
+                                  <Switch
+                                    checked={flow.integrations?.googleWorkspace?.calendar?.preventDuplicates || false}
+                                    onChange={(e) => handleIntegrationsChange('googleWorkspace', 'calendar', 'preventDuplicates', e.target.checked)}
+                                  />
+                                }
+                                label="מנע כפילויות"
+                              />
+                            </Box>
+                          </Box>
+                        )}
+                      </Box>
+                    </Paper>
+                  </Box>
+                )}
+              </Paper>
+            )}
+
+            {/* iPlan */}
+            {flow.integrations?.enabled && (
+              <Paper elevation={0} sx={{ p: 3, backgroundColor: '#e8f5e8', borderRadius: 3, border: '1px solid #4caf50' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                  <Box sx={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 2,
+                    backgroundColor: '#4caf50',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontSize: '1.2rem'
+                  }}>
+                    📋
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#4caf50' }}>
+                    iPlan
+                  </Typography>
+                </Box>
+                
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={flow.integrations?.iPlan?.enabled || false}
+                      onChange={(e) => handleIntegrationsChange('iPlan', null, 'enabled', e.target.checked)}
+                    />
+                  }
+                  label="אפשר סנכרון עם iPlan"
+                  sx={{ mb: 2 }}
+                />
+
+                {flow.integrations?.iPlan?.enabled && (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, ml: 3 }}>
+                    <TextField
+                      fullWidth
+                      label="API URL"
+                      value={flow.integrations?.iPlan?.apiUrl || ''}
+                      onChange={(e) => handleIntegrationsChange('iPlan', null, 'apiUrl', e.target.value)}
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                    />
+                    
+                    <TextField
+                      fullWidth
+                      label="API Key"
+                      type="password"
+                      value={flow.integrations?.iPlan?.apiKey || ''}
+                      onChange={(e) => handleIntegrationsChange('iPlan', null, 'apiKey', e.target.value)}
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                    />
+                    
+                    <TextField
+                      fullWidth
+                      label="מזהה חברה"
+                      value={flow.integrations?.iPlan?.companyId || ''}
+                      onChange={(e) => handleIntegrationsChange('iPlan', null, 'companyId', e.target.value)}
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                    />
+                    
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={flow.integrations?.iPlan?.syncMeetings || false}
+                            onChange={(e) => handleIntegrationsChange('iPlan', null, 'syncMeetings', e.target.checked)}
+                          />
+                        }
+                        label="סנכרן פגישות"
+                      />
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={flow.integrations?.iPlan?.syncContacts || false}
+                            onChange={(e) => handleIntegrationsChange('iPlan', null, 'syncContacts', e.target.checked)}
+                          />
+                        }
+                        label="סנכרן אנשי קשר"
+                      />
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={flow.integrations?.iPlan?.syncTasks || false}
+                            onChange={(e) => handleIntegrationsChange('iPlan', null, 'syncTasks', e.target.checked)}
+                          />
+                        }
+                        label="סנכרן משימות"
+                      />
+                    </Box>
+                  </Box>
+                )}
+              </Paper>
+            )}
+
+            <Typography variant="body2" color="info.main" sx={{ mt: 2, p: 2, backgroundColor: '#e3f2fd', borderRadius: 2 }}>
+              💡 <strong>הערה:</strong> הגדרות התראות ותזכורות מוגדרות כעת ברמת הבלוק הפרטני. 
+              עבור לעריכת בלוק מסוג "הודעה" כדי להגדיר התראות ותזכורות עבורו.
+            </Typography>
           </Box>
         </AccordionDetails>
       </Accordion>

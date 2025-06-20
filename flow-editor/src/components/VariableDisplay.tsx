@@ -64,13 +64,54 @@ const VariableDisplay: React.FC<VariableDisplayProps> = ({ steps, currentStepId 
         variables.push('mobility');
       }
       
-      // meeting_date and meeting_time are available after time selection (index 11+)
-      if (currentIndex >= 12) {
+      // meeting_date and meeting_time are available after date selection starts (index 8+)
+      if (currentIndex >= 9) {
         variables.push('meeting_date', 'meeting_time');
       }
     } else {
-      // For steps not in the main flow (like faq1, faq2), check context
+      // For steps not in the main flow, check what data might be available
       const currentStep = steps[currentStepId];
+      
+      // Check if we have date-related steps in the flow
+      const hasDateSteps = Object.values(steps).some(step => 
+        step.type === 'date' || 
+        step.id.includes('date') || 
+        step.id.includes('time') || 
+        step.id.includes('month') || 
+        step.id.includes('week') || 
+        step.id.includes('day')
+      );
+      
+      // Check if we have name collection steps
+      const hasNameSteps = Object.values(steps).some(step => 
+        step.id.includes('name') || 
+        step.type === 'question'
+      );
+      
+      // Check if we have city/location steps
+      const hasCitySteps = Object.values(steps).some(step => 
+        step.id.includes('city') || 
+        step.id.includes('location')
+      );
+      
+      // Check if we have vehicle/mobility steps
+      const hasVehicleSteps = Object.values(steps).some(step => 
+        step.id.includes('vehicle') || 
+        step.id.includes('mobility')
+      );
+      
+      // If this is a message step for appointment confirmation, assume all data is available
+      if (currentStep?.type === 'message' && 
+          (currentStep.message?.includes('פגישה') || 
+           currentStep.message?.includes('תאריך') ||
+           currentStep.message?.includes('שעה') ||
+           currentStep.id.includes('confirm') ||
+           currentStep.id.includes('final'))) {
+        if (hasNameSteps) variables.push('full_name');
+        if (hasCitySteps) variables.push('city_name');
+        if (hasVehicleSteps) variables.push('mobility');
+        if (hasDateSteps) variables.push('meeting_date', 'meeting_time');
+      }
       
       // Navigation steps - only show phone unless they're contextual
       if (currentStep?.type === 'options' && !currentStep.key) {
