@@ -87,14 +87,14 @@
           "id": "reminder_12h_before",
           "offset": "-12h",
           "timeOfDay": "19:00",
-          "messageFile": "reminder_12h_before.txt",
+          "messageTemplate": "🔔 תזכורת: יש לך פגישה מחר!\n\nשלום {display_name},\n\nרק להזכיר לך שיש לך פגישה מחר:\n📅 תאריך: {meeting_date}\n⏰ שעה: {meeting_time}\n\nנתראה מחר! 👋",
           "source": "google_sheet",
           "enabled": false
         },
         {
           "id": "reminder_1h_before",
           "offset": "-1h",
-          "messageFile": "reminder_1h_before.txt",
+          "messageTemplate": "⏰ תזכורת לפגישה!\n\nשלום {display_name},\n\nיש לך פגישה עוד שעה!\n📅 תאריך: {meeting_date}\n⏰ שעה: {meeting_time}\n\nנתראה בקרוב! 👋",
           "source": "google_sheet",
           "enabled": true
         }
@@ -117,10 +117,10 @@
       "type": "message",
       "userResponseWaiting": false,
       "next": "main_menu",
-      "messageFile": "intro.txt",
+      "message": "שלום וברוכים הבאים! 👋\nאני כאן לעזור לכם לקבוע פגישה.",
       "position": {
-        "x": 394.2775003387763,
-        "y": -159.76455719587324
+        "x": 0,
+        "y": 150
       }
     },
     "main_menu": {
@@ -139,10 +139,10 @@
         "human": "human_support",
         "remove": "remove_candidate"
       },
-      "messageFile": "main_menu.txt",
+      "message": "איך אפשר לעזור לך היום?\n\n1️⃣ קביעת פגישה\n2️⃣ שאלות ומידע\n3️⃣ דבר עם נציג\n4️⃣ הסרת מועמדות",
       "position": {
-        "x": -518.516294895286,
-        "y": 249.01265010362158
+        "x": 0,
+        "y": 550
       }
     },
     "start_booking_flow": {
@@ -150,10 +150,10 @@
       "type": "message",
       "userResponseWaiting": false,
       "next": "ask_name",
-      "messageFile": "start_booking_flow.txt",
+      "message": "מעולה! בואו נתחיל בתהליך קביעת הפגישה 📅",
       "position": {
-        "x": -615,
-        "y": 640
+        "x": -1012,
+        "y": 950
       }
     },
     "faq1": {
@@ -172,10 +172,10 @@
         "human": "human_support",
         "remove": "remove_candidate"
       },
-      "messageFile": "faq1.txt",
+      "message": "שאלות נפוצות - חלק 1:\n\n❓ מה זמני הפעילות?\n🕘 אנחנו זמינים ימים א'-ה' 09:00-17:00\n\n1️⃣ קביעת פגישה\n2️⃣ מידע נוסף\n3️⃣ נציג אנושי\n9️⃣ הסרת מועמדות",
       "position": {
-        "x": -205,
-        "y": 640
+        "x": -337,
+        "y": 950
       }
     },
     "faq2": {
@@ -194,17 +194,17 @@
         "human": "human_support",
         "remove": "remove_candidate"
       },
-      "messageFile": "faq2.txt",
+      "message": "שאלות נפוצות - חלק 2:\n\n💰 מה העלות?\nהפגישה ללא עלות\n\n📍 איפה אתם נמצאים?\nאנחנו פועלים בכל הארץ\n\n1️⃣ קביעת פגישה\n2️⃣ חזור לתפריט הראשי\n3️⃣ נציג אנושי\n9️⃣ הסרת מועמדות",
       "position": {
-        "x": 205,
-        "y": 960
+        "x": 338,
+        "y": 1350
       }
     },
     "human_support": {
       "id": "human_support",
       "type": "message",
       "userResponseWaiting": false,
-      "messageFile": "human_support.txt",
+      "message": "🙋‍♂️ נציג אנושי בדרך אליך!\n\nתוך מספר דקות נציג יצור איתך קשר.\nאנא המתן בסבלנות.\n\nתודה! 🙏",
       "freeze": {
         "enabled": true,
         "duration": 60,
@@ -214,15 +214,15 @@
         }
       },
       "position": {
-        "x": 205,
-        "y": 640
+        "x": 338,
+        "y": 950
       }
     },
     "remove_candidate": {
       "id": "remove_candidate",
       "type": "message",
       "userResponseWaiting": false,
-      "messageFile": "remove_candidate.txt",
+      "message": "✅ הבקשה התקבלה!\n\nהמועמדות שלך הוסרה מהמערכת.\nתודה על הפנייה.\n\nבהצלחה! ��",
       "freeze": {
         "enabled": true,
         "duration": 60,
@@ -232,8 +232,8 @@
         }
       },
       "position": {
-        "x": 615,
-        "y": 640
+        "x": 1013,
+        "y": 950
       }
     },
     "ask_name": {
@@ -256,8 +256,8 @@
       },
       "next": "confirm_full_name",
       "position": {
-        "x": -205,
-        "y": 960
+        "x": -337,
+        "y": 1350
       }
     },
     "confirm_full_name": {
@@ -276,7 +276,7 @@
       "noMatchMessage": "אנא השב '1' או 'כן' אם השם נכון, או '2' או 'לא' כדי לעדכן את שמך.",
       "position": {
         "x": 0,
-        "y": 1280
+        "y": 1750
       }
     },
     "ask_name_again": {
@@ -290,8 +290,8 @@
       },
       "next": "confirm_full_name",
       "position": {
-        "x": 205,
-        "y": 1600
+        "x": 338,
+        "y": 2150
       }
     },
     "ask_city": {
@@ -328,8 +328,8 @@
       },
       "next": "ask_vehicle",
       "position": {
-        "x": -205,
-        "y": 1600
+        "x": -337,
+        "y": 2150
       }
     },
     "ask_vehicle": {
@@ -350,7 +350,7 @@
       },
       "position": {
         "x": 0,
-        "y": 1920
+        "y": 2550
       }
     },
     "show_available_months": {
@@ -368,8 +368,8 @@
       "enabled": true,
       "skipIfDisabled": "show_available_weeks",
       "position": {
-        "x": -205,
-        "y": 2240
+        "x": -337,
+        "y": 2950
       }
     },
     "show_available_weeks": {
@@ -388,7 +388,7 @@
       "skipIfDisabled": "show_available_days",
       "position": {
         "x": 0,
-        "y": 2560
+        "y": 3350
       }
     },
     "show_available_days": {
@@ -408,7 +408,7 @@
       "skipIfDisabled": "show_available_times",
       "position": {
         "x": 0,
-        "y": 2880
+        "y": 3750
       }
     },
     "show_available_times": {
@@ -425,14 +425,14 @@
       "footerMessage": "כדי לראות ימים",
       "position": {
         "x": 0,
-        "y": 3200
+        "y": 4150
       }
     },
     "final_confirmation": {
       "id": "final_confirmation",
       "type": "message",
       "userResponseWaiting": false,
-      "messageFile": "final_confirmation.txt",
+      "message": "🎉 מעולה {full_name}!\n\nהפגישה שלך נקבעה בהצלחה:\n📅 תאריך: {meeting_date}\n⏰ שעה: {meeting_time}\n📍 מיקום: {city_name}\n\n✅ פרטי הפגישה נשמרו\n📧 תקבל תזכורת לפני הפגישה\n\nנתראה בקרוב! 👋",
       "block": {
         "messaging": {
           "send_explanation": true,
@@ -451,14 +451,14 @@
       },
       "position": {
         "x": 0,
-        "y": 3520
+        "y": 4550
       }
     },
     "not_suitable": {
       "id": "not_suitable",
       "type": "message",
       "userResponseWaiting": false,
-      "messageFile": "not_suitable.txt",
+      "message": "😔 מצטערים {full_name}\n\nלצערנו לא מצאנו התאמה מתאימה בעיר שלך כרגע.\n\nאנא נסה שוב בעתיד או צור קשר עם הנציג שלנו.\n\nתודה על הפנייה! 🙏",
       "freeze": {
         "enabled": true,
         "duration": 60,
@@ -468,8 +468,8 @@
         }
       },
       "position": {
-        "x": 205,
-        "y": 2240
+        "x": 338,
+        "y": 2950
       }
     }
   }

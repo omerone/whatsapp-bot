@@ -16,6 +16,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const flowPath = `/Users/omermaoz/whatssapp-bot/data/flows/${name}`;
   const flowsDir = `/Users/omermaoz/whatssapp-bot/data/flows`;
+  
+  // נתיב לקובץ הראשי (עבור flow.json)
+  const mainFlowPath = `/Users/omermaoz/whatssapp-bot/data/flow.json`;
 
   // GET - קריאת תסריט
   if (req.method === 'GET') {
@@ -92,8 +95,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ message: 'Invalid JSON content' });
       }
       
-      // שמירת הקובץ
+      // שמירת הקובץ בתיקיית flows
       fs.writeFileSync(flowPath, content, 'utf-8');
+      
+      // אם זה flow.json, סנכרן עם הקובץ הראשי
+      if (name === 'flow.json') {
+        try {
+          fs.writeFileSync(mainFlowPath, content, 'utf-8');
+          console.log(`🔄 Synced flow.json to main file: ${mainFlowPath}`);
+        } catch (syncError) {
+          console.error('Error syncing to main flow file:', syncError);
+          // המשך גם אם הסנכרון נכשל
+        }
+      }
       
       return res.status(200).json({ message: 'Flow saved successfully' });
     } catch (error) {
@@ -105,6 +119,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // DELETE - מחיקת תסריט
   else if (req.method === 'DELETE') {
     try {
+      // מנע מחיקת flow.json הראשי
+      if (name === 'flow.json') {
+        return res.status(403).json({ message: 'Cannot delete main flow file' });
+      }
+      
       // בדיקה אם הקובץ קיים
       if (!fs.existsSync(flowPath)) {
         return res.status(404).json({ message: 'Flow not found' });

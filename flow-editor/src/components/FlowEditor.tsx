@@ -49,6 +49,7 @@ import { StepType, StepData, Step } from '../types/flow';
 import StepNode from './nodes/StepNode';
 import StepEditor from './StepEditor';
 import MetadataEditor from './MetadataEditor';
+
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import DownloadIcon from '@mui/icons-material/Download';
 import UndoIcon from '@mui/icons-material/Undo';
@@ -63,6 +64,115 @@ const nodeTypes: NodeTypes = {
   question: StepNode,
   options: StepNode,
   date: StepNode,
+  condition: StepNode,
+};
+
+// סוגי קווים מותאמים אישית - עם אזור שקוף לתוויות
+const edgeTypes: EdgeTypes = {
+  smoothstep: ({ id, sourceX, sourceY, targetX, targetY, style = {}, animated = false, label, labelStyle }) => {
+    // חישוב נקודות לקו מדורג חלק
+    const deltaX = targetX - sourceX;
+    const deltaY = targetY - sourceY;
+    
+    // יצירת path עם זויות חלקות
+    const midY = sourceY + deltaY * 0.5;
+    const edgePath = `M${sourceX},${sourceY} L${sourceX},${midY} L${targetX},${midY} L${targetX},${targetY}`;
+    
+    // חישוב מיקום התווית
+    const labelX = (sourceX + targetX) / 2;
+    const labelY = midY;
+    
+    return (
+      <g>
+        {/* קו רקע לשיפור הנראות */}
+        <path
+          d={edgePath}
+          stroke="rgba(255,255,255,0.8)"
+          strokeWidth="8"
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        
+        {/* הקו העיקרי */}
+        <path
+          id={id}
+          style={style}
+          className={animated ? 'react-flow__edge-path animated' : 'react-flow__edge-path'}
+          d={edgePath}
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        
+        {/* אזור שקוף מסביב לתווית */}
+        {label && (
+          <>
+            {/* אזור שקוף מעל הקו */}
+            <circle
+              cx={labelX}
+              cy={labelY}
+              r="25"
+              fill="rgba(255,255,255,0.95)"
+              stroke="none"
+            />
+            
+            {/* רקע לתווית */}
+            <rect
+              x={labelX - 30}
+              y={labelY - 10}
+              width="60"
+              height="20"
+              rx="10"
+              ry="10"
+              fill={String(labelStyle?.background || 'rgba(255,255,255,0.95)')}
+              stroke={labelStyle?.border?.toString().replace('1px solid ', '') || (style?.stroke + '40')}
+              strokeWidth="1"
+              filter="drop-shadow(0 2px 4px rgba(0,0,0,0.1))"
+            />
+            
+            {/* התווית */}
+            <text
+              x={labelX}
+              y={labelY + 4}
+              textAnchor="middle"
+              fontSize={labelStyle?.fontSize || "12px"}
+              fontWeight={labelStyle?.fontWeight || "500"}
+              fill={labelStyle?.color || style?.stroke || '#666'}
+              className="react-flow__edge-text"
+            >
+              {label}
+            </text>
+          </>
+        )}
+        
+        {/* חץ בסוף הקו */}
+        <defs>
+          <marker
+            id={`arrowhead-${id}`}
+            markerWidth="10"
+            markerHeight="7"
+            refX="9"
+            refY="3.5"
+            orient="auto"
+          >
+            <polygon
+              points="0 0, 10 3.5, 0 7"
+              fill={style?.stroke || '#666'}
+            />
+          </marker>
+        </defs>
+        
+        <path
+          d={edgePath}
+          stroke="transparent"
+          strokeWidth="1"
+          fill="none"
+          markerEnd={`url(#arrowhead-${id})`}
+        />
+      </g>
+    );
+  }
 };
 
 // מערך צבעים מודרניים לשימוש בקווים
@@ -85,6 +195,7 @@ const STEP_TYPE_COLORS = {
   question: '#7c3aed', // סגול מודרני
   options: '#10b981', // ירוק מודרני
   date: '#f59e0b', // כתום מודרני
+  condition: '#ef4444', // אדום מודרני לתנאים
 };
 
 // פונקציה להגדרת צבע קו לפי סוג החיבור
@@ -114,14 +225,14 @@ const getEdgeColor = (edge: Edge, nodes: Node[] | any[]) => {
   return STEP_TYPE_COLORS[sourceType as keyof typeof STEP_TYPE_COLORS] || '#999';
 };
 
-// פונקציה שמחזירה סגנון קו לפי סוג החיבור
+// פונקציה שמחזירה סגנון קו לפי סוג החיבור - קווים מלאים תמיד
 const getEdgeStyle = (edge: Edge, nodes: Node[] | any[]) => {
   const color = getEdgeColor(edge, nodes);
   
   return {
     stroke: color,
     strokeWidth: 3,
-    strokeDasharray: edge.animated ? '5,5' : 'none',
+    strokeDasharray: 'none', // תמיד קו מלא - לא מקווקו
   };
 };
 
@@ -130,12 +241,79 @@ export interface FlowEditorHandle {
   handleSaveFlow: () => Promise<boolean>;
 }
 
-const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
-  const { flow, addStep, updateStep, deleteStep, getAllSteps, getStep, importFlow, exportFlow, undo, redo, canUndo, canRedo, createNewFlow, setFlow } = useFlow();
+interface FlowEditorProps {
+  flowId?: string;
+  onClose?: () => void;
+}
+
+const FlowEditor: React.FC<FlowEditorProps> = forwardRef<FlowEditorHandle, FlowEditorProps>((props, ref) => {
+  const { flow, addStep, updateStep, deleteStep, getAllSteps, getStep, importFlow, exportFlow, undo, redo, canUndo, canRedo, createNewFlow, setFlow, setStartStep } = useFlow();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+
+  // Custom handler for node changes that saves positions to flow context
+  const handleNodesChange = useCallback((changes: any[]) => {
+    // Apply the changes to nodes first
+    onNodesChange(changes);
+    
+    // Check if any changes are position updates (when dragging ends)
+    const positionChanges = changes.filter(change => 
+      change.type === 'position' && change.position && change.dragging === false
+    );
+    
+    if (positionChanges.length > 0) {
+      console.log('Position changes detected (drag ended):', positionChanges.map(c => ({
+        id: c.id,
+        position: c.position,
+        dragging: c.dragging
+      })));
+      
+      // Use setTimeout to ensure the nodes state is updated before we save positions
+      setTimeout(() => {
+        // Update the flow directly to ensure positions are saved
+        const updatedFlow = { ...flow };
+        let hasChanges = false;
+        
+        positionChanges.forEach(change => {
+          if (updatedFlow.steps[change.id] && change.position) {
+            const newPosition = {
+              x: Math.round(change.position.x),
+              y: Math.round(change.position.y)
+            };
+            
+            const currentPosition = updatedFlow.steps[change.id].position;
+            
+            // Only update if position actually changed
+            if (!currentPosition || 
+                currentPosition.x !== newPosition.x || 
+                currentPosition.y !== newPosition.y) {
+              
+              console.log(`Updating position for step ${change.id} from`, currentPosition, 'to', newPosition);
+              updatedFlow.steps[change.id] = {
+                ...updatedFlow.steps[change.id],
+                position: newPosition
+              };
+              hasChanges = true;
+            }
+          }
+        });
+        
+        if (hasChanges) {
+          // Update the flow context directly
+          setFlow(updatedFlow);
+          console.log('Flow updated with new positions');
+          
+          // שמירה אוטומטית לאחר שינוי מיקום
+          setTimeout(() => {
+            handleAutoSave();
+          }, 1000);
+        }
+      }, 100); // Small delay to ensure nodes state is updated
+    }
+  }, [onNodesChange, flow, setFlow]);
   const [selectedStep, setSelectedStep] = useState<string | null>(null);
   const [showMetadata, setShowMetadata] = useState(false);
+
   const [noSteps, setNoSteps] = useState(true);
   const [noStart, setNoStart] = useState(false);
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
@@ -163,12 +341,12 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
       // יצירת זיהוי ייחודי לקו
       const edgeId = `${params.source}-${params.target}`;
       
-      // הוספת הקו עם סגנון מותאם
+      // הוספת הקו עם סגנון מותאם - בלי אנימציה
       setEdges((eds) => 
         addEdge({
           ...params,
           id: edgeId,
-          animated: true,
+          animated: false, // קווים מלאים ללא אנימציה
           style: getEdgeStyle({ ...params, id: edgeId } as Edge, nodes)
         }, eds)
       );
@@ -193,7 +371,7 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
       // קבלת הסוג מהדאטה טרנספר - פשוט מטקסט רגיל
       const type = event.dataTransfer.getData('text/plain') as StepType;
       
-      if (!type || !['message', 'question', 'options', 'date'].includes(type)) {
+      if (!type || !['message', 'question', 'options', 'date', 'condition'].includes(type)) {
         console.error('Invalid or missing node type:', type);
         return;
       }
@@ -240,17 +418,57 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
       const highestStepNumber = stepNumbers.length > 0 ? Math.max(...stepNumbers) : 0;
       const newNodeId = `${highestStepNumber + 1}`;
       
+      // Special handling for different step types
+      const nodeData = type === 'date' 
+        ? {
+            type,
+            label: newNodeId,
+          }
+        : type === 'condition'
+        ? {
+            type,
+            label: newNodeId,
+          }
+        : {
+            type,
+            label: newNodeId,
+            messageHeader: '',
+            message: '',
+            footerMessage: '',
+          };
+      
+      const stepData: StepData = type === 'date'
+        ? {
+            id: newNodeId,
+            type,
+            label: newNodeId,
+            position,
+          }
+        : type === 'condition'
+        ? {
+            id: newNodeId,
+            type,
+            label: newNodeId,
+            conditions: [],
+            defaultNext: '',
+            position,
+          }
+        : {
+            id: newNodeId,
+            type,
+            label: newNodeId,
+            messageHeader: '',
+            message: '',
+            footerMessage: '',
+            ...(type === 'message' && { userResponseWaiting: false }),
+            position,
+          };
+
       const newNode = {
         id: newNodeId,
         type,
         position,
-        data: {
-          type,
-          label: newNodeId,
-          messageHeader: '',
-          message: '',
-          footerMessage: '',
-        },
+        data: nodeData,
       };
 
       console.log('New node:', newNode);
@@ -259,18 +477,6 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
       setNodes((nds) => nds.concat(newNode));
       
       // Then update the flow data
-      const stepData: StepData = {
-        id: newNodeId,
-        type,
-        // Label is identical to ID - this will be displayed on the node
-        label: newNodeId,
-        messageHeader: '',
-        message: '',
-        footerMessage: '',
-        // לא מוסיפים enabled: true כברירת מחדל - רק אם השלב מושבת
-        userResponseWaiting: type !== 'message',
-        position,
-      };
       
       console.log('Adding step to flow:', stepData);
       try {
@@ -324,11 +530,11 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
         })
       );
       
-      // עדכן את המיקום של הצעד בלבד, בלי לגרום לסידור אוטומטי
+      // עדכן את המיקום של הצעד ושמור בהיסטוריה
       updateStep(node.id, { 
         ...step,
         position
-      }, false); // הוספת פרמטר שאומר לא להפעיל סידור אוטומטי
+      }, true); // שמור בהיסטוריה כדי לאפשר undo/redo
     }
   }, [getStep, updateStep, setNodes]);
 
@@ -417,25 +623,42 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
   const handleSaveFlow = async () => {
     try {
       console.log('Saving flow with current node positions');
+      console.log('Current nodes positions:', nodes.map(n => ({ id: n.id, position: n.position })));
       
       // Ensure all nodes have their current positions saved in the flow before export
       const updatedFlow = { ...flow };
+      let hasPositionUpdates = false;
       
       nodes.forEach(node => {
         if (node.position && updatedFlow.steps[node.id]) {
+          const roundedPosition = {
+            x: Math.round(node.position.x),
+            y: Math.round(node.position.y)
+          };
+          
+          // Check if position actually changed
+          const currentPosition = updatedFlow.steps[node.id].position;
+          if (!currentPosition || 
+              currentPosition.x !== roundedPosition.x || 
+              currentPosition.y !== roundedPosition.y) {
+            
+            console.log(`Updating position for ${node.id} from`, currentPosition, 'to', roundedPosition);
+            
           // Update the flow directly to ensure positions are saved
           updatedFlow.steps[node.id] = {
             ...updatedFlow.steps[node.id],
-            position: {
-              x: node.position.x,
-              y: node.position.y
-            }
+              position: roundedPosition
           };
+            hasPositionUpdates = true;
+          }
         }
       });
       
-      // Update the flow context with the new positions
+      // Update the flow context with the new positions if there were changes
+      if (hasPositionUpdates) {
       setFlow(updatedFlow);
+        console.log('Updated flow context with new positions');
+      }
       
       // Small delay to ensure flow state is updated before export
       return new Promise<void>((resolve, reject) => {
@@ -523,24 +746,40 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
 
   const handleLocalSave = async () => {
     try {
+      console.log('Local save: ensuring all node positions are saved');
+      
       // First ensure all node positions are saved in the flow context
       const updatedFlow = { ...flow };
+      let hasPositionUpdates = false;
       
       nodes.forEach(node => {
         if (node.position && updatedFlow.steps[node.id]) {
+          const roundedPosition = {
+            x: Math.round(node.position.x),
+            y: Math.round(node.position.y)
+          };
+          
+          // Check if position actually changed
+          const currentPosition = updatedFlow.steps[node.id].position;
+          if (!currentPosition || 
+              currentPosition.x !== roundedPosition.x || 
+              currentPosition.y !== roundedPosition.y) {
+            
           // Update the flow directly to ensure positions are saved
           updatedFlow.steps[node.id] = {
             ...updatedFlow.steps[node.id],
-            position: {
-              x: node.position.x,
-              y: node.position.y
-            }
+              position: roundedPosition
           };
+            hasPositionUpdates = true;
+          }
         }
       });
       
-      // Update the flow context
+      // Update the flow context if there were changes
+      if (hasPositionUpdates) {
       setFlow(updatedFlow);
+        console.log('Updated flow context with positions for local save');
+      }
       
       // Small delay to ensure flow state is updated
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -748,6 +987,7 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
         const initialNodes: Node[] = Object.entries(flowData.steps).map(([stepId, stepData]: [string, any]) => {
           // בדיקה אם יש מיקום מוגדר בצעד
           const position = stepData.position || { x: 0, y: 0 };
+          console.log(`Loading step ${stepId} with position:`, position);
           
           return {
             id: stepId,
@@ -771,7 +1011,7 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
               id: `${stepId}-${stepData.next}`,
               source: stepId,
               target: stepData.next,
-              animated: true
+              animated: false // קווים מלאים ללא אנימציה
             });
           }
           
@@ -781,13 +1021,13 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
               if (targetId) {
                 // הסרת קווים שמכילות "חזור" מהויזואליזציה לגמרי
                 if (!branchKey.includes('חזור')) {
-                  initialEdges.push({
-                    id: `${stepId}-${targetId}-${branchKey}`,
-                    source: stepId,
-                    target: targetId,
-                    animated: true,
-                    label: branchKey
-                  });
+                initialEdges.push({
+                  id: `${stepId}-${targetId}-${branchKey}`,
+                  source: stepId,
+                  target: targetId,
+                  animated: false, // קווים מלאים ללא אנימציה
+                  label: branchKey
+                });
                 }
               }
             });
@@ -797,11 +1037,16 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
         // יצירת צמתים וקשתות מהתסריט עם מיקומים אוטומטיים
         const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(initialNodes, initialEdges);
         
-        // הוספת סגנון צבעים לקווים
+        // הוספת סגנון צבעים לקווים - תמיד מלאים
         const styledEdges = layoutedEdges.map(edge => ({
-          ...edge,
-          style: getEdgeStyle(edge, layoutedNodes)
-        }));
+          id: edge.id,
+          source: edge.source,
+          target: edge.target,
+          animated: false,
+          style: getEdgeStyle(edge as Edge, layoutedNodes),
+          label: edge.label,
+          type: edge.type || 'default'
+        } as Edge));
         
         // בדיקה אם הצמתים המקוריים כבר היה להם מיקומים תקפים
         const nodesWithPositions = initialNodes.filter(node => 
@@ -809,10 +1054,14 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
         );
         
         // אם יש צמתים עם מיקומים, השתמש בהם; אחרת, השתמש בצמתים עם מיקום אוטומטי
-        if (nodesWithPositions.length > 0) {
-          setNodes(nodesWithPositions as any);
+        if (nodesWithPositions.length > 0 && nodesWithPositions.length === initialNodes.length) {
+          // כל הצמתים יש להם מיקומים תקפים - השתמש בהם עם עיצוב נכון
+          console.log('Using existing positions for all nodes');
+          setNodes(initialNodes as Node[]);
         } else {
-          setNodes(layoutedNodes as any);
+          // יש צמתים ללא מיקומים או שזה קובץ חדש - השתמש במיקום אוטומטי
+          console.log('Using auto-layout for nodes');
+          setNodes(layoutedNodes as Node[]);
         }
         
         setEdges(styledEdges);
@@ -876,52 +1125,100 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
     }
   };
 
-  // Function to manually trigger auto-layout
+
+
+    // Function to manually trigger auto-layout - שמירה מיידית של המיקומים
   const applyAutoLayout = useCallback(() => {
     if (nodes.length === 0) return;
     
-    console.log('Applying auto-layout');
+    console.log('🎯 מתחיל סידור אוטומטי מושלם');
     
-    // יצירת עותק של ה-flow הנוכחי
-    const updatedFlow = { ...flow };
-    
-    // סידור היררכי של הצמתים והקשתות
+    // סידור היררכי מושלם של הצמתים והקשתות
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(nodes, edges, 'TB');
     
-    // Reset repositioned nodes tracking since we're doing a full layout
-    repositionedNodeIds.current.clear();
+    // עדכון הצמתים והקשתות
+    setNodes(layoutedNodes as Node[]);
+    setEdges(layoutedEdges.map(edge => ({
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      animated: false,
+      style: getEdgeStyle(edge as Edge, layoutedNodes),
+      label: edge.label,
+      type: edge.type || 'default'
+    } as Edge)));
     
-    // עדכון המיקומים בflow
+    // שמירת המיקומים החדשים ב-flow context מיידית
+    const updatedFlow = { ...flow };
+    let hasUpdates = false;
+    
     layoutedNodes.forEach(node => {
-      if (node.position && updatedFlow.steps[node.id]) {
-        // עדכון ישיר ב-flow
+      if (updatedFlow.steps[node.id] && node.position) {
         updatedFlow.steps[node.id] = {
           ...updatedFlow.steps[node.id],
           position: {
-            x: node.position.x,
-            y: node.position.y
+            x: Math.round(node.position.x),
+            y: Math.round(node.position.y)
           }
         };
-        
-        // סימון הצומת כממוקם
-        repositionedNodeIds.current.add(node.id);
+        hasUpdates = true;
+        console.log(`💾 שמור מיקום עבור ${node.id}:`, node.position);
       }
     });
     
-    // עדכון ה-flow עם המיקומים החדשים
+    if (hasUpdates) {
     setFlow(updatedFlow);
+      console.log('✅ כל המיקומים נשמרו ב-flow context');
+    }
     
-    // עדכון הצמתים והקשתות בתצוגה
-    setNodes(layoutedNodes as Node[]);
-    setEdges(layoutedEdges);
+    console.log('✅ סידור אוטומטי הושלם ונשמר');
     
     // דיווח על השינוי
     setSnackbar({
       open: true,
-      message: 'סידור אוטומטי הושלם בהצלחה',
+      message: '🎯 סידור אוטומטי הושלם ונשמר בהצלחה!',
       severity: 'success'
     });
   }, [nodes, edges, setNodes, setEdges, flow, setFlow]);
+
+  // פונקציות לטיפול בפעולות צומת
+  const handleDeleteStep = useCallback((stepId: string) => {
+    try {
+      deleteStep(stepId);
+      setSnackbar({
+        open: true,
+        message: `השלב ${stepId} נמחק בהצלחה`,
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Error deleting step:', error);
+      setSnackbar({
+        open: true,
+        message: 'שגיאה במחיקת השלב',
+        severity: 'error'
+      });
+    }
+  }, [deleteStep]);
+
+  const handleSetAsStart = useCallback((stepId: string) => {
+    try {
+      setStartStep(stepId);
+      setSnackbar({
+        open: true,
+        message: `השלב ${stepId} הוגדר כנקודת התחלה`,
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Error setting start step:', error);
+      setSnackbar({
+        open: true,
+        message: 'שגיאה בהגדרת נקודת התחלה',
+        severity: 'error'
+      });
+    }
+  }, [setStartStep]);
+
+
 
   // A ref to track if we had at least one flow loaded
   const hasInitializedRef = useRef(false);
@@ -953,7 +1250,8 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
         const hasValidPosition = step.position && 
                                 typeof step.position.x === 'number' && 
                                 typeof step.position.y === 'number' && 
-                                (step.position.x !== 0 || step.position.y !== 0);
+                                !isNaN(step.position.x) && 
+                                !isNaN(step.position.y);
         
         // הגדרת מיקום ברירת מחדל אם אין מיקום תקף
         const defaultPosition: XYPosition = { x: Math.random() * 300 + 100, y: Math.random() * 300 + 100 };
@@ -979,6 +1277,9 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
             // הוספת מידע נוסף שעשוי להידרש לתצוגה
             label: step.id, // שימוש במזהה כתווית
             isStartStep: flow.start === step.id,
+            onEdit: () => setSelectedStep(step.id),
+            onDelete: () => handleDeleteStep(step.id),
+            onSetAsStart: () => handleSetAsStart(step.id),
           },
         };
       });
@@ -992,25 +1293,66 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
             id: `${step.id}-${step.next}`,
             source: step.id,
             target: step.next,
-            animated: true,
+            animated: false, // קווים מלאים ללא אנימציה
+            type: 'default', // קווים בסיסיים
           });
         }
         
         // קישורים על סמך branches (למשל עבור צעדי options)
         if (step.branches) {
-          for (const [key, targetId] of Object.entries(step.branches)) {
-            if (targetId) {
-              // הסרת קווים שמכילות "חזור" מהויזואליזציה לגמרי
-              if (!key.includes('חזור')) {
-                newEdges.push({
-                  id: `${step.id}-${targetId}-${key}`,
-                  source: step.id,
-                  target: targetId as string,
-                  animated: true,
-                  label: key,
-                });
+          for (const [key, targetValue] of Object.entries(step.branches)) {
+            if (targetValue) {
+              // פירוק הערך במקרה של פורמט חדש "step::value"
+              const targetId = typeof targetValue === 'string' && targetValue.includes('::') 
+                ? targetValue.split('::')[0] 
+                : targetValue;
+              
+              // הסרת קווים שמכילות "חזור" או "תפריט" מהויזואליזציה לגמרי
+              if (!key.includes('חזור') && !key.includes('תפריט') && !key.includes('ראשי')) {
+              newEdges.push({
+                id: `${step.id}-${targetId}-${key}`,
+                source: step.id,
+                target: targetId as string,
+                animated: false, // קווים מלאים ללא אנימציה
+                label: key,
+                type: 'default', // קווים בסיסיים
+              });
               }
             }
+          }
+        }
+
+        // קישורים עבור condition steps
+        if (step.type === 'condition') {
+          // קישורים עבור תנאים
+          if (step.conditions) {
+            step.conditions.forEach((condition, index) => {
+              if (condition.next) {
+                const label = index === 0 ? 'IF' : 'ELSE IF';
+                newEdges.push({
+                  id: `${step.id}-${condition.next}-condition-${index}`,
+                  source: step.id,
+                  target: condition.next,
+                  animated: false, // קווים מלאים ללא אנימציה
+                  label: `${label}: ${condition.variable} ${condition.operator}`,
+                  style: { stroke: index === 0 ? '#2196f3' : '#ff9800' },
+                  type: 'default', // קווים בסיסיים
+                });
+              }
+            });
+          }
+          
+          // קישור עבור defaultNext (ELSE)
+          if (step.defaultNext) {
+            newEdges.push({
+              id: `${step.id}-${step.defaultNext}-default`,
+              source: step.id,
+              target: step.defaultNext,
+              animated: false, // קווים מלאים ללא אנימציה
+              label: 'ELSE',
+              style: { stroke: '#9c27b0' },
+              type: 'default', // קווים בסיסיים
+            });
           }
         }
       }
@@ -1025,7 +1367,17 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
         // סידור היררכי רק אם זו טעינה ראשונית
         const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(newNodes, newEdges, 'TB');
         setNodes(layoutedNodes as Node[]);
-        setEdges(layoutedEdges);
+        // וידוא שכל הedges מהסידור האוטומטי מלאים ולא מקווקווים
+        const finalLayoutedEdges = layoutedEdges.map(edge => ({
+          id: edge.id,
+          source: edge.source,
+          target: edge.target,
+          animated: false,
+          style: getEdgeStyle(edge as Edge, layoutedNodes),
+          label: edge.label,
+          type: edge.type || 'default'
+        } as Edge));
+        setEdges(finalLayoutedEdges);
         
         // שמירת המיקומים החדשים בflow
         layoutedNodes.forEach(node => {
@@ -1059,8 +1411,7 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
           const step = getStep(node.id);
           if (step && step.position && 
               typeof step.position.x === 'number' && 
-              typeof step.position.y === 'number' && 
-              (step.position.x !== 0 || step.position.y !== 0)) {
+              typeof step.position.y === 'number') {
             
             console.log(`Using stored position for ${node.id}:`, step.position);
             return {
@@ -1070,12 +1421,24 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
                 y: step.position.y
               }
             };
+          } else {
+            console.log(`No valid position found for ${node.id}, using current:`, node.position);
           }
           return node;
         });
         
         setNodes(newNodes);
-        setEdges(newEdges);
+        // וידוא שכל הedges מלאים ולא מקווקווים
+        const finalStyledEdges = newEdges.map(edge => ({
+          id: edge.id,
+          source: edge.source,
+          target: edge.target,
+          animated: false,
+          style: getEdgeStyle(edge as Edge, newNodes),
+          label: edge.label,
+          type: edge.type || 'default'
+        } as Edge));
+        setEdges(finalStyledEdges);
       }
     } catch (err: unknown) {
       console.error('Error updating flow visualization:', err);
@@ -1228,17 +1591,31 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
       if (sourceStep && sourceStep.branches) {
         const updatedBranches = { ...sourceStep.branches };
         
-        // מצא את המפתח המתאים לקו זה
+        // מצא את המפתח המתאים לקו זה - תוך התחשבות בפורמט החדש
         const branchKey = Object.entries(updatedBranches).find(
-          ([_, targetId]) => targetId === selectedEdge.target
+          ([_, targetValue]) => {
+            const targetId = typeof targetValue === 'string' && targetValue.includes('::') 
+              ? targetValue.split('::')[0] 
+              : targetValue;
+            return targetId === selectedEdge.target;
+          }
         )?.[0];
         
         if (branchKey) {
+          // שמור על הערך המותאם אישית אם קיים
+          const originalValue = updatedBranches[branchKey];
+          const customValue = typeof originalValue === 'string' && originalValue.includes('::') 
+            ? originalValue.split('::')[1] 
+            : null;
+          
           // מחק את הקשר הקיים
           delete updatedBranches[branchKey];
           
-          // הוסף קשר חדש עם התווית החדשה
-          updatedBranches[edgeLabelInput] = selectedEdge.target;
+          // הוסף קשר חדש עם התווית החדשה, תוך שמירה על הערך המותאם אישית
+          const newValue = customValue 
+            ? `${selectedEdge.target}::${customValue}`
+            : selectedEdge.target;
+          updatedBranches[edgeLabelInput] = newValue;
           
           // עדכן את הצעד
           updateStep(
@@ -1589,6 +1966,8 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
                 <SettingsIcon />
               </IconButton>
                 </Tooltip>
+                
+
               </Box>
             </Box>
           </Box>
@@ -1597,7 +1976,7 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
               key="react-flow"
               nodes={nodes}
               edges={edges}
-              onNodesChange={onNodesChange}
+              onNodesChange={handleNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
               onDrop={onDrop}
@@ -1607,6 +1986,7 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
               onNodeDragStop={onNodeDragStop}
               onEdgeClick={onEdgeClick}
               nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
               onInit={setReactFlowInstance}
               fitView={false}
               defaultViewport={{ x: 0, y: 0, zoom: 1 }}
@@ -1705,6 +2085,44 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
               </Box>
             )}
             
+            {/* Warning for no start step when there are steps */}
+            {!noSteps && !flow.start && (
+              <Box 
+                sx={{ 
+                  position: 'absolute', 
+                  top: '20px', 
+                  left: '50%', 
+                  transform: 'translateX(-50%)',
+                  textAlign: 'center',
+                  zIndex: 10,
+                  backgroundColor: 'rgba(255, 243, 205, 0.95)',
+                  padding: 2,
+                  borderRadius: 3,
+                  border: '2px solid #ffc107',
+                  backdropFilter: 'blur(8px)',
+                  boxShadow: '0 4px 12px rgba(255, 193, 7, 0.3)'
+                }}
+              >
+                <Typography variant="h6" sx={{ 
+                  mb: 1,
+                  fontWeight: 600,
+                  color: '#b45309',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 1
+                }}>
+                  ⚠️ לא מוגדר צעד התחלה!
+                </Typography>
+                <Typography variant="body2" sx={{ 
+                  color: '#b45309',
+                  lineHeight: 1.4
+                }}>
+                  לחץ על בלוק ובחר "🎯 הגדר כצעד התחלה" כדי להגדיר איפה התסריט מתחיל
+                </Typography>
+              </Box>
+            )}
+            
             {showEdgeLabelEditor && (
               <Box
                 id="edge-label-editor"
@@ -1766,7 +2184,7 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
           <MetadataEditor 
             onClose={() => setShowMetadata(false)} 
             onCompanyNameChange={handleCompanyNameChange}
-            onSave={handleSaveFlow}
+            onSave={handleExport}
           />
         </Drawer>
         
@@ -1930,15 +2348,15 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
                   sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                 />
                 
-                <Button 
-                  variant="contained" 
-                  onClick={handleLocalSave}
-                  disabled={!saveFileName}
+                  <Button 
+                    variant="contained" 
+                    onClick={handleLocalSave}
+                    disabled={!saveFileName}
                   sx={{ borderRadius: 2 }}
                   fullWidth
-                >
-                  💻 שמור במחשב
-                </Button>
+                  >
+                    💻 שמור במחשב
+                  </Button>
               </Paper>
             </Box>
           </DialogContent>
@@ -1952,6 +2370,8 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
           </DialogActions>
         </Dialog>
         
+
+        
         <Snackbar 
           open={snackbar.open} 
           autoHideDuration={6000} 
@@ -1962,9 +2382,13 @@ const FlowEditor: React.FC = forwardRef<FlowEditorHandle, {}>((props, ref) => {
             {snackbar.message}
           </Alert>
         </Snackbar>
+        
+
       </Box>
     </Box>
   );
 });
+
+FlowEditor.displayName = 'FlowEditor';
 
 export default FlowEditor; 

@@ -136,8 +136,8 @@ class QuestionStep {
             // If no input, show the question
             const messages = [];
 
-            // Process message header if exists
-            if (step.messageHeader) {
+            // Process message header if exists and not empty
+            if (step.messageHeader && step.messageHeader.trim()) {
                 let headerMessage = step.messageHeader;
                 if (session.data) {
                     for (const keyInSession in session.data) {
@@ -150,7 +150,7 @@ class QuestionStep {
                 messages.push(headerMessage);
             }
 
-            // Process main message
+            // Process main message - only add if not empty
             let questionMessage = step.message;
             if (questionMessage && session.data) {
                 for (const keyInSession in session.data) {
@@ -160,10 +160,14 @@ class QuestionStep {
                     }
                 }
             }
-            messages.push(questionMessage);
+            
+            // Only add main message if it has content
+            if (questionMessage && questionMessage.trim()) {
+                messages.push(questionMessage);
+            }
 
-            // Process footer message if exists
-            if (step.footerMessage) {
+            // Process footer message if exists and not empty
+            if (step.footerMessage && step.footerMessage.trim()) {
                 let footerMessage = step.footerMessage;
                 if (session.data) {
                     for (const keyInSession in session.data) {

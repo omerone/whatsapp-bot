@@ -218,4 +218,104 @@ html, body {
   .react-flow__node {
     break-inside: avoid;
   }
+}
+
+/* קווים עגולים ויפים - סטיילים מותאמים אישית */
+.react-flow__edge-path {
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* אנימציות נעות לקווים פעילים */
+@keyframes dash {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+.react-flow__edge-path.animated {
+  stroke-dashoffset: 0;
+  animation: dash 1.5s linear infinite;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
+}
+
+/* אפקט hover על קווים */
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke-width: 4 !important;
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,0.2));
+  opacity: 0.9;
+}
+
+/* מיקום z-index לקווים */
+.react-flow__edge {
+  z-index: 1;
+}
+
+.react-flow__edge:hover {
+  z-index: 10;
+}
+
+.react-flow__edge.selected {
+  z-index: 20;
+}
+
+/* שיפור צבעי קווים עם שקיפות קלה */
+.react-flow__edge-path[stroke*="#2563eb"] {
+  stroke: #2563eb !important;
+  stroke-opacity: 0.85;
+}
+
+.react-flow__edge-path[stroke*="#7c3aed"] {
+  stroke: #7c3aed !important;
+  stroke-opacity: 0.85;
+}
+
+.react-flow__edge-path[stroke*="#10b981"] {
+  stroke: #10b981 !important;
+  stroke-opacity: 0.85;
+}
+
+.react-flow__edge-path[stroke*="#f59e0b"] {
+  stroke: #f59e0b !important;
+  stroke-opacity: 0.85;
+}
+
+.react-flow__edge-path[stroke*="#ef4444"] {
+  stroke: #ef4444 !important;
+  stroke-opacity: 0.85;
+}
+
+.react-flow__edge-path[stroke*="#06b6d4"] {
+  stroke: #06b6d4 !important;
+  stroke-opacity: 0.85;
+}
+
+/* חצים יפים וצבעוניים */
+.react-flow__arrowhead {
+  fill: inherit !important;
+  stroke: inherit !important;
+}
+
+/* שיפור markers */
+.react-flow__marker {
+  fill: inherit !important;
+}
+
+/* הוספת smooth transitions לכל הקווים */
+.react-flow__edge {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* שיפור הנראות של edge labels */
+.react-flow__edge-text {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.1);
 } 

@@ -77,39 +77,62 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameC
     field: string,
     value: any
   ) => {
+    const currentIntegrations = flow.integrations || {};
+    
     if (subsection) {
+      // אם זה כיבוי של אינטגרציה, נמחק את כל הסקציה
+      if (field === 'enabled' && value === false) {
+        const updatedSection = { ...currentIntegrations[section] };
+        delete updatedSection[subsection];
+        
+        updateIntegrations({
+          ...currentIntegrations,
+          [section]: Object.keys(updatedSection).length > 0 ? updatedSection : undefined,
+        });
+      } else {
       updateIntegrations({
+          ...currentIntegrations,
         [section]: {
-          ...flow.integrations?.[section],
+            ...currentIntegrations[section],
           [subsection]: {
-            ...flow.integrations?.[section]?.[subsection],
+              ...currentIntegrations[section]?.[subsection],
             [field]: value,
           },
         },
       });
+      }
+    } else {
+      // אם זה כיבוי של אינטגרציה ברמה הראשית, נמחק את כל הסקציה
+      if (field === 'enabled' && value === false) {
+        const updatedIntegrations = { ...currentIntegrations };
+        delete updatedIntegrations[section];
+        
+        updateIntegrations(updatedIntegrations);
     } else {
       updateIntegrations({
+          ...currentIntegrations,
         [section]: {
-          ...flow.integrations?.[section],
+            ...currentIntegrations[section],
           [field]: value,
         },
       });
+      }
     }
   };
 
   const handleAddKeyword = () => {
-    const keywords = flow.configuration.rules.activation?.keywords || [];
+    const keywords = flow.configuration.rules?.activation?.keywords || [];
     handleConfigurationChange('rules', 'activation', 'keywords', [...keywords, '']);
   };
 
   const handleUpdateKeyword = (index: number, value: string) => {
-    const keywords = [...(flow.configuration.rules.activation?.keywords || [])];
+    const keywords = [...(flow.configuration.rules?.activation?.keywords || [])];
     keywords[index] = value;
     handleConfigurationChange('rules', 'activation', 'keywords', keywords);
   };
 
   const handleRemoveKeyword = (index: number) => {
-    const keywords = [...(flow.configuration.rules.activation?.keywords || [])];
+    const keywords = [...(flow.configuration.rules?.activation?.keywords || [])];
     keywords.splice(index, 1);
     handleConfigurationChange('rules', 'activation', 'keywords', keywords);
   };
@@ -168,42 +191,67 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameC
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {/* Blocked Sources */}
             <Typography variant="subtitle1" sx={{ mt: 2 }}>מקורות חסומים</Typography>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={flow.configuration.rules.blockedSources?.ignoreContacts || false}
-                  onChange={(e) => handleConfigurationChange('rules', 'blockedSources', 'ignoreContacts', e.target.checked)}
-                />
-              }
-              label="התעלם מאנשי קשר"
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={flow.configuration.rules.blockedSources?.ignoreArchived || false}
-                  onChange={(e) => handleConfigurationChange('rules', 'blockedSources', 'ignoreArchived', e.target.checked)}
-                />
-              }
-              label="התעלם מארכיון"
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={flow.configuration.rules.blockedSources?.ignoreGroups || false}
-                  onChange={(e) => handleConfigurationChange('rules', 'blockedSources', 'ignoreGroups', e.target.checked)}
-                />
-              }
-              label="התעלם מקבוצות"
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={flow.configuration.rules.blockedSources?.ignoreStatus || false}
-                  onChange={(e) => handleConfigurationChange('rules', 'blockedSources', 'ignoreStatus', e.target.checked)}
-                />
-              }
-              label="התעלם מסטטוס"
-            />
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              הגדר מאילו מקורות להתעלם או לקבל הודעות. כאשר הסוויץ' דלוק = מתעלם, כאשר כבוי = מתייחס.
+            </Typography>
+            
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography variant="body2">אנשי קשר</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {flow.configuration.rules?.blockedSources?.ignoreContacts ? 'מתעלם' : 'מתייחס'}
+                  </Typography>
+                  <Switch
+                    checked={flow.configuration.rules?.blockedSources?.ignoreContacts || false}
+                    onChange={(e) => handleConfigurationChange('rules', 'blockedSources', 'ignoreContacts', e.target.checked)}
+                    size="small"
+                  />
+                </Box>
+              </Box>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography variant="body2">ארכיון</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {flow.configuration.rules?.blockedSources?.ignoreArchived ? 'מתעלם' : 'מתייחס'}
+                  </Typography>
+                  <Switch
+                    checked={flow.configuration.rules?.blockedSources?.ignoreArchived || false}
+                    onChange={(e) => handleConfigurationChange('rules', 'blockedSources', 'ignoreArchived', e.target.checked)}
+                    size="small"
+                  />
+                </Box>
+              </Box>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography variant="body2">קבוצות</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {flow.configuration.rules?.blockedSources?.ignoreGroups ? 'מתעלם' : 'מתייחס'}
+                  </Typography>
+                  <Switch
+                    checked={flow.configuration.rules?.blockedSources?.ignoreGroups || false}
+                    onChange={(e) => handleConfigurationChange('rules', 'blockedSources', 'ignoreGroups', e.target.checked)}
+                    size="small"
+                  />
+                </Box>
+              </Box>
+              
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography variant="body2">סטטוסים</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {flow.configuration.rules?.blockedSources?.ignoreStatus ? 'מתעלם' : 'מתייחס'}
+                  </Typography>
+                  <Switch
+                    checked={flow.configuration.rules?.blockedSources?.ignoreStatus || false}
+                    onChange={(e) => handleConfigurationChange('rules', 'blockedSources', 'ignoreStatus', e.target.checked)}
+                    size="small"
+                  />
+                </Box>
+              </Box>
+            </Box>
 
             {/* Activation */}
             <Typography variant="subtitle1" sx={{ mt: 2 }}>הפעלה</Typography>
@@ -212,18 +260,18 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameC
               <FormControlLabel
                 control={
                   <Switch
-                    checked={flow.configuration.rules.activation?.enabled || false}
+                    checked={flow.configuration.rules?.activation?.enabled || false}
                     onChange={(e) => handleConfigurationChange('rules', 'activation', 'enabled', e.target.checked)}
                   />
                 }
                 label="אפשר הפעלה"
               />
               
-              {flow.configuration.rules.activation?.enabled && (
+              {flow.configuration.rules?.activation?.enabled && (
                 <Box sx={{ ml: 2, mt: 1 }}>
                   <Typography variant="body2" sx={{ mb: 1 }}>מילות מפתח להפעלה</Typography>
                   <List dense>
-                    {(flow.configuration.rules.activation?.keywords || []).map((keyword, index) => (
+                    {(flow.configuration.rules?.activation?.keywords || []).map((keyword: string, index: number) => (
                       <ListItem key={index} dense sx={{ py: 0.5 }}>
                         <TextField
                           fullWidth
@@ -254,7 +302,7 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameC
                     fullWidth
                     type="number"
                     label="איפוס אחרי (שעות)"
-                    value={flow.configuration.rules.activation?.resetAfterHours || 24}
+                    value={flow.configuration.rules?.activation?.resetAfterHours || 24}
                     onChange={(e) => handleConfigurationChange('rules', 'activation', 'resetAfterHours', parseInt(e.target.value))}
                     sx={{ mt: 2 }}
                     size="small"
@@ -269,14 +317,14 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameC
               fullWidth
               type="number"
               label="זמן פג תוקף סשן (שניות)"
-              value={flow.configuration.rules.session_timeout || 3600}
+              value={flow.configuration.rules?.session_timeout || 3600}
               onChange={(e) => handleConfigurationChange('rules', null, 'session_timeout', parseInt(e.target.value))}
             />
             <TextField
               fullWidth
               type="number"
               label="מספר ניסיונות מקסימלי"
-              value={flow.configuration.rules.max_retries || 3}
+              value={flow.configuration.rules?.max_retries || 3}
               onChange={(e) => handleConfigurationChange('rules', null, 'max_retries', parseInt(e.target.value))}
             />
           </Box>
@@ -291,9 +339,9 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameC
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Typography variant="h6">ניהול לקוחות</Typography>
-            {(flow.configuration.client_management.freeze?.enabled || 
-              flow.configuration.client_management.reset?.enabled ||
-              flow.configuration.client_management.blockScheduledClients?.enabled) && (
+            {(flow.configuration.client_management?.freeze?.enabled || 
+              flow.configuration.client_management?.reset?.enabled ||
+              flow.configuration.client_management?.blockScheduledClients?.enabled) && (
               <Chip 
                 size="small" 
                 label="פעיל" 
@@ -325,7 +373,7 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameC
                 fullWidth
                 type="number"
                 label="משך חסימה (דקות, 0 = לצמיתות)"
-                value={flow.configuration.client_management.block_duration || 0}
+                value={flow.configuration.client_management?.block_duration || 0}
                 onChange={(e) => handleConfigurationChange('client_management', null, 'block_duration', parseInt(e.target.value) || 0)}
                 size="small"
                 sx={{ mb: 2 }}
@@ -334,7 +382,7 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameC
               <FormControlLabel
                 control={
                   <Switch
-                    checked={flow.configuration.client_management.blockScheduledClients?.enabled || false}
+                    checked={flow.configuration.client_management?.blockScheduledClients?.enabled || false}
                     onChange={(e) => handleConfigurationChange('client_management', 'blockScheduledClients', 'enabled', e.target.checked)}
                   />
                 }
@@ -342,12 +390,12 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameC
                 sx={{ mb: 1 }}
               />
               
-              {flow.configuration.client_management.blockScheduledClients?.enabled && (
+                              {flow.configuration.client_management?.blockScheduledClients?.enabled && (
                 <Box sx={{ ml: 3, mb: 2 }}>
                   <FormControlLabel
                     control={
                       <Switch
-                        checked={flow.configuration.client_management.blockScheduledClients?.blockPastAndPresent || false}
+                        checked={flow.configuration.client_management?.blockScheduledClients?.blockPastAndPresent || false}
                         onChange={(e) => handleConfigurationChange('client_management', 'blockScheduledClients', 'blockPastAndPresent', e.target.checked)}
                       />
                     }
@@ -358,7 +406,7 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameC
                   <FormControlLabel
                     control={
                       <Switch
-                        checked={flow.configuration.client_management.blockScheduledClients?.blockFutureAndPresent || false}
+                        checked={flow.configuration.client_management?.blockScheduledClients?.blockFutureAndPresent || false}
                         onChange={(e) => handleConfigurationChange('client_management', 'blockScheduledClients', 'blockFutureAndPresent', e.target.checked)}
                       />
                     }
@@ -369,7 +417,7 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameC
                   <FormControlLabel
                     control={
                       <Switch
-                        checked={flow.configuration.client_management.blockScheduledClients?.allowRescheduling || false}
+                        checked={flow.configuration.client_management?.blockScheduledClients?.allowRescheduling || false}
                         onChange={(e) => handleConfigurationChange('client_management', 'blockScheduledClients', 'allowRescheduling', e.target.checked)}
                       />
                     }
@@ -377,11 +425,11 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameC
                     sx={{ mb: 1 }}
                   />
                   
-                  {flow.configuration.client_management.blockScheduledClients?.allowRescheduling && (
+                  {flow.configuration.client_management?.blockScheduledClients?.allowRescheduling && (
                     <FormControlLabel
                       control={
                         <Switch
-                          checked={flow.configuration.client_management.blockScheduledClients?.rescheduleOnlyFuture || false}
+                          checked={flow.configuration.client_management?.blockScheduledClients?.rescheduleOnlyFuture || false}
                           onChange={(e) => handleConfigurationChange('client_management', 'blockScheduledClients', 'rescheduleOnlyFuture', e.target.checked)}
                         />
                       }
@@ -399,19 +447,19 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameC
               <FormControlLabel
                 control={
                   <Switch
-                    checked={flow.configuration.client_management.reset?.enabled || false}
+                    checked={flow.configuration.client_management?.reset?.enabled || false}
                     onChange={(e) => handleConfigurationChange('client_management', 'reset', 'enabled', e.target.checked)}
                   />
                 }
                 label="אפשר איפוס"
               />
               
-              {flow.configuration.client_management.reset?.enabled && (
+              {flow.configuration.client_management?.reset?.enabled && (
                 <Box sx={{ ml: 2, mt: 1 }}>
                   <TextField
                     fullWidth
                     label="מילת מפתח לאיפוס"
-                    value={flow.configuration.client_management.reset?.keyword || ''}
+                    value={flow.configuration.client_management?.reset?.keyword || ''}
                     onChange={(e) => handleConfigurationChange('client_management', 'reset', 'keyword', e.target.value)}
                     size="small"
                     sx={{ mb: 2 }}
@@ -420,7 +468,7 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameC
                   <FormControl fullWidth size="small" sx={{ mb: 2 }}>
                     <InputLabel>צעד יעד</InputLabel>
                     <Select
-                      value={flow.configuration.client_management.reset?.target_step || ''}
+                      value={flow.configuration.client_management?.reset?.target_step || ''}
                       label="צעד יעד"
                       onChange={(e) => handleConfigurationChange('client_management', 'reset', 'target_step', e.target.value)}
                     >
@@ -440,9 +488,9 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameC
                     <FormControlLabel
                       control={
                         <Switch
-                          checked={flow.configuration.client_management.reset?.options?.unfreeze || false}
+                          checked={flow.configuration.client_management?.reset?.options?.unfreeze || false}
                           onChange={(e) => handleConfigurationChange('client_management', 'reset', 'options', {
-                            ...flow.configuration.client_management.reset?.options,
+                            ...flow.configuration.client_management?.reset?.options,
                             unfreeze: e.target.checked
                           })}
                         />
@@ -452,9 +500,9 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameC
                     <FormControlLabel
                       control={
                         <Switch
-                          checked={flow.configuration.client_management.reset?.options?.delete_appointment || false}
+                          checked={flow.configuration.client_management?.reset?.options?.delete_appointment || false}
                           onChange={(e) => handleConfigurationChange('client_management', 'reset', 'options', {
-                            ...flow.configuration.client_management.reset?.options,
+                            ...flow.configuration.client_management?.reset?.options,
                             delete_appointment: e.target.checked
                           })}
                         />
@@ -464,9 +512,9 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameC
                     <FormControlLabel
                       control={
                         <Switch
-                          checked={flow.configuration.client_management.reset?.options?.allow_unblock || false}
+                          checked={flow.configuration.client_management?.reset?.options?.allow_unblock || false}
                           onChange={(e) => handleConfigurationChange('client_management', 'reset', 'options', {
-                            ...flow.configuration.client_management.reset?.options,
+                            ...flow.configuration.client_management?.reset?.options,
                             allow_unblock: e.target.checked
                           })}
                         />
@@ -505,223 +553,7 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameC
               />
             </Paper>
 
-            {/* Google Workspace */}
-            {flow.integrations?.enabled && (
-              <Paper elevation={0} sx={{ p: 3, backgroundColor: '#f8f9fa', borderRadius: 3, border: '1px solid #e9ecef' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                  <Box sx={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 2,
-                    backgroundColor: '#4285f4',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: 'white',
-                    fontSize: '1.2rem'
-                  }}>
-                    🏢
-                  </Box>
-                  <Typography variant="h6" sx={{ fontWeight: 600, color: '#4285f4' }}>
-                    Google Workspace
-                  </Typography>
-                </Box>
-                
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={flow.integrations?.googleWorkspace?.enabled || false}
-                      onChange={(e) => handleIntegrationsChange('googleWorkspace', null, 'enabled', e.target.checked)}
-                    />
-                  }
-                  label="אפשר Google Workspace"
-                  sx={{ mb: 2 }}
-                />
 
-                {/* Google Sheets */}
-                {flow.integrations?.googleWorkspace?.enabled && (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    <Paper elevation={0} sx={{ p: 2, backgroundColor: 'white', borderRadius: 2, border: '1px solid #34a853' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                        <Box sx={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: 1.5,
-                          backgroundColor: '#34a853',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'white',
-                          fontSize: '1rem'
-                        }}>
-                          📊
-                        </Box>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#34a853' }}>
-                          Google Sheets
-                        </Typography>
-                      </Box>
-                      
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        <FormControlLabel
-                          control={
-                            <Switch
-                              checked={flow.integrations?.googleWorkspace?.sheets?.enabled || false}
-                              onChange={(e) => handleIntegrationsChange('googleWorkspace', 'sheets', 'enabled', e.target.checked)}
-                            />
-                          }
-                          label="אפשר Google Sheets"
-                        />
-                        
-                        {flow.integrations?.googleWorkspace?.sheets?.enabled && (
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, ml: 3 }}>
-                            <TextField
-                              fullWidth
-                              label="מזהה גיליון"
-                              value={flow.integrations?.googleWorkspace?.sheets?.sheetId || ''}
-                              onChange={(e) => handleIntegrationsChange('googleWorkspace', 'sheets', 'sheetId', e.target.value)}
-                              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                            />
-                            
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                              <FormControlLabel
-                                control={
-                                  <Switch
-                                    checked={flow.integrations?.googleWorkspace?.sheets?.filterByDateTime || false}
-                                    onChange={(e) => handleIntegrationsChange('googleWorkspace', 'sheets', 'filterByDateTime', e.target.checked)}
-                                  />
-                                }
-                                label="סנן לפי תאריך ושעה"
-                              />
-                              <FormControlLabel
-                                control={
-                                  <Switch
-                                    checked={flow.integrations?.googleWorkspace?.sheets?.preventDuplicates || false}
-                                    onChange={(e) => handleIntegrationsChange('googleWorkspace', 'sheets', 'preventDuplicates', e.target.checked)}
-                                  />
-                                }
-                                label="מנע כפילויות"
-                              />
-                              <FormControlLabel
-                                control={
-                                  <Switch
-                                    checked={flow.integrations?.googleWorkspace?.sheets?.updateExistingRows || false}
-                                    onChange={(e) => handleIntegrationsChange('googleWorkspace', 'sheets', 'updateExistingRows', e.target.checked)}
-                                  />
-                                }
-                                label="עדכן שורות קיימות"
-                              />
-                            </Box>
-                          </Box>
-                        )}
-                      </Box>
-                    </Paper>
-
-                    {/* Google Calendar */}
-                    <Paper elevation={0} sx={{ p: 2, backgroundColor: 'white', borderRadius: 2, border: '1px solid #ea4335' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                        <Box sx={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: 1.5,
-                          backgroundColor: '#ea4335',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'white',
-                          fontSize: '1rem'
-                        }}>
-                          🗓️
-                        </Box>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#ea4335' }}>
-                          Google Calendar
-                        </Typography>
-                      </Box>
-                      
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        <FormControlLabel
-                          control={
-                            <Switch
-                              checked={flow.integrations?.googleWorkspace?.calendar?.enabled || false}
-                              onChange={(e) => handleIntegrationsChange('googleWorkspace', 'calendar', 'enabled', e.target.checked)}
-                            />
-                          }
-                          label="אפשר Google Calendar"
-                        />
-                        
-                        {flow.integrations?.googleWorkspace?.calendar?.enabled && (
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, ml: 3 }}>
-                            <TextField
-                              fullWidth
-                              label="מזהה יומן"
-                              value={flow.integrations?.googleWorkspace?.calendar?.calendarId || ''}
-                              onChange={(e) => handleIntegrationsChange('googleWorkspace', 'calendar', 'calendarId', e.target.value)}
-                              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                            />
-                            
-                            <Box sx={{ display: 'flex', gap: 2 }}>
-                              <TextField
-                                fullWidth
-                                type="number"
-                                label="משך אירוע (דקות)"
-                                value={flow.integrations?.googleWorkspace?.calendar?.eventDurationMinutes || 60}
-                                onChange={(e) => handleIntegrationsChange('googleWorkspace', 'calendar', 'eventDurationMinutes', parseInt(e.target.value))}
-                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                              />
-                              <TextField
-                                fullWidth
-                                label="אזור זמן"
-                                value={flow.integrations?.googleWorkspace?.calendar?.timeZone || 'Asia/Jerusalem'}
-                                onChange={(e) => handleIntegrationsChange('googleWorkspace', 'calendar', 'timeZone', e.target.value)}
-                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                              />
-                            </Box>
-                            
-                            <TextField
-                              fullWidth
-                              label="כותרת אירוע"
-                              value={flow.integrations?.googleWorkspace?.calendar?.eventTitle || ''}
-                              onChange={(e) => handleIntegrationsChange('googleWorkspace', 'calendar', 'eventTitle', e.target.value)}
-                              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                            />
-                            
-                            <TextField
-                              fullWidth
-                              multiline
-                              rows={3}
-                              label="תיאור אירוע"
-                              value={flow.integrations?.googleWorkspace?.calendar?.eventDescription || ''}
-                              onChange={(e) => handleIntegrationsChange('googleWorkspace', 'calendar', 'eventDescription', e.target.value)}
-                              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                            />
-                            
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                              <TextField
-                                fullWidth
-                                type="number"
-                                label="מספר משתתפים מקסימלי"
-                                value={flow.integrations?.googleWorkspace?.calendar?.maxParticipantsPerSlot || 1}
-                                onChange={(e) => handleIntegrationsChange('googleWorkspace', 'calendar', 'maxParticipantsPerSlot', parseInt(e.target.value))}
-                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                              />
-                              
-                              <FormControlLabel
-                                control={
-                                  <Switch
-                                    checked={flow.integrations?.googleWorkspace?.calendar?.preventDuplicates || false}
-                                    onChange={(e) => handleIntegrationsChange('googleWorkspace', 'calendar', 'preventDuplicates', e.target.checked)}
-                                  />
-                                }
-                                label="מנע כפילויות"
-                              />
-                            </Box>
-                          </Box>
-                        )}
-                      </Box>
-                    </Paper>
-                  </Box>
-                )}
-              </Paper>
-            )}
 
             {/* iPlan */}
             {flow.integrations?.enabled && (
@@ -817,10 +649,7 @@ const MetadataEditor: React.FC<MetadataEditorProps> = ({ onClose, onCompanyNameC
               </Paper>
             )}
 
-            <Typography variant="body2" color="info.main" sx={{ mt: 2, p: 2, backgroundColor: '#e3f2fd', borderRadius: 2 }}>
-              💡 <strong>הערה:</strong> הגדרות התראות ותזכורות מוגדרות כעת ברמת הבלוק הפרטני. 
-              עבור לעריכת בלוק מסוג "הודעה" כדי להגדיר התראות ותזכורות עבורו.
-            </Typography>
+
           </Box>
         </AccordionDetails>
       </Accordion>

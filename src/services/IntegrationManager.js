@@ -30,11 +30,23 @@ class IntegrationManager {
     }
 
     _getSheetsConfig(isNewStructure, integrationsConfig) {
+        console.log('🔍 _getSheetsConfig called with:', {
+            isNewStructure,
+            hasIntegrationsConfig: !!integrationsConfig,
+            hasGoogleWorkspace: !!integrationsConfig?.googleWorkspace,
+            hasSheets: !!integrationsConfig?.googleWorkspace?.sheets,
+            hasOldConfig: !!this.config.googleSheet
+        });
+        
         if (isNewStructure && integrationsConfig?.googleWorkspace?.sheets) {
-            return integrationsConfig.googleWorkspace.sheets;
+            const config = integrationsConfig.googleWorkspace.sheets;
+            console.log('📋 Using new structure sheets config:', config);
+            return config;
         }
         // Fallback to old structure
-        return this.config.googleSheet;
+        const oldConfig = this.config.googleSheet;
+        console.log('📋 Using old structure sheets config:', oldConfig);
+        return oldConfig;
     }
 
     _getCalendarConfig(isNewStructure, integrationsConfig) {
@@ -108,13 +120,25 @@ class IntegrationManager {
             
             // Initialize Google Sheets if configured
             const sheetsConfig = this._getSheetsConfig(isNewStructure, integrationsConfig);
+            console.log('🔍 IntegrationManager: Google Sheets config:', {
+                exists: !!sheetsConfig,
+                enabled: sheetsConfig?.enabled,
+                hasColumns: !!sheetsConfig?.columns,
+                columnsCount: sheetsConfig?.columns ? Object.keys(sheetsConfig.columns).length : 0,
+                structure: structureType
+            });
+            
             if (sheetsConfig?.enabled) {
                 const sheetsService = new GoogleSheetsService(sheetsConfig);
                 const initialized = await sheetsService.initialize();
                 if (initialized) {
                     this.services.sheets = sheetsService;
                     console.log('✅ IntegrationManager: Google Sheets initialized');
+                } else {
+                    console.error('❌ IntegrationManager: Google Sheets failed to initialize');
                 }
+            } else {
+                console.log('ℹ️ IntegrationManager: Google Sheets not enabled or config missing');
             }
 
             // Initialize Google Calendar if configured
@@ -139,20 +163,12 @@ class IntegrationManager {
                 }
             }
 
-            // Initialize ReminderService if configured
+            // Initialize ReminderService if configured (but don't start it yet)
             const remindersConfig = this._getRemindersConfig(isNewStructure, integrationsConfig);
-            if (remindersConfig && remindersConfig.enabled && remindersConfig.configurations && remindersConfig.configurations.length > 0 && this.flowEngine?.leadsManager && this.whatsappClient) {
-                const messagesBasePath = path.join(__dirname, '..', '..', 'data', 'messages');
-                const reminderService = new ReminderService(
-                    remindersConfig, // Pass the whole remindersConfig object
-                    this.flowEngine.leadsManager,
-                    this.whatsappClient,
-                    messagesBasePath,
-                    this // Pass IntegrationManager instance itself
-                );
-                reminderService.start();
-                this.services.reminders = reminderService;
-                console.log('✅ IntegrationManager: Reminder Service initialized');
+            if (remindersConfig && remindersConfig.enabled && remindersConfig.configurations && remindersConfig.configurations.length > 0) {
+                // Store the config to initialize ReminderService later
+                this.reminderServiceConfig = remindersConfig;
+                console.log('✅ IntegrationManager: Reminder Service config prepared (will start after LeadsManager is ready)');
             } else {
                 // הסרת הלוגים הקשורים ל-ReminderService
                 // if (!remindersConfig || !remindersConfig.enabled) {
@@ -173,6 +189,24 @@ class IntegrationManager {
             console.error('Failed to initialize IntegrationManager:', error);
             return false;
         }
+    }
+
+    async startReminderService() {
+        if (this.reminderServiceConfig && this.flowEngine?.leadsManager && this.whatsappClient) {
+            const messagesBasePath = path.join(__dirname, '..', '..', 'data', 'messages');
+            const reminderService = new ReminderService(
+                this.reminderServiceConfig,
+                this.flowEngine.leadsManager,
+                this.whatsappClient,
+                messagesBasePath,
+                this
+            );
+            reminderService.start();
+            this.services.reminders = reminderService;
+            console.log('✅ IntegrationManager: Reminder Service started after LeadsManager initialization');
+            return true;
+        }
+        return false;
     }
 
     async handleMeetingScheduled(data, currentLead) {
@@ -334,6 +368,7 @@ class IntegrationManager {
         try {
             if (this.services.calendar) {
                 console.log('[IntegrationManager] 🔄 Creating Google Calendar event...');
+                console.log('[IntegrationManager] 📊 Meeting data received:', meetingData);
                 const calendarResult = await this.services.calendar.createEvent(meetingData);
                 console.log('[IntegrationManager] ✅ Calendar event created successfully:', {
                     eventId: calendarResult.eventId,
@@ -351,8 +386,84 @@ class IntegrationManager {
         }
     }
 
-    async handleSheetsIntegration(meetingData, currentLead) {
+    async handleStepSpecificCalendarIntegration(meetingData, currentLead, stepCalendarConfig) {
+        console.log('[IntegrationManager] 🔄 Using step-specific Google Calendar configuration...');
+        console.log('[IntegrationManager] 🔄 Processing step-specific Google Calendar integration...');
+        
+        console.log('[IntegrationManager] 🔍 Processing calendar config:', {
+            stepCalendarConfig: stepCalendarConfig,
+            leadData: currentLead?.data,
+            meetingData: meetingData
+        });
+
         try {
+            // Validate step configuration
+            if (!stepCalendarConfig?.calendarId && !stepCalendarConfig?.credentialsPath) {
+                throw new Error('Google Calendar configuration incomplete - missing calendarId or credentialsPath');
+            }
+
+            // Initialize step-specific Google Calendar service
+            const GoogleCalendarService = require('./google/GoogleCalendarService');
+            const stepCalendarService = new GoogleCalendarService({
+                calendarId: stepCalendarConfig.calendarId || 'primary',
+                credentialsPath: stepCalendarConfig.credentialsPath,
+                preventDuplicates: stepCalendarConfig.preventDuplicates || false,
+                sendNotifications: stepCalendarConfig.sendNotifications !== false,
+                useQuickAdd: stepCalendarConfig.useQuickAdd || false,
+                maxAttendees: stepCalendarConfig.maxAttendees || 50,
+                colorId: stepCalendarConfig.colorId || 1
+            });
+
+            const initialized = await stepCalendarService.initialize();
+            if (!initialized) {
+                throw new Error('Failed to initialize step-specific Google Calendar service');
+            }
+
+            // Process title and description with variables
+            const processedTitle = this._replaceVariables(stepCalendarConfig.title || 'פגישה חדשה', currentLead, meetingData);
+            const processedDescription = this._replaceVariables(stepCalendarConfig.description || '', currentLead, meetingData);
+
+            // Prepare event data for calendar service
+            const eventData = {
+                ...meetingData,
+                title: processedTitle,
+                description: processedDescription,
+                maxAttendees: stepCalendarConfig.maxAttendees || 50,
+                colorId: stepCalendarConfig.colorId || 1,
+                sendNotifications: stepCalendarConfig.sendNotifications !== false
+            };
+
+            console.log('[IntegrationManager] Creating calendar event:', {
+                title: processedTitle,
+                description: processedDescription,
+                calendarId: stepCalendarConfig.calendarId || 'primary',
+                meetingData: meetingData
+            });
+
+            const result = await stepCalendarService.createEvent(eventData);
+            
+            if (result && result.success) {
+                console.log('[IntegrationManager] ✅ Successfully created step-specific Google Calendar event');
+                return { success: true, result: result };
+            } else {
+                throw new Error('Failed to create calendar event');
+            }
+
+        } catch (error) {
+            console.error('[IntegrationManager] ❌ Step-specific Calendar integration error:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async handleSheetsIntegration(meetingData, currentLead, stepSheetsConfig = null) {
+        try {
+            // Use step-specific configuration if provided, otherwise use global service
+            if (stepSheetsConfig) {
+                console.log('[IntegrationManager] 🔄 Using step-specific Google Sheets configuration...');
+                return await this.handleStepSpecificSheetsIntegration(meetingData, currentLead, stepSheetsConfig);
+            }
+            
+            // Fallback to global sheets service
             if (this.services.sheets) {
                 console.log('[IntegrationManager] 🔄 Adding meeting to Google Sheets...');
                 const sheetsResult = await this.services.sheets.addMeeting(meetingData);
@@ -366,6 +477,179 @@ class IntegrationManager {
             console.error('[IntegrationManager] ❌ Sheets integration error:', error);
             return { success: false, error: error.message };
         }
+    }
+
+    async handleStepSpecificSheetsIntegration(meetingData, currentLead, stepSheetsConfig) {
+        try {
+            console.log('[IntegrationManager] 🔄 Processing step-specific Google Sheets integration...');
+            
+            // Validate step configuration
+            if (!stepSheetsConfig?.sheetId) {
+                throw new Error('Google Sheets sheetId not configured for this step');
+            }
+
+            if (!stepSheetsConfig?.columns || !Array.isArray(stepSheetsConfig.columns)) {
+                throw new Error('Google Sheets columns not configured for this step');
+            }
+
+            // Create a dynamic sheets service for this specific step
+            const GoogleSheetsService = require('./google/sheets');
+            
+            // Map array-based columns to object-based format expected by GoogleSheetsService
+            const columnsMapping = {};
+            
+            // Map columns configuration (columns array contains values for A, B, C...)
+            const columnData = [];
+            const columnColors = [];
+            stepSheetsConfig.columns.forEach((columnItem, index) => {
+                let columnValue, backgroundColor;
+                
+                // Handle both string and object formats
+                if (typeof columnItem === 'object') {
+                    columnValue = columnItem.value;
+                    backgroundColor = columnItem.backgroundColor;
+                } else {
+                    columnValue = columnItem;
+                    backgroundColor = '#ffffff';
+                }
+                
+                if (columnValue && columnValue.trim()) {
+                    console.log(`[IntegrationManager] Processing column ${index}: "${columnValue}"`);
+                    // Replace variables in column value using lead data
+                    const processedValue = this._replaceVariables(columnValue, currentLead, meetingData);
+                    console.log(`[IntegrationManager] Column ${index} processed: "${columnValue}" → "${processedValue}"`);
+                    columnData[index] = processedValue;
+                    columnColors[index] = backgroundColor;
+                    // Create mapping for GoogleSheetsService compatibility
+                    columnsMapping[`col_${index}`] = index + 1;
+                }
+            });
+
+            // Create temporary config for this step's sheets integration
+            const sheetsServiceConfig = {
+                enabled: true,
+                sheetId: stepSheetsConfig.sheetId,
+                columns: columnsMapping,
+                worksheetName: stepSheetsConfig.worksheetName || 'Sheet1',
+                credentialsPath: stepSheetsConfig.credentialsPath || path.join(__dirname, 'credentials', 'google-sheets-credentials.json'),
+                preventDuplicates: stepSheetsConfig.preventDuplicates || false,
+                updateExistingRows: stepSheetsConfig.updateExistingRows || false,
+                insertToNextRow: stepSheetsConfig.insertToNextRow !== false, // Default to true
+                enableSorting: stepSheetsConfig.enableSorting || false,
+                sortColumn: stepSheetsConfig.sortColumn || 1,
+                sortType: stepSheetsConfig.sortType || 'date',
+                sortDirection: stepSheetsConfig.sortDirection || 'asc'
+            };
+
+            console.log('[IntegrationManager] Column data after processing:', columnData);
+            console.log('[IntegrationManager] Creating Google Sheets service with config:', {
+                sheetId: sheetsServiceConfig.sheetId,
+                columnsCount: Object.keys(sheetsServiceConfig.columns).length,
+                worksheetName: sheetsServiceConfig.worksheetName,
+                dataPreview: columnData.slice(0, 3)
+            });
+
+            // Create and initialize sheets service for this step
+            const stepSheetsService = new GoogleSheetsService(sheetsServiceConfig);
+            const initialized = await stepSheetsService.initialize();
+            
+            if (!initialized) {
+                throw new Error('Failed to initialize step-specific Google Sheets service');
+            }
+
+            // Prepare data for sheets service
+            const dataForSheets = {};
+            columnData.forEach((value, index) => {
+                if (value !== undefined) {
+                    dataForSheets[`col_${index}`] = value;
+                }
+            });
+
+            console.log('[IntegrationManager] Adding row to Google Sheets:', dataForSheets);
+            console.log('[IntegrationManager] Column colors for sheets:', columnColors);
+
+            const result = await stepSheetsService.addRow(dataForSheets, columnColors);
+            
+            if (result) {
+                console.log('[IntegrationManager] ✅ Successfully added data to step-specific Google Sheets');
+                return { success: true, result: result };
+            } else {
+                throw new Error('Failed to add data to Google Sheets');
+            }
+
+        } catch (error) {
+            console.error('[IntegrationManager] ❌ Step-specific Sheets integration error:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    _replaceVariables(template, lead, meetingData) {
+        if (!template) return '';
+        
+        const leadData = lead?.data || {};
+        
+        // Extract phone from multiple possible sources - fix phone extraction
+        let phoneNumber = '';
+        if (lead?.id) {
+            phoneNumber = this._formatPhone(lead.id);
+        } else if (meetingData?.phone) {
+            phoneNumber = this._formatPhone(meetingData.phone);
+        }
+        
+        const variables = {
+            full_name: leadData.full_name || meetingData?.full_name || '',
+            phone: phoneNumber,
+            meeting_date: leadData.meeting_date || meetingData?.meeting_date || '',
+            meeting_time: leadData.meeting_time || meetingData?.meeting_time || '',
+            city_name: leadData.city_name || meetingData?.city_name || '',
+            mobility: leadData.mobility || meetingData?.mobility || '',
+            display_name: leadData.display_name || leadData.full_name || meetingData?.full_name || '',
+            timestamp: new Date().toISOString(),
+            ...leadData // Include any additional lead data
+        };
+
+        console.log(`[IntegrationManager] _replaceVariables DEBUG:`, {
+            template,
+            variables,
+            leadId: lead?.id
+        });
+
+        let result = template;
+        
+        // Check if template is just a variable name without braces
+        if (variables.hasOwnProperty(template)) {
+            const value = variables[template] || '';
+            console.log(`[IntegrationManager] Variable found directly: "${template}" → "${value}"`);
+            console.log(`[IntegrationManager] Final result: "${template}" → "${value}"`);
+            return value;
+        }
+        
+        // Replace variables with braces
+        Object.keys(variables).forEach(key => {
+            const regex = new RegExp(`\\{${key}\\}`, 'g');
+            const oldResult = result;
+            result = result.replace(regex, variables[key] || '');
+            if (oldResult !== result) {
+                console.log(`[IntegrationManager] Replaced {${key}} with "${variables[key]}" in "${oldResult}" → "${result}"`);
+            }
+        });
+
+        console.log(`[IntegrationManager] Final result: "${template}" → "${result}"`);
+        return result;
+    }
+
+    // Helper function to format phone numbers consistently
+    _formatPhone(phone) {
+        if (!phone || typeof phone !== 'string') return '';
+        
+        let cleaned = phone.replace('@c.us', '').replace('@g.us', '');
+        
+        // Remove 972 prefix if exists
+        if (cleaned.startsWith('972')) {
+            cleaned = cleaned.substring(3);
+        }
+        
+        return cleaned;
     }
 
     async handleRemindersIntegration(meetingData, currentLead) {
@@ -420,11 +704,20 @@ class IntegrationManager {
                 return { success: false, error: 'No recipients configured' };
             }
             
+            // Parse recipients - they might be comma-separated
+            let recipientsList = [];
+            if (typeof notificationsConfig.recipients === 'string') {
+                recipientsList = notificationsConfig.recipients.split(',').map(r => r.trim()).filter(r => r);
+            } else if (Array.isArray(notificationsConfig.recipients)) {
+                recipientsList = notificationsConfig.recipients;
+            } else {
+                recipientsList = [notificationsConfig.recipients];
+            }
+            
             // Load the notification message template
             let messageTemplate = '';
             if (notificationsConfig.messageTemplateFile) {
                 const fs = require('fs');
-                const path = require('path');
                 const templatePath = path.join(this.dataPath || 'data', 'messages', notificationsConfig.messageTemplateFile);
                 
                 try {
@@ -443,12 +736,14 @@ class IntegrationManager {
             
             // Send to all recipients
             const results = [];
-            for (const recipient of notificationsConfig.recipients) {
+            for (const recipient of recipientsList) {
                 try {
-                    console.log(`[IntegrationManager] 📤 Sending notification to ${recipient}...`);
-                    await this.whatsappClient.sendMessage(recipient, formattedMessage);
-                    results.push({ recipient, success: true });
-                    console.log(`[IntegrationManager] ✅ Notification sent to ${recipient}`);
+                    // Format the recipient number properly
+                    const formattedRecipient = this._formatPhoneNumber(recipient.trim());
+                    console.log(`[IntegrationManager] 📤 Sending notification to ${formattedRecipient}...`);
+                    await this.whatsappClient.sendMessage(formattedRecipient, formattedMessage);
+                    results.push({ recipient: formattedRecipient, success: true });
+                    console.log(`[IntegrationManager] ✅ Notification sent to ${formattedRecipient}`);
                 } catch (error) {
                     console.error(`[IntegrationManager] ❌ Failed to send notification to ${recipient}:`, error.message);
                     results.push({ recipient, success: false, error: error.message });
@@ -489,6 +784,45 @@ class IntegrationManager {
         }
         
         return message;
+    }
+
+    /**
+     * Format phone number for WhatsApp
+     * Handles both individual contacts and groups
+     * @param {string} phoneNumber - Raw phone number or group identifier
+     * @returns {string} - Formatted phone number for WhatsApp
+     */
+    _formatPhoneNumber(phoneNumber) {
+        if (!phoneNumber) return phoneNumber;
+        
+        // Remove all spaces and special characters except numbers, @, -, and .
+        let cleaned = phoneNumber.replace(/[^\d@\-\.]/g, '');
+        
+        // If it contains @ or ends with specific patterns, it's likely already formatted
+        if (cleaned.includes('@') || cleaned.includes('-group') || cleaned.includes('.us')) {
+            return cleaned;
+        }
+        
+        // If it's a pure number, format as individual contact
+        if (/^\d+$/.test(cleaned)) {
+            // Remove leading + if exists in original
+            if (phoneNumber.startsWith('+')) {
+                cleaned = phoneNumber.replace(/[^\d]/g, '');
+            }
+            
+            // Add @c.us for individual contacts
+            return `${cleaned}@c.us`;
+        }
+        
+        // If it contains 'group' keyword, format as group
+        if (phoneNumber.toLowerCase().includes('group')) {
+            // Extract the number part
+            const numberPart = cleaned.replace(/[^\d]/g, '');
+            return `${numberPart}@g.us`;
+        }
+        
+        // Default: assume it's an individual contact
+        return `${cleaned}@c.us`;
     }
 
     // Method to stop services, e.g., on application shutdown

@@ -1,3 +1,24 @@
 {
-  
+  "972503533373@c.us": {
+    "current_step": "afterConfirmation",
+    "data": {
+      "display_name": "סייף אבטחה ותקשורת",
+      "is_schedule": true,
+      "full_name": "עומר מעוז",
+      "city_name": "לוד",
+      "mobility": "רכב",
+      "day_date": "יום חמישי",
+      "date_and_day": "יום חמישי 03/07/2025",
+      "meeting_date": "03/07/2025",
+      "meeting_time": "09:00"
+    },
+    "last_sent_message": "client",
+    "last_client_message": "היי",
+    "relevant": true,
+    "last_interaction": "2.7.2025, 15:38:22",
+    "date_and_time_conversation_started": "2.7.2025, 15:37:45",
+    "blocked": false,
+    "blocked_reason": null,
+    "frozenUntil": null
+  }
 }

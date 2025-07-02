@@ -4,7 +4,7 @@ class OptionStep {
         if (input && input.trim()) {
             const normalizedInput = input.trim().toLowerCase();
             
-            // Find the matching option
+            // Find the matching option - now using branches directly
             let selectedOption = null;
             let selectedKey = null;
 
@@ -33,18 +33,29 @@ class OptionStep {
             }
 
             if (selectedOption) {
-                // Store the selection
-                if (step.key) {
-                    session.data[step.key] = selectedOption;
+                // Parse the selected option - check if it contains a value separator
+                let nextStep = selectedOption;
+                let valueToStore = selectedOption;
+                
+                // Check if the format is "nextStep::value"
+                if (selectedOption.includes('::')) {
+                    const parts = selectedOption.split('::');
+                    nextStep = parts[0];
+                    valueToStore = parts[1];
                 }
                 
-                console.log(`✅ OptionStep: User input "${input}" matched option "${selectedKey}" → target step "${selectedOption}"`);
+                // Store the appropriate value
+                if (step.key) {
+                    session.data[step.key] = valueToStore;
+                }
+                
+                console.log(`✅ OptionStep: User input "${input}" matched option "${selectedKey}" → target step "${nextStep}", stored value: "${valueToStore}"`);
                 
                 // Update the lead with the client's message
                 await flowEngine.leadsManager.updateLastMessage(session.userId, 'client', input);
                 
-                // Move to the selected branch
-                session.currentStep = selectedOption;
+                // Move to the selected branch (use the step part, not the value part)
+                session.currentStep = nextStep;
                 return flowEngine.processStepInternal(session.userId);
             } else {
                 // Create a comprehensive list of valid options for the error message
@@ -95,8 +106,8 @@ class OptionStep {
 
         const messages = [];
 
-        // Process message header if exists
-        if (step.messageHeader) {
+        // Process message header if exists and not empty
+        if (step.messageHeader && step.messageHeader.trim()) {
             let headerMessage = step.messageHeader;
             if (session.data) {
                 for (const keyInSession in session.data) {
@@ -125,7 +136,7 @@ class OptionStep {
             messages.push(headerMessage);
         }
 
-        // Process main message
+        // Process main message - only add if not empty
         let messageToSend = step.message || await flowEngine.loadMessageFile(step.messageFile);
         if (messageToSend && session.data) {
             for (const keyInSession in session.data) {
@@ -151,10 +162,13 @@ class OptionStep {
                 .replace(/{meeting_time}/g, session.data.meeting_time);
         }
 
-        messages.push(messageToSend);
+        // Only add main message if it has content
+        if (messageToSend && messageToSend.trim()) {
+            messages.push(messageToSend);
+        }
 
-        // Process footer message if exists
-        if (step.footerMessage) {
+        // Process footer message if exists and not empty
+        if (step.footerMessage && step.footerMessage.trim()) {
             let footerMessage = step.footerMessage;
             if (session.data) {
                 for (const keyInSession in session.data) {

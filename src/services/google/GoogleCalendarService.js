@@ -85,7 +85,7 @@ class GoogleCalendarService {
             const [day, month, year] = date.split('/');
             const [hour, minute] = time.split(':');
             
-            const startDateTime = new Date(year, month - 1, day, hour, minute);
+            const startDateTime = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
             const endDateTime = new Date(startDateTime.getTime() + (this.config.eventDurationMinutes * 60 * 1000));
 
             console.log(`GoogleCalendarService: Checking availability for ${date} ${time}`, {
@@ -111,7 +111,7 @@ class GoogleCalendarService {
             
             // Count events that have our specific title pattern (our meetings)
             const ourMeetings = existingEvents.filter(event => 
-                event.summary && event.summary.includes('פגישה עם')
+                event.summary && event.summary.includes('תספורת')
             );
 
             const currentParticipants = ourMeetings.length;
@@ -140,30 +140,44 @@ class GoogleCalendarService {
         }
 
         try {
-            console.log(`GoogleCalendarService: Creating event for ${meetingData.full_name}`, {
+            console.log(`GoogleCalendarService: Creating event for phone ${meetingData.phone}`, {
                 date: meetingData.meeting_date,
                 time: meetingData.meeting_time,
-                city: meetingData.city_name,
-                mobility: meetingData.mobility
+                phone: meetingData.phone,
+                allData: meetingData
             });
 
             // Parse the date and time
             const [day, month, year] = meetingData.meeting_date.split('/');
             const [hour, minute] = meetingData.meeting_time.split(':');
             
-            const startDateTime = new Date(year, month - 1, day, hour, minute);
+            console.log('GoogleCalendarService: Date parsing details:', {
+                original_date: meetingData.meeting_date,
+                original_time: meetingData.meeting_time,
+                parsed_day: day,
+                parsed_month: month,
+                parsed_year: year,
+                parsed_hour: hour,
+                parsed_minute: minute
+            });
+            
+            const startDateTime = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
             const endDateTime = new Date(startDateTime.getTime() + (this.config.eventDurationMinutes * 60 * 1000));
 
             console.log('GoogleCalendarService: Event time details:', {
-                startDateTime: startDateTime.toISOString(),
-                endDateTime: endDateTime.toISOString(),
-                timeZone: this.config.timeZone
+                startDateTime: startDateTime.toString(),
+                startDateTimeISO: startDateTime.toISOString(),
+                endDateTime: endDateTime.toString(),
+                endDateTimeISO: endDateTime.toISOString(),
+                timeZone: this.config.timeZone,
+                isValidStart: !isNaN(startDateTime.getTime()),
+                isValidEnd: !isNaN(endDateTime.getTime())
             });
 
             // Check for existing event with same details
             const existingEvent = await this._findExistingEvent(meetingData, startDateTime, endDateTime);
             if (existingEvent) {
-                console.log(`GoogleCalendarService: Found existing event for ${meetingData.full_name}`, {
+                console.log(`GoogleCalendarService: Found existing event for ${meetingData.phone}`, {
                     eventId: existingEvent.id,
                     eventLink: existingEvent.htmlLink,
                     summary: existingEvent.summary
@@ -186,7 +200,7 @@ class GoogleCalendarService {
             });
 
             const ourMeetings = (existingEvents.data.items || []).filter(event => 
-                event.summary && event.summary.includes('פגישה עם')
+                event.summary && event.summary.includes('תספורת')
             );
             
             const participantNumber = ourMeetings.length + 1;
@@ -221,7 +235,7 @@ class GoogleCalendarService {
                 resource: event
             });
 
-            console.log(`GoogleCalendarService: Event created successfully for ${meetingData.full_name}`, {
+            console.log(`GoogleCalendarService: Event created successfully for ${meetingData.phone}`, {
                 eventId: response.data.id,
                 eventLink: response.data.htmlLink
             });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   List,
@@ -35,30 +35,45 @@ interface FlowFile {
   };
 }
 
-const FlowManager: React.FC = () => {
-  const [flows, setFlows] = useState<FlowFile[]>([]);
+export const FlowManager: React.FC = () => {
+  const [flows, setFlows] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [renameDialog, setRenameDialog] = useState<{ open: boolean; oldName: string; newName: string }>({
+    open: false,
+    oldName: '',
+    newName: ''
+  });
   const [selectedFlow, setSelectedFlow] = useState<string | null>(null);
   const [isNewFlowDialogOpen, setIsNewFlowDialogOpen] = useState(false);
   const [newFlowName, setNewFlowName] = useState('');
   const [isEditorOpen, setIsEditorOpen] = useState(false);
 
+  const loadFlows = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/flows');
+      if (response.ok) {
+        const flowList = await response.json();
+        
+        // הוסף flow.json אם הוא לא קיים ברשימה
+        if (!flowList.includes('flow.json')) {
+          flowList.unshift('flow.json'); // הוסף בתחילת הרשימה
+        }
+        
+        setFlows(flowList);
+      }
+    } catch (error) {
+      console.error('Error loading flows:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     // Load flows from data directory
     loadFlows();
-  }, []);
-
-  const loadFlows = async () => {
-    try {
-      const response = await fetch('/api/flows');
-      if (!response.ok) {
-        throw new Error('Failed to load flows');
-      }
-      const flows = await response.json();
-      setFlows(flows);
-    } catch (error) {
-      console.error('Error loading flows:', error);
-    }
-  };
+  }, [loadFlows]);
 
   const handleCreateFlow = async () => {
     if (!newFlowName.trim()) return;
@@ -94,23 +109,15 @@ const FlowManager: React.FC = () => {
   };
 
   const handleDeleteFlow = (flowId: string) => {
-    setFlows(flows.filter(flow => flow.id !== flowId));
+    setFlows(flows.filter(flow => flow !== flowId));
     if (selectedFlow === flowId) {
       setSelectedFlow(null);
       setIsEditorOpen(false);
     }
   };
 
-  const handleDuplicateFlow = (flow: FlowFile) => {
-    const newFlow: FlowFile = {
-      ...flow,
-      id: `flow-${Date.now()}`,
-      name: `${flow.name} (עותק)`,
-      metadata: {
-        ...flow.metadata,
-        last_updated: new Date().toISOString(),
-      },
-    };
+  const handleDuplicateFlow = (flow: string) => {
+    const newFlow: string = `${flow} (עותק)`;
     setFlows([...flows, newFlow]);
   };
 
@@ -163,13 +170,13 @@ const FlowManager: React.FC = () => {
           <List>
             {flows.map((flow) => (
               <ListItem
-                key={flow.id}
+                key={flow}
                 sx={{
                   mb: 1,
                   borderRadius: 1,
-                  bgcolor: selectedFlow === flow.id ? 'primary.light' : 'background.paper',
+                  bgcolor: selectedFlow === flow ? 'primary.light' : 'background.paper',
                   '&:hover': {
-                    bgcolor: selectedFlow === flow.id ? 'primary.light' : 'action.hover',
+                    bgcolor: selectedFlow === flow ? 'primary.light' : 'action.hover',
                   },
                 }}
                 secondaryAction={
@@ -185,7 +192,7 @@ const FlowManager: React.FC = () => {
                     <IconButton
                       edge="end"
                       size="small"
-                      onClick={() => handleDeleteFlow(flow.id)}
+                      onClick={() => handleDeleteFlow(flow)}
                       title="מחק תסריט"
                     >
                       <DeleteIcon fontSize="small" />
@@ -193,14 +200,9 @@ const FlowManager: React.FC = () => {
                   </Box>
                 }
               >
-                <ListItemButton onClick={() => handleEditFlow(flow.id)}>
+                <ListItemButton onClick={() => handleEditFlow(flow)}>
                   <ListItemText
-                    primary={flow.name}
-                    secondary={
-                      <Typography variant="caption" color="text.secondary">
-                        {new Date(flow.metadata.last_updated).toLocaleDateString('he-IL')}
-                      </Typography>
-                    }
+                    primary={flow}
                   />
                 </ListItemButton>
               </ListItem>

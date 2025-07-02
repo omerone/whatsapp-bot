@@ -6,8 +6,23 @@ class GoogleSheetsService {
         this.config = config;
         this.sheets = null;
         this.initialized = false;
+        
+        // Check if config and columns exist before processing
+        if (!this.config || !this.config.columns || typeof this.config.columns !== 'object') {
+            console.error('❌ GoogleSheetsService: Invalid config or missing columns configuration');
+            this.maxColumn = 'F'; // Default fallback
+            return;
+        }
+        
         // Calculate the maximum column index and convert to letter
-        this.maxColumn = this._getColumnLetter(Math.max(...Object.values(this.config.columns)));
+        const columnValues = Object.values(this.config.columns);
+        if (columnValues.length === 0) {
+            console.error('❌ GoogleSheetsService: No columns defined in configuration');
+            this.maxColumn = 'F'; // Default fallback
+            return;
+        }
+        
+        this.maxColumn = this._getColumnLetter(Math.max(...columnValues));
     }
 
     _getColumnLetter(columnNumber) {
@@ -25,24 +40,41 @@ class GoogleSheetsService {
     }
 
     async initialize() {
+        // Check if config is valid before attempting to initialize
+        if (!this.config || !this.config.columns) {
+            console.error('❌ GoogleSheetsService: Cannot initialize - invalid configuration');
+            return false;
+        }
+        
         try {
-            // Initialize the Google Sheets API client using centralized credentials
+            console.log('🔍 GoogleSheetsService: Attempting to initialize with config:', {
+                enabled: this.config.enabled,
+                hasSheetId: !!this.config.sheetId,
+                hasColumns: !!this.config.columns,
+                maxColumn: this.maxColumn
+            });
+            
+            // Initialize the Google Sheets API client using configured credentials path
+            const credentialsPath = this.config.credentialsPath || path.join(__dirname, '..', 'credentials', 'google-sheets-credentials.json');
+            console.log('🔍 GoogleSheetsService: Using credentials path:', credentialsPath);
+            
             const auth = new google.auth.GoogleAuth({
-                keyFile: path.join(__dirname, '..', 'credentials', 'google-sheets-credentials.json'),
+                keyFile: credentialsPath,
                 scopes: ['https://www.googleapis.com/auth/spreadsheets']
             });
 
             const authClient = await auth.getClient();
             this.sheets = google.sheets({ version: 'v4', auth: authClient });
             this.initialized = true;
+            console.log('✅ GoogleSheetsService: Successfully initialized');
             return true;
         } catch (error) {
-            console.error('Failed to initialize Google Sheets:', error);
+            console.error('❌ GoogleSheetsService: Failed to initialize:', error.message);
             return false;
         }
     }
 
-    async addRow(data) {
+    async addRow(data, columnColors = []) {
         if (!this.initialized || !this.config.enabled) {
             return false;
         }
@@ -57,13 +89,19 @@ class GoogleSheetsService {
                 mobility: this._formatMobility(data.mobility)
             };
 
-            // Check for existing appointment with same phone number
+            // Check for existing appointment with same phone number if prevent duplicates is enabled
+            if (this.config.preventDuplicates) {
             const existingRowIndex = await this._findExistingPhoneRow(formattedData.phone);
             
             if (existingRowIndex !== -1) {
-                // Update existing row instead of adding new one
+                    if (this.config.updateExistingRows) {
                 console.log(`📋 Google Sheets: עדכון שורה קיימת עבור מספר טלפון ${formattedData.phone}`);
                 return await this._updateExistingRow(existingRowIndex, formattedData);
+                    } else {
+                        console.log(`📋 Google Sheets: שורה קיימת למספר טלפון ${formattedData.phone}, מדלג על הוספה`);
+                        return true; // Consider it successful but don't add duplicate
+                    }
+                }
             }
 
             const values = [];
@@ -79,13 +117,27 @@ class GoogleSheetsService {
 
             values.push(row);
 
-            if (this.config.filterByDateTime) {
-                await this._insertRowWithDateTimeFilter(values, formattedData);
+            let insertedRowIndex = null;
+
+            // Check if sorting/filtering is enabled
+            if (this.config.enableSorting) {
+                console.log('📋 Google Sheets: מבצע הכנסה עם מיון אוטומטי');
+                insertedRowIndex = await this._insertRowWithSorting(values, formattedData);
+            } else if (this.config.insertToNextRow !== false) {
+                console.log('📋 Google Sheets: מבצע הכנסה לשורה הבאה הריקה');
+                insertedRowIndex = await this._insertToNextEmptyRow(values);
             } else {
-                await this._appendRow(values);
+                console.log('📋 Google Sheets: מבצע הוספה רגילה בסוף');
+                insertedRowIndex = await this._appendRow(values);
             }
 
-            console.log(`📋 Google Sheets: שורה חדשה נוספה עבור מספר טלפון ${formattedData.phone}`);
+            // Apply colors if provided and row was inserted
+            if (columnColors && columnColors.length > 0 && insertedRowIndex) {
+                console.log(`🎨 Google Sheets: מחיל צבעים לשורה ${insertedRowIndex}`);
+                await this._applyRowColors(insertedRowIndex, columnColors);
+            }
+
+            console.log(`📋 Google Sheets: שורה חדשה נוספה עבור מספר טלפון ${formattedData.phone || 'לא זמין'}`);
             return true;
         } catch (error) {
             console.error('Failed to add row to Google Sheets:', error);
@@ -142,6 +194,11 @@ class GoogleSheetsService {
     }
 
     _formatPhone(phone) {
+        if (!phone || typeof phone !== 'string') {
+            console.log('⚠️ GoogleSheetsService: Phone is undefined or not a string:', phone);
+            return '';
+        }
+        
         try {
             // מסיר את כל התווים שאינם ספרות
             let cleaned = phone.replace(/\D/g, '');
@@ -248,6 +305,15 @@ class GoogleSheetsService {
     }
 
     async _appendRow(values) {
+        // Get current row count first
+        const response = await this.sheets.spreadsheets.values.get({
+            spreadsheetId: this.config.sheetId,
+            range: `A:A`
+        });
+        
+        const existingRows = response.data.values || [];
+        const newRowNumber = existingRows.length + 1; // Next available row
+        
         await this.sheets.spreadsheets.values.append({
             spreadsheetId: this.config.sheetId,
             range: `A2:${this.maxColumn}2`,
@@ -257,6 +323,8 @@ class GoogleSheetsService {
                 values: values
             }
         });
+        
+        return newRowNumber;
     }
 
     async getScheduledAppointmentsForReminders() {
@@ -482,12 +550,24 @@ class GoogleSheetsService {
 
     async deleteAppointment(phone) {
         if (!this.initialized || !this.config.enabled) {
+            console.log('GoogleSheetsService: Service not initialized or disabled');
+            return false;
+        }
+
+        if (!phone) {
+            console.log('GoogleSheetsService: No phone number provided for deletion');
             return false;
         }
 
         try {
             // Format the phone number
             const formattedPhone = this._formatPhone(phone);
+            if (!formattedPhone) {
+                console.log('GoogleSheetsService: Invalid phone number format');
+                return false;
+            }
+
+            console.log(`GoogleSheetsService: Attempting to delete appointment for phone: ${formattedPhone}`);
 
             // Get all values from the sheet
             const response = await this.sheets.spreadsheets.values.get({
@@ -498,12 +578,14 @@ class GoogleSheetsService {
             const rows = response.data.values || [];
             
             if (rows.length <= 1) { // If sheet is empty or has only header
+                console.log('GoogleSheetsService: Sheet is empty or has only header');
                 return false;
             }
 
             // Find the phone number column index from config
             const phoneColumnIndex = this.config.columns['phone'] - 1;
             if (phoneColumnIndex === undefined) {
+                console.error('GoogleSheetsService: Phone column not found in configuration');
                 return false;
             }
 
@@ -523,6 +605,7 @@ class GoogleSheetsService {
                 // Check if phone numbers match
                 const rowPhone = this._formatPhone(row[phoneColumnIndex]);
                 if (rowPhone === formattedPhone) {
+                    console.log(`GoogleSheetsService: Found matching row at index ${i}`);
                     rowsToDelete.push(i);
                 }
             }
@@ -557,6 +640,7 @@ class GoogleSheetsService {
                 }
 
                 if (emptyRowsToDelete.length > 0) {
+                    console.log(`GoogleSheetsService: Found ${emptyRowsToDelete.length} empty rows to clean up`);
                     requests.push(...emptyRowsToDelete.reverse().map(rowIndex => ({
                         deleteDimension: {
                             range: {
@@ -569,19 +653,26 @@ class GoogleSheetsService {
                     })));
                 }
 
-                await this.sheets.spreadsheets.batchUpdate({
-                    spreadsheetId: this.config.sheetId,
-                    resource: {
-                        requests
-                    }
-                });
-
-                return true;
+                try {
+                    await this.sheets.spreadsheets.batchUpdate({
+                        spreadsheetId: this.config.sheetId,
+                        resource: {
+                            requests
+                        }
+                    });
+                    console.log(`GoogleSheetsService: Successfully deleted ${rowsToDelete.length} rows and ${emptyRowsToDelete.length} empty rows`);
+                    return true;
+                } catch (deleteError) {
+                    console.error('GoogleSheetsService: Error deleting rows:', deleteError);
+                    return false;
+                }
+            } else {
+                console.log(`GoogleSheetsService: No matching rows found for phone ${formattedPhone}`);
+                return false;
             }
 
-            return false;
         } catch (error) {
-            console.error('Error deleting appointment:', error);
+            console.error('GoogleSheetsService: Error in deleteAppointment:', error);
             return false;
         }
     }
@@ -726,6 +817,383 @@ class GoogleSheetsService {
         } catch (error) {
             console.error('Error updating existing row:', error);
             return false;
+        }
+    }
+
+    async _insertToNextEmptyRow(values) {
+        try {
+            console.log('📋 Google Sheets: מחפש שורה ריקה הבאה...');
+            
+            // Get more comprehensive data from the sheet to find truly empty rows
+            const response = await this.sheets.spreadsheets.values.get({
+                spreadsheetId: this.config.sheetId,
+                range: `A:${this.maxColumn}`
+            });
+
+            const existingRows = response.data.values || [];
+            console.log(`📋 Google Sheets: נמצאו ${existingRows.length} שורות בגיליון`);
+            
+            let targetRow = 2; // Start from row 2 (skip header)
+            
+            // Method 1: Look for truly empty rows by checking if the row exists and has content
+            for (let i = 1; i < 1000; i++) { // Check up to row 1000
+                const rowIndex = i; // 0-based index
+                const rowNumber = i + 1; // 1-based row number
+                
+                // Check if this row exists in our data
+                if (rowIndex >= existingRows.length) {
+                    // Row doesn't exist in data, so it's empty
+                    targetRow = rowNumber;
+                    break;
+                } else {
+                    const row = existingRows[rowIndex];
+                    // Check if row is empty (either undefined, null, or all cells are empty)
+                    const isEmpty = !row || row.length === 0 || row.every(cell => !cell || cell.toString().trim() === '');
+                    
+                    if (isEmpty) {
+                        targetRow = rowNumber;
+                        break;
+                    }
+                }
+            }
+
+            console.log(`📋 Google Sheets: מכניס לשורה ${targetRow} (השורה הריקה הבאה)`);
+
+            // Insert the values in the target row
+            await this.sheets.spreadsheets.values.update({
+                spreadsheetId: this.config.sheetId,
+                range: `A${targetRow}:${this.maxColumn}${targetRow}`,
+                valueInputOption: 'USER_ENTERED',
+                resource: {
+                    values: values
+                }
+            });
+
+            return targetRow; // Return the row number where data was inserted
+
+        } catch (error) {
+            console.error('Error in _insertToNextEmptyRow:', error);
+            throw error;
+        }
+    }
+
+    async _insertRowWithSorting(values, data) {
+        try {
+            console.log('📋 Google Sheets: מבצע הכנסה עם סינון ומיון');
+            
+            // Step 1: First insert to next empty row
+            const insertedRow = await this._insertToNextEmptyRow(values);
+            
+            // Step 2: Then sort the entire sheet based on the configuration
+            await this._sortSheet();
+            
+            // Note: After sorting, the row number might change, but we return the original insertion point
+            return insertedRow;
+            
+        } catch (error) {
+            console.error('Error in _insertRowWithSorting:', error);
+            throw error;
+        }
+    }
+
+    async _sortSheet() {
+        try {
+            console.log('📋 Google Sheets: מבצע מיון של כל הגיליון');
+            
+            // Get sorting configuration
+            const sortColumn = (this.config.sortColumn || 1) - 1; // Convert to 0-based index
+            const sortType = this.config.sortType || 'date';
+            const sortDirection = this.config.sortDirection || 'asc';
+            
+            console.log(`📋 Google Sheets: מיון לפי עמודה ${sortColumn + 1} (${sortType}, ${sortDirection})`);
+
+            // Get sheet information
+            const sheetsResponse = await this.sheets.spreadsheets.get({
+                spreadsheetId: this.config.sheetId
+            });
+            
+            const sheetId = sheetsResponse.data.sheets[0].properties.sheetId;
+            
+            // Get all data to determine the range
+            const response = await this.sheets.spreadsheets.values.get({
+                spreadsheetId: this.config.sheetId,
+                range: `A:${this.maxColumn}`
+            });
+
+            const existingRows = response.data.values || [];
+            if (existingRows.length <= 1) {
+                console.log('📋 Google Sheets: אין מספיק נתונים למיון');
+                return;
+            }
+
+            // Find the last row with data
+            let lastRowWithData = 1; // Start from 1 (header)
+            for (let i = existingRows.length - 1; i >= 1; i--) {
+                const row = existingRows[i];
+                if (row && row.some(cell => cell && cell.toString().trim() !== '')) {
+                    lastRowWithData = i + 1; // Convert to 1-based
+                    break;
+                }
+            }
+
+            if (lastRowWithData <= 1) {
+                console.log('📋 Google Sheets: לא נמצאו נתונים למיון');
+                return;
+            }
+
+            console.log(`📋 Google Sheets: ממיין שורות 2-${lastRowWithData}`);
+
+            // Create sort request
+            const sortOrder = sortDirection === 'asc' ? 'ASCENDING' : 'DESCENDING';
+            
+            const request = {
+                spreadsheetId: this.config.sheetId,
+                resource: {
+                    requests: [
+                        {
+                            sortRange: {
+                                range: {
+                                    sheetId: sheetId,
+                                    startRowIndex: 1, // Start from row 2 (0-based, so index 1)
+                                    endRowIndex: lastRowWithData, // End at last row with data
+                                    startColumnIndex: 0, // Start from column A
+                                    endColumnIndex: Object.keys(this.config.columns).length || 10 // End at last configured column or default to 10
+                                },
+                                sortSpecs: [
+                                    {
+                                        dimensionIndex: sortColumn,
+                                        sortOrder: sortOrder
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            };
+
+            await this.sheets.spreadsheets.batchUpdate(request);
+            console.log('📋 Google Sheets: ✅ מיון הושלם בהצלחה');
+
+        } catch (error) {
+            console.error('Error in _sortSheet:', error);
+            throw error;
+        }
+    }
+
+    async _insertEmptyRowAt(position) {
+        try {
+            const request = {
+                spreadsheetId: this.config.sheetId,
+                resource: {
+                    requests: [
+                        {
+                            insertDimension: {
+                                range: {
+                                    sheetId: 0,
+                                    dimension: 'ROWS',
+                                    startIndex: position - 1, // Convert to 0-based
+                                    endIndex: position
+                                },
+                                inheritFromBefore: false
+                            }
+                        }
+                    ]
+                }
+            };
+
+            await this.sheets.spreadsheets.batchUpdate(request);
+        } catch (error) {
+            console.error('Error inserting empty row:', error);
+            throw error;
+        }
+    }
+
+    _shouldInsertBefore(newValue, existingValue, sortType, sortDirection) {
+        let comparison = 0;
+
+        switch (sortType) {
+            case 'date':
+                comparison = this._compareDates(newValue, existingValue);
+                break;
+            case 'time':
+                comparison = this._compareTimes(newValue, existingValue);
+                break;
+            case 'datetime':
+                comparison = this._compareDateTimes(newValue, existingValue);
+                break;
+            case 'number':
+                comparison = this._compareNumbers(newValue, existingValue);
+                break;
+            case 'text':
+            default:
+                comparison = this._compareText(newValue, existingValue);
+                break;
+        }
+
+        // Return true if new value should come before existing value
+        return sortDirection === 'asc' ? comparison < 0 : comparison > 0;
+    }
+
+    _compareDates(date1, date2) {
+        try {
+            // Try to parse dates in various formats
+            const d1 = this._parseDate(date1);
+            const d2 = this._parseDate(date2);
+            
+            if (d1 && d2) {
+                return d1.getTime() - d2.getTime();
+            }
+            
+            // Fallback to string comparison
+            return date1.localeCompare(date2);
+        } catch (error) {
+            return date1.localeCompare(date2);
+        }
+    }
+
+    _compareTimes(time1, time2) {
+        try {
+            // Parse times (HH:MM format)
+            const t1 = this._parseTime(time1);
+            const t2 = this._parseTime(time2);
+            
+            if (t1 && t2) {
+                return t1 - t2;
+            }
+            
+            return time1.localeCompare(time2);
+        } catch (error) {
+            return time1.localeCompare(time2);
+        }
+    }
+
+    _compareDateTimes(dt1, dt2) {
+        // Combine date and time comparison
+        const dateComp = this._compareDates(dt1, dt2);
+        if (dateComp !== 0) return dateComp;
+        
+        return this._compareTimes(dt1, dt2);
+    }
+
+    _compareNumbers(num1, num2) {
+        const n1 = parseFloat(num1);
+        const n2 = parseFloat(num2);
+        
+        if (!isNaN(n1) && !isNaN(n2)) {
+            return n1 - n2;
+        }
+        
+        // Fallback to string comparison
+        return num1.localeCompare(num2);
+    }
+
+    _compareText(text1, text2) {
+        return text1.localeCompare(text2, 'he'); // Hebrew locale for proper sorting
+    }
+
+    _parseDate(dateString) {
+        if (!dateString) return null;
+        
+        // Try different date formats
+        const formats = [
+            /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/, // DD/MM/YYYY
+            /^(\d{4})-(\d{1,2})-(\d{1,2})$/, // YYYY-MM-DD
+            /^(\d{1,2})-(\d{1,2})-(\d{4})$/, // DD-MM-YYYY
+        ];
+
+        for (const format of formats) {
+            const match = dateString.match(format);
+            if (match) {
+                if (format.source.startsWith('^(\\d{4})')) {
+                    // YYYY-MM-DD format
+                    return new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]));
+                } else {
+                    // DD/MM/YYYY or DD-MM-YYYY format
+                    return new Date(parseInt(match[3]), parseInt(match[2]) - 1, parseInt(match[1]));
+                }
+            }
+        }
+
+        // Try parsing as is
+        const parsed = new Date(dateString);
+        return isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    _parseTime(timeString) {
+        if (!timeString) return null;
+        
+        const match = timeString.match(/^(\d{1,2}):(\d{2})$/);
+        if (match) {
+            const hours = parseInt(match[1]);
+            const minutes = parseInt(match[2]);
+            return hours * 60 + minutes; // Convert to minutes for easy comparison
+        }
+        
+        return null;
+    }
+
+    async _applyRowColors(rowIndex, columnColors) {
+        try {
+            if (!rowIndex || !columnColors || columnColors.length === 0) {
+                return;
+            }
+
+            // Get sheet ID
+            const sheetsResponse = await this.sheets.spreadsheets.get({
+                spreadsheetId: this.config.sheetId
+            });
+            
+            const sheetId = sheetsResponse.data.sheets[0].properties.sheetId;
+
+            // Prepare color requests
+            const requests = [];
+            
+            for (let i = 0; i < columnColors.length; i++) {
+                if (columnColors[i] && columnColors[i] !== '#ffffff') {
+                    // Convert hex color to RGB values
+                    const hex = columnColors[i].replace('#', '');
+                    const r = parseInt(hex.substr(0, 2), 16) / 255;
+                    const g = parseInt(hex.substr(2, 2), 16) / 255;
+                    const b = parseInt(hex.substr(4, 2), 16) / 255;
+
+                    requests.push({
+                        repeatCell: {
+                            range: {
+                                sheetId: sheetId,
+                                startRowIndex: rowIndex - 1, // 0-based indexing
+                                endRowIndex: rowIndex,
+                                startColumnIndex: i,
+                                endColumnIndex: i + 1
+                            },
+                            cell: {
+                                userEnteredFormat: {
+                                    backgroundColor: {
+                                        red: r,
+                                        green: g,
+                                        blue: b
+                                    }
+                                }
+                            },
+                            fields: 'userEnteredFormat.backgroundColor'
+                        }
+                    });
+                }
+            }
+
+            // Apply colors if we have requests
+            if (requests.length > 0) {
+                await this.sheets.spreadsheets.batchUpdate({
+                    spreadsheetId: this.config.sheetId,
+                    resource: {
+                        requests: requests
+                    }
+                });
+
+                console.log(`🎨 Google Sheets: צבעים הוחלו בהצלחה על שורה ${rowIndex}`);
+            }
+
+        } catch (error) {
+            console.error('Error applying row colors:', error);
         }
     }
 }

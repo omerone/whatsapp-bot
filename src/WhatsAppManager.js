@@ -207,100 +207,147 @@ class WhatsAppManager {
             return;
         }
 
-        console.log(`\n[WhatsAppManager] 📨 Received message from ${message.from}:`, {
-            body: message.body,
-            messageId: message.id._serialized,
-            timestamp: new Date().toLocaleString('he-IL')
-        });
+        // Skip empty messages
+        if (!message.body && !message.hasMedia) {
+            return;
+        }
+
+        // Skip if message was already processed
+        if (this.processedMessages.has(message.id._serialized)) {
+            return;
+        }
+
+        // Mark message as processed
+        this.processedMessages.add(message.id._serialized);
+
+        console.log(`\n🟡 הודעה חדשה מ-${message.from}: "${message.body}"`);
         
         try {
-            // Skip empty messages
-            if (!message.body && !message.hasMedia) {
-                console.log(`[WhatsAppManager] 🚫 Skipping empty message ${message.id._serialized}`);
-                return;
-            }
-
-            // Skip if message was already processed
-            if (this.processedMessages.has(message.id._serialized)) {
-                console.log(`[WhatsAppManager] 🔄 Message ${message.id._serialized} already processed, skipping`);
-                return;
-            }
-
-            // Mark message as processed
-            this.processedMessages.add(message.id._serialized);
-            console.log(`[WhatsAppManager] ✓ Marked message as processed:`, message.id._serialized);
-
-            // Check if we should process this message according to rules
+            // Initialize RulesManager if not already initialized
             if (!this.rulesManager) {
-                console.warn('[WhatsAppManager] ⚠️ RulesManager not initialized, initializing now');
+                console.log('⚙️ מאתחל RulesManager...');
                 this.initializeRulesManager();
             }
-
+            
+            // בדיקת חסימות לפני עיבוד
             const shouldProcess = await this.rulesManager.shouldProcessMessage(message, this.client);
-            console.log(`[WhatsAppManager] 🔍 Rules check result:`, {
-                shouldProcess,
-                messageId: message.id._serialized,
-                from: message.from
-            });
-
+            
             if (!shouldProcess) {
+                console.log(`🚫 הודעה נחסמה על פי הכללים`);
                 return;
             }
 
-            // Get last outgoing message info
-            const lead = await this.flowEngine.leadsManager.getLead(message.from);
-            console.log(`[WhatsAppManager] 📋 Lead status:`, {
-                currentStep: lead?.current_step,
-                lastSentMessage: lead?.last_sent_message,
-                lastClientMessage: lead?.last_client_message,
-                isScheduled: lead?.is_schedule,
-                blocked: lead?.blocked,
-                lastInteraction: lead?.last_interaction
-            });
+            // תחילה נבדוק/ניצור את ה-lead
+            let lead = await this.flowEngine.leadsManager.getLead(message.from);
             
-            const lastOutgoingMessage = lead?.last_sent_message || 'none';
-            console.log(`[WhatsAppManager] 📤 Last outgoing message: ${lastOutgoingMessage}`);
+            // Check for saved name from contacts BEFORE processing through FlowEngine
+            try {
+                const contact = await message.getContact();
+                
+                // Try to get the best available name - prioritize contact name over profile name
+                let savedName = null;
+                if (contact) {
+                    // First priority: name saved in contacts list
+                    if (contact.name && contact.name !== contact.number) {
+                        savedName = contact.name;
+                        console.log(`📱 רשימת קשרים מכילה: ${contact.name} עבור ${message.from}`);
+                    }
+                    // Second priority: pushname (profile name) if no contact name
+                    else if (contact.pushname && contact.pushname !== contact.number) {
+                        savedName = contact.pushname;
+                        console.log(`📱 שם פרופיל נמצא: ${contact.pushname} עבור ${message.from}`);
+                    }
+                    // Third priority: verified name if available
+                    else if (contact.verifiedName && contact.verifiedName !== contact.number) {
+                        savedName = contact.verifiedName;
+                        console.log(`📱 שם מאומת נמצא: ${contact.verifiedName} עבור ${message.from}`);
+                    }
+                }
+                
+                if (savedName) {
+                    // If we don't have a lead yet, create one with the display_name
+                    if (!lead) {
+                        await this.flowEngine.leadsManager.createOrUpdateLead(message.from, {
+                            data: {
+                                display_name: savedName,
+                                is_schedule: false
+                            }
+                        });
+                        lead = await this.flowEngine.leadsManager.getLead(message.from);
+                        console.log(`✨ נוצר lead חדש עם שם שמור: ${savedName}`);
+                    } 
+                    // If lead exists but doesn't have display_name, update it
+                    else if (!lead.data?.display_name) {
+                        await this.flowEngine.leadsManager.updateSavedName(message.from, savedName);
+                        lead = await this.flowEngine.leadsManager.getLead(message.from);
+                        console.log(`📝 עודכן lead קיים עם שם שמור: ${savedName}`);
+                    }
+                } else {
+                    console.log(`👤 לא נמצא שם שמור עבור ${message.from}`);
+                    
+                    // If no saved name and no lead exists, create lead with default display_name
+                    if (!lead) {
+                        await this.flowEngine.leadsManager.createOrUpdateLead(message.from, {
+                            data: {
+                                display_name: null, // Explicitly set to null for condition checking
+                                is_schedule: false
+                            }
+                        });
+                        lead = await this.flowEngine.leadsManager.getLead(message.from);
+                        console.log(`🆕 נוצר lead חדש ללא שם שמור`);
+                    }
+                }
+            } catch (error) {
+                console.error('❌ שגיאה בקבלת מידע איש קשר:', error.message);
+                
+                // If contact check failed and no lead exists, create basic lead
+                if (!lead) {
+                    await this.flowEngine.leadsManager.createOrUpdateLead(message.from, {
+                        data: {
+                            display_name: null,
+                            is_schedule: false
+                        }
+                    });
+                    lead = await this.flowEngine.leadsManager.getLead(message.from);
+                    console.log(`🔧 נוצר lead fallback בגלל שגיאה`);
+                }
+            }
+
+            console.log(`📊 סטטוס lead: שלב=${lead?.current_step}, שם=${lead?.data?.display_name || 'ללא'}`);
 
             // Process message through FlowEngine
-            console.log(`[WhatsAppManager] 🔄 Processing message through FlowEngine`);
             const isFirstMessage = !lead || !lead.current_step;
-            console.log(`[WhatsAppManager] 📝 Message context:`, {
-                isFirstMessage,
-                currentStep: lead?.current_step,
-                hasLead: !!lead
-            });
+            console.log(`🔄 מעבד הודעה ${isFirstMessage ? '(ראשונה)' : '(המשך שיחה)'} עבור שלב: ${lead?.current_step || 'התחלה'}`);
             
             const response = await this.flowEngine.processStep(message.from, message.body, isFirstMessage);
 
             // Send response messages if any
             if (response && response.messages && response.messages.length > 0) {
-                console.log(`[WhatsAppManager] 📤 Preparing to send ${response.messages.length} messages`);
+                console.log(`📤 שולח ${response.messages.length} הודעות`);
                 
                 // Send messages with delay between them
                 for (let i = 0; i < response.messages.length; i++) {
                     const msg = response.messages[i];
                     try {
-                        console.log(`[WhatsAppManager] 📩 Sending message ${i + 1}/${response.messages.length}`);
                         await this.client.sendMessage(message.from, msg);
-                        console.log(`[WhatsAppManager] ✅ Message ${i + 1} sent successfully: ${msg.substring(0, 50)}...`);
+                        console.log(`✅ הודעה ${i + 1} נשלחה בהצלחה`);
                         
                         // Add delay between messages
                         if (i < response.messages.length - 1) {
-                            console.log(`[WhatsAppManager] ⏳ Waiting 1 second before next message`);
                             await new Promise(resolve => setTimeout(resolve, 1000));
                         }
                     } catch (error) {
-                        console.error(`[WhatsAppManager] ❌ Error sending message ${i + 1}:`, error);
+                        console.error(`❌ שגיאה בשליחת הודעה ${i + 1}:`, error.message);
                     }
                 }
                 
-                console.log(`[WhatsAppManager] 📬 Finished sending all messages`);
+                console.log(`📬 סיום שליחת הודעות`);
             } else {
-                console.log(`[WhatsAppManager] 📭 No messages to send in response`);
+                console.log(`📭 אין הודעות לשליחה`);
             }
 
         } catch (error) {
-            console.error('[WhatsAppManager] ❌ Error in handleMessage:', error);
+            console.error('❌ שגיאה כללית:', error.message);
         }
     }
 

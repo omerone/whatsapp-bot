@@ -127,14 +127,6 @@ export class FlowManager {
         enabled: true,
         googleWorkspace: {
           enabled: false,
-          sheets: {
-            enabled: false,
-            sheetId: '',
-            columns: {},
-            filterByDateTime: true,
-            preventDuplicates: true,
-            updateExistingRows: true,
-          },
           calendar: {
             enabled: false,
             calendarId: '',

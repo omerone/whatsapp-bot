@@ -3,33 +3,12 @@ class MessageStep {
         try {
             const messages = [];
 
-            // Process message header if exists
-            if (step.messageHeader) {
-                let headerMessage = step.messageHeader;
-                if (session.data) {
-                    for (const keyInSession in session.data) {
-                        if (session.data.hasOwnProperty(keyInSession)) {
-                            const placeholder = `{${keyInSession}}`;
-                            headerMessage = headerMessage.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\\]]/g, '\\$&'), 'g'), session.data[keyInSession]);
-                        }
-                    }
-                }
+            // Get lead data for placeholder replacement
+            const leadData = await flowEngine.leadsManager.getLead(session.userId);
 
-                // Replace date/time placeholders in header
-                if (session.data && session.data.meeting_date && session.data.meeting_time) {
-                    const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
-                    const [day, month, year] = session.data.meeting_date.split('/');
-                    const date = new Date(year, month - 1, day);
-                    const dayName = dayNames[date.getDay()];
-                    
-                    headerMessage = headerMessage
-                        .replace(/{dayName}/g, dayName)
-                        .replace(/{selectedDate}/g, session.data.meeting_date)
-                        .replace(/{selectedTime}/g, session.data.meeting_time)
-                        .replace(/{meeting_date}/g, session.data.meeting_date)
-                        .replace(/{meeting_time}/g, session.data.meeting_time);
-                }
-
+            // Process message header if exists and not empty
+            if (step.messageHeader && step.messageHeader.trim()) {
+                const headerMessage = flowEngine.replacePlaceholders(step.messageHeader, session.data, session.userId, leadData);
                 messages.push(headerMessage);
             }
 
@@ -37,95 +16,28 @@ class MessageStep {
             if (step.messageFile) {
                 const messageContent = await flowEngine.loadMessageFile(step.messageFile);
                 if (messageContent) {
-                    // Replace placeholders in message content
-                    let processedMessage = messageContent;
-                    if (session.data) {
-                        for (const keyInSession in session.data) {
-                            if (session.data.hasOwnProperty(keyInSession)) {
-                                const placeholder = `{${keyInSession}}`;
-                                processedMessage = processedMessage.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\\]]/g, '\\$&'), 'g'), session.data[keyInSession]);
-                            }
-                        }
-                    }
-
-                    // Replace date/time placeholders
-                    if (session.data && session.data.meeting_date && session.data.meeting_time) {
-                        const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
-                        const [day, month, year] = session.data.meeting_date.split('/');
-                        const date = new Date(year, month - 1, day);
-                        const dayName = dayNames[date.getDay()];
-                        
-                        processedMessage = processedMessage
-                            .replace(/{dayName}/g, dayName)
-                            .replace(/{selectedDate}/g, session.data.meeting_date)
-                            .replace(/{selectedTime}/g, session.data.meeting_time)
-                            .replace(/{meeting_date}/g, session.data.meeting_date)
-                            .replace(/{meeting_time}/g, session.data.meeting_time);
-                    }
-
+                    const processedMessage = flowEngine.replacePlaceholders(messageContent, session.data, session.userId, leadData);
                     messages.push(processedMessage);
                 }
             }
 
-            if (step.message) {
-                let directMessage = step.message;
-                // Replace placeholders in direct message
-                if (directMessage && session.data) {
-                    for (const keyInSession in session.data) {
-                        if (session.data.hasOwnProperty(keyInSession)) {
-                            const placeholder = `{${keyInSession}}`;
-                            directMessage = directMessage.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\\]]/g, '\\$&'), 'g'), session.data[keyInSession]);
-                        }
-                    }
-                }
-
-                // Replace date/time placeholders in direct message
-                if (session.data && session.data.meeting_date && session.data.meeting_time) {
-                    const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
-                    const [day, month, year] = session.data.meeting_date.split('/');
-                    const date = new Date(year, month - 1, day);
-                    const dayName = dayNames[date.getDay()];
-                    
-                    directMessage = directMessage
-                        .replace(/{dayName}/g, dayName)
-                        .replace(/{selectedDate}/g, session.data.meeting_date)
-                        .replace(/{selectedTime}/g, session.data.meeting_time)
-                        .replace(/{meeting_date}/g, session.data.meeting_date)
-                        .replace(/{meeting_time}/g, session.data.meeting_time);
-                }
-
+            if (step.message && step.message.trim()) {
+                const directMessage = flowEngine.replacePlaceholders(step.message, session.data, session.userId, leadData);
                 messages.push(directMessage);
-            } else if (!step.messageFile && !step.messageHeader) {
-                throw new Error('Step has neither messageFile, message, nor messageHeader');
             }
 
-            // Process footer message if exists
-            if (step.footerMessage) {
-                let footerMessage = step.footerMessage;
-                if (session.data) {
-                    for (const keyInSession in session.data) {
-                        if (session.data.hasOwnProperty(keyInSession)) {
-                            const placeholder = `{${keyInSession}}`;
-                            footerMessage = footerMessage.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\\]]/g, '\\$&'), 'g'), session.data[keyInSession]);
-                        }
-                    }
-                }
+            // אם אין שום הודעה כלל, החזר מערך ריק במקום לזרוק שגיאה
+            if (messages.length === 0 && !step.messageFile) {
+                console.log(`MessageStep: Step "${step.id}" has no content to display`);
+                return {
+                    messages: [],
+                    waitForUser: false
+                };
+            }
 
-                // Replace date/time placeholders in footer
-                if (session.data && session.data.meeting_date && session.data.meeting_time) {
-                    const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
-                    const [day, month, year] = session.data.meeting_date.split('/');
-                    const date = new Date(year, month - 1, day);
-                    const dayName = dayNames[date.getDay()];
-                    
-                    footerMessage = footerMessage
-                        .replace(/{dayName}/g, dayName)
-                        .replace(/{selectedDate}/g, session.data.meeting_date)
-                        .replace(/{selectedTime}/g, session.data.meeting_time)
-                        .replace(/{meeting_date}/g, session.data.meeting_date)
-                        .replace(/{meeting_time}/g, session.data.meeting_time);
-                }
-
+            // Process footer message if exists and not empty
+            if (step.footerMessage && step.footerMessage.trim()) {
+                const footerMessage = flowEngine.replacePlaceholders(step.footerMessage, session.data, session.userId, leadData);
                 messages.push(footerMessage);
             }
 
@@ -150,6 +62,25 @@ class MessageStep {
                 return {
                     messages,
                     waitForUser: false
+                };
+            }
+
+            // If this is a waiting step and user provided input and there's a next step
+            if (step.userResponseWaiting && input && step.next) {
+                console.log(`[MessageStep] Step ${step.id} received user input "${input}", moving to next step: ${step.next}`);
+                session.currentStep = step.next;
+                return {
+                    messages,
+                    waitForUser: false,
+                    nextStep: step.next
+                };
+            }
+
+            // If this is a waiting step but no input yet (first time showing the message)
+            if (step.userResponseWaiting && !input) {
+                return {
+                    messages,
+                    waitForUser: true
                 };
             }
 

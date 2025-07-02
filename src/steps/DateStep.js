@@ -121,20 +121,6 @@ class DateStep {
             session.availableDates = datesToShow;
             session.currentResolution = resolution;
 
-            let dynamicHeader = step.messageHeader;
-
-            if (resolution === 'weeks' && session.selectedMonth) {
-                const monthName = this.formatMonthForDisplay(session.selectedMonth);
-                dynamicHeader = `📅 *בחר שבוע לפגישה מתוך חודש ${monthName}:*`;
-            } else if (resolution === 'days' && session.selectedWeek) {
-                dynamicHeader = `📅 *בחר יום לפגישה מתוך שבוע ${session.selectedWeek}:*`;
-            } else if (resolution === 'hours' && session.selectedDate) {
-                const [day, month, year] = session.selectedDate.split('/');
-                const dateObj = new Date(year, month - 1, day);
-                const dayName = dateObj.toLocaleDateString('he-IL', { weekday: 'long' });
-                dynamicHeader = `📅 *בחר שעה לפגישה ביום ${dayName} ${session.selectedDate}:*`;
-            }
-
             // פונקציית עזר להחלפת placeholders
             const replacePlaceholders = (text, data) => {
                 let processedText = text;
@@ -149,20 +135,48 @@ class DateStep {
                 return processedText;
             };
 
-            // החלפת placeholders בכותרת ובפוטר
-            let processedHeader = replacePlaceholders(dynamicHeader, session.data);
-            let processedFooter = replacePlaceholders(step.footerMessage || '', session.data);
+            let processedHeader = '';
+            
+            // בדיקה אם יש header מותאם או הודעה ראשית
+            if (step.message && step.message.trim()) {
+                // אם יש הודעה ראשית, השתמש בה
+                processedHeader = replacePlaceholders(step.message, session.data);
+            } else if (step.messageHeader && step.messageHeader.trim()) {
+                // אם יש header מותאם, השתמש בו
+                processedHeader = replacePlaceholders(step.messageHeader, session.data);
+            } else {
+                // אחרת השתמש בheader דיפולט לפי רזולוציה
+                if (resolution === 'weeks' && session.selectedMonth) {
+                    const monthName = this.formatMonthForDisplay(session.selectedMonth);
+                    processedHeader = `📅 *בחר שבוע לפגישה מתוך חודש ${monthName}:*`;
+                } else if (resolution === 'days' && session.selectedWeek) {
+                    processedHeader = `📅 *בחר יום לפגישה מתוך שבוע ${session.selectedWeek}:*`;
+                } else if (resolution === 'hours' && session.selectedDate) {
+                    const [day, month, year] = session.selectedDate.split('/');
+                    const dateObj = new Date(year, month - 1, day);
+                    const dayName = dateObj.toLocaleDateString('he-IL', { weekday: 'long' });
+                    processedHeader = `📅 *בחר שעה לפגישה ביום ${dayName} ${session.selectedDate}:*`;
+                } else {
+                    processedHeader = `📅 *בחר תאריך לפגישה:*`;
+                }
+                processedHeader = replacePlaceholders(processedHeader, session.data);
+            }
+            
+            let processedFooter = step.footerMessage && step.footerMessage.trim() ? 
+                replacePlaceholders(step.footerMessage, session.data) : '';
 
             const optionsRangeMessage = `(שלח מספר בין 1 ל-${datesToShow.length})`;
-            // הרכבת הפוטר הסופי עם טווח האופציות, לאחר החלפת placeholders בפוטר המקורי
-            const finalProcessedFooterMessage = `${optionsRangeMessage}${processedFooter}`;
+            // הרכבת הפוטר הסופי עם טווח האופציות, רק אם יש footer
+            let finalProcessedFooterMessage = optionsRangeMessage;
+            if (processedFooter) {
+                finalProcessedFooterMessage += `\n${processedFooter}`;
+            }
 
+            // איחוד ההודעות לאחת עם רווחי שורה
+            const unifiedMessage = `${processedHeader}\n${formattedDates.join('\n')}\n\n${finalProcessedFooterMessage}`;
+            
             return {
-                messages: [
-                    processedHeader,
-                    formattedDates.join('\n'),
-                    finalProcessedFooterMessage
-                ],
+                messages: [unifiedMessage],
                 waitForUser: true
             };
         } catch (error) {
@@ -400,6 +414,21 @@ class DateStep {
     }
 
     static async validateDateChoice(input, session, step, flowEngine) {
+        // Check for keyword matches in branches
+        if (step && step.branches && input) {
+            for (const [keywords, targetStep] of Object.entries(step.branches)) {
+                // Split keywords by '||' and check each one
+                const keywordList = keywords.split('||').map(k => k.trim().toLowerCase());
+                const userInput = input.trim().toLowerCase();
+                
+                if (keywordList.includes(userInput)) {
+                    console.log(`DateStep: Found matching keyword "${userInput}" -> navigating to step "${targetStep}"`);
+                    return { valid: true, action: 'navigate', targetStep: targetStep };
+                }
+            }
+        }
+
+        // Legacy support for "חזור" keyword 
         if (input && input.trim() === 'חזור') {
             if (step && step.branches && step.branches['חזור']) {
                 return { valid: true, action: 'navigate', targetStep: step.branches['חזור'] };
@@ -430,9 +459,11 @@ class DateStep {
             // Handle selection by index
             selectedIndex = parseInt(input);
             if (isNaN(selectedIndex) || selectedIndex < 1 || selectedIndex > session.availableDates.length) {
+                // Use custom noMatchMessage if available, otherwise use default
+                const errorMessage = step.noMatchMessage || `אנא בחר מספר בין 1 ל-${session.availableDates.length}`;
                 return {
                     valid: false,
-                    error: `אנא בחר מספר בין 1 ל-${session.availableDates.length}`
+                    error: errorMessage
                 };
             }
             selectedValue = session.availableDates[selectedIndex - 1];
@@ -452,6 +483,15 @@ class DateStep {
                 break;
             case 'days':
                 session.selectedDate = selectedValue;
+                // Save selected day as a variable for use in messages
+                session.data = session.data || {};
+                
+                // Format the day for display in Hebrew
+                const [day, month, year] = selectedValue.split('/');
+                const date = new Date(year, month - 1, day);
+                const dayName = date.toLocaleDateString('he-IL', { weekday: 'long' });
+                session.data.day_date = dayName; // Only the day name
+                session.data.date_and_day = `${dayName} ${selectedValue}`; // Day name + date
                 break;
             case 'hours':
                 session.selectedTime = selectedValue;
@@ -462,22 +502,49 @@ class DateStep {
                 session.data.meeting_date = session.selectedDate;
                 session.data.meeting_time = selectedValue;
 
+                // Ensure day_date and date_and_day are also available in hours resolution
+                if (session.selectedDate && !session.data.day_date) {
+                    const [day, month, year] = session.selectedDate.split('/');
+                    const date = new Date(year, month - 1, day);
+                    const dayName = date.toLocaleDateString('he-IL', { weekday: 'long' });
+                    session.data.day_date = dayName; // Only the day name
+                    session.data.date_and_day = `${dayName} ${session.selectedDate}`; // Day name + date
+                }
+
                 // Store meeting data in session for later processing
                 session.meetingData = {
                     meeting_date: session.selectedDate,
                     meeting_time: session.selectedTime,
-                    full_name: session.data?.full_name || '',
-                    city_name: session.data?.city_name || '',
-                    phone: session.userId.split('@')[0],
-                    mobility: session.data?.mobility || ''
+                    phone: session.userId.split('@')[0]
                 };
 
-                // Update lead data to ensure it's saved
-                await flowEngine.leadsManager.updateLeadData(session.userId, {
-                    full_name: session.meetingData.full_name,
-                    city_name: session.meetingData.city_name,
-                    mobility: session.meetingData.mobility
-                });
+                // Add existing data fields only if they exist in session.data
+                if (session.data?.full_name) {
+                    session.meetingData.full_name = session.data.full_name;
+                }
+                if (session.data?.city_name) {
+                    session.meetingData.city_name = session.data.city_name;
+                }
+                if (session.data?.mobility) {
+                    session.meetingData.mobility = session.data.mobility;
+                }
+
+                // Update lead data only with existing fields (don't create empty fields)
+                const leadDataToUpdate = {};
+                if (session.data?.full_name) {
+                    leadDataToUpdate.full_name = session.data.full_name;
+                }
+                if (session.data?.city_name) {
+                    leadDataToUpdate.city_name = session.data.city_name;
+                }
+                if (session.data?.mobility) {
+                    leadDataToUpdate.mobility = session.data.mobility;
+                }
+                
+                // Only update if there's data to update
+                if (Object.keys(leadDataToUpdate).length > 0) {
+                    await flowEngine.leadsManager.updateLeadData(session.userId, leadDataToUpdate);
+                }
 
                 // Mark as scheduled with meeting details
                 await flowEngine.leadsManager.markLeadScheduled(session.userId, {

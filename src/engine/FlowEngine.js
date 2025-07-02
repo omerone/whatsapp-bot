@@ -4,6 +4,7 @@ const MessageStep = require('../steps/MessageStep');
 const QuestionStep = require('../steps/QuestionStep');
 const OptionStep = require('../steps/OptionStep');
 const DateStep = require('../steps/DateStep');
+const ConditionStep = require('../steps/ConditionStep');
 const LeadsManager = require('./LeadsManager');
 const IntegrationManager = require('../services/IntegrationManager');
 
@@ -22,7 +23,8 @@ class FlowEngine {
             'message': MessageStep,
             'question': QuestionStep,
             'options': OptionStep,
-            'date': DateStep
+            'date': DateStep,
+            'condition': ConditionStep
         };
         this.sessionTimeout = 30 * 60 * 1000; // 30 minutes
         this.lastCleanup = Date.now();
@@ -50,14 +52,12 @@ class FlowEngine {
             // Initialize leads manager
             await this.leadsManager.initialize();
 
-            // Load message templates
-            const messageFiles = await fs.readdir(this.messagesPath);
-            for (const file of messageFiles) {
-                if (file.endsWith('.txt')) {
-                    const content = await fs.readFile(path.join(this.messagesPath, file), 'utf8');
-                    this.messages[file] = content;
-                }
+            // Start ReminderService after LeadsManager is ready
+            if (this.integrationManager && this.integrationManager.startReminderService) {
+                await this.integrationManager.startReminderService();
             }
+
+            // Message templates are now embedded in flow.json - no need to load from files
 
             // Validate flow structure
             if (!this.flow.start || !this.flow.steps) {
@@ -72,15 +72,7 @@ class FlowEngine {
                 }
                 step.id = stepId;
 
-                // Validate message file if exists
-                if (step.messageFile) {
-                    const messagePath = path.join(this.messagesPath, step.messageFile);
-                    try {
-                        await fs.access(messagePath);
-                    } catch (error) {
-                        throw new Error(`Message file not found: ${step.messageFile} for step ${stepId}`);
-                    }
-                }
+                // Skip messageFile validation - using embedded messages in flow.json
             }
 
             this.initialized = true;
@@ -93,24 +85,13 @@ class FlowEngine {
     }
 
     async loadMessageFile(filename) {
-        try {
-            if (!filename) {
-                throw new Error('No filename provided');
-            }
-            const messagePath = path.join(this.messagesPath, filename);
-            const content = await fs.readFile(messagePath, 'utf8');
-            if (!content.trim()) {
-                throw new Error(`Message file ${filename} is empty`);
-            }
-            return content.trim();
-        } catch (error) {
-            return ' #1מצטערים, לא הצלחנו לטעון את ההודעה. אנא נסה שוב או כתוב "תפריט" להתחלה מחדש.';
-        }
+        // Message files are no longer used - all messages are embedded in flow.json
+        console.log(`[FlowEngine] Warning: Attempting to load message file ${filename} - this feature is deprecated`);
+        return 'מצטערים, לא הצלחנו לטעון את ההודעה. אנא נסה שוב או כתוב "תפריט" להתחלה מחדש.';
     }
 
     async getSession(userId) {
         this.cleanupOldSessions();
-        console.log(`\n[FlowEngine] 🔄 Getting session for user ${userId}`);
 
         if (!this.initialized) {
             throw new Error('FlowEngine not initialized');
@@ -118,40 +99,45 @@ class FlowEngine {
 
         // Try to get existing session
         let session = this.sessions.get(userId);
-        console.log(`[FlowEngine] 📊 Current session:`, session ? 
-            `step=${session.currentStep}, isFirst=${session.isFirstMessage}, isNew=${session.isNewConversation}` : 'None');
 
         // If no session exists or it's expired
         if (!session || !this.leadsManager.isLeadActive(userId)) {
-            console.log(`[FlowEngine] 🆕 No active session found, creating new one`);
             
             // Try to restore session from leads.json
             const lead = await this.leadsManager.getLead(userId);
-            console.log(`[FlowEngine] 📋 Lead data:`, lead ? 
-                `step=${lead.current_step}, blocked=${lead.blocked}, data=${JSON.stringify(lead.data)}` : 'New lead');
             
             // Check if this is genuinely a new conversation
             const isNewConversation = !lead || !lead.current_step;
             
             if (!isNewConversation) {
-                console.log(`[FlowEngine] 🔄 Restoring existing conversation`);
                 // This is a continuing conversation
+                const sessionData = lead.data || {};
+                            // Always add display_name if exists
+            if (lead.data?.display_name) {
+                sessionData.display_name = lead.data.display_name;
+            }
+                
                 session = {
                     userId,
                     currentStep: lead.current_step,
-                    data: lead.data || {},
+                    data: sessionData,
                     lastInteraction: new Date(),
                     retryCount: 0,
                     isFirstMessage: false,
                     isNewConversation: false
                 };
             } else {
-                console.log(`[FlowEngine] 🌟 Starting new conversation`);
-                // This is a new conversation
+                            // This is a new conversation
+            const sessionData = {};
+            // Only set display_name if we actually have one
+            if (lead && lead.data?.display_name) {
+                sessionData.display_name = lead.data.display_name;
+            }
+                
                 session = {
                     userId,
                     currentStep: this.flow.start,
-                    data: {},
+                    data: sessionData,
                     lastInteraction: new Date(),
                     retryCount: 0,
                     isFirstMessage: true,
@@ -160,14 +146,20 @@ class FlowEngine {
             }
             
             this.sessions.set(userId, session);
-            console.log(`[FlowEngine] 💾 Session created:`, session);
             
             // If this is a new conversation, create the lead
             if (session.isNewConversation) {
-                console.log(`[FlowEngine] 📝 Creating new lead for ${userId}`);
+                
+                // Get existing lead data to preserve any data already set (like display_name)
+                const existingLead = await this.leadsManager.getLead(userId);
+                const existingData = existingLead?.data || {};
+                
+                // Merge session data with existing data, preserving existing values
+                const mergedData = { ...existingData, ...session.data };
+                
                 await this.leadsManager.createOrUpdateLead(userId, {
                     current_step: session.currentStep,
-                    data: session.data,
+                    data: mergedData,
                     is_schedule: false,
                     meeting: null,
                     last_sent_message: null,
@@ -177,9 +169,11 @@ class FlowEngine {
                     blocked: false,
                     blocked_reason: null
                 });
+                
+                // Update session data with merged data
+                session.data = mergedData;
             }
         } else {
-            console.log(`[FlowEngine] ✅ Using existing session`);
             // Update last interaction time
             session.lastInteraction = new Date();
         }
@@ -189,38 +183,66 @@ class FlowEngine {
 
     async handleResetKeyword(userId) {
         const session = await this.getSession(userId);
-        const resetConfig = this.flow.configuration?.client_management?.reset;
+        const currentLead = await this.leadsManager.getLead(userId);
+        const resetConfig = this.flow.configuration.client_management.reset;
 
-        if (!resetConfig?.enabled) {
-            return null;
+        if (!resetConfig.enabled) {
+            console.log(`[FlowEngine] ⚠️ Reset functionality is disabled`);
+            return false;
         }
 
-        console.log(`[FlowEngine] 🔄 Processing reset for user ${userId}`);
-
-        // Get current lead to check if there are scheduled meetings to delete
-        const currentLead = await this.leadsManager.getLead(userId);
-        
-        // If user has scheduled meetings and reset options allow deletion, delete them
-        if (currentLead && currentLead.is_schedule && currentLead.meeting && 
-            resetConfig.options?.delete_appointment) {
-            
-            console.log(`[FlowEngine] 🗑️ Deleting scheduled appointment for user ${userId}`);
+        // Check if we need to delete appointment data
+        if (resetConfig.options.delete_appointment) {
+            console.log(`[FlowEngine] 🗑️ Deleting appointment data for user ${userId}`);
             
             try {
+                let deletionSuccess = true;
+
                 // Delete from Google Calendar if integration is available
-                if (this.integrationManager && currentLead.meeting.calendar_event_id) {
+                if (this.integrationManager && currentLead?.meeting?.calendar_event_id) {
                     console.log(`[FlowEngine] 📅 Deleting calendar event: ${currentLead.meeting.calendar_event_id}`);
-                    await this.integrationManager.deleteCalendarEvent(currentLead.meeting.calendar_event_id);
+                    const calendarResult = await this.integrationManager.deleteCalendarEvent(currentLead.meeting.calendar_event_id);
+                    if (!calendarResult) {
+                        console.error(`[FlowEngine] ❌ Failed to delete calendar event: ${currentLead.meeting.calendar_event_id}`);
+                        deletionSuccess = false;
+                    }
                 }
                 
                 // Delete from Google Sheets if integration is available
-                if (this.integrationManager && (currentLead.meeting.sheet_row_phone || currentLead.meeting.phone)) {
-                    const phoneToDelete = currentLead.meeting.sheet_row_phone || currentLead.meeting.phone || userId;
-                    console.log(`[FlowEngine] 📊 Deleting sheet appointment for phone: ${phoneToDelete}`);
-                    await this.integrationManager.deleteSheetAppointment(phoneToDelete);
+                if (this.integrationManager) {
+                    // Try multiple identifiers to find and delete the sheet row
+                    const possiblePhones = [
+                        currentLead?.meeting?.sheet_row_phone,
+                        currentLead?.meeting?.phone,
+                        currentLead?.phone,
+                        userId
+                    ].filter(Boolean); // Remove undefined/null values
+
+                    if (possiblePhones.length > 0) {
+                        let sheetsDeleted = false;
+                        for (const phoneToDelete of possiblePhones) {
+                            console.log(`[FlowEngine] 📊 Attempting to delete sheet appointment for phone: ${phoneToDelete}`);
+                            const sheetResult = await this.integrationManager.deleteSheetAppointment(phoneToDelete);
+                            if (sheetResult) {
+                                sheetsDeleted = true;
+                                break; // Successfully deleted, no need to try other phone numbers
+                            }
+                        }
+                        
+                        if (!sheetsDeleted) {
+                            console.error(`[FlowEngine] ❌ Failed to delete sheet appointment for any phone numbers: ${possiblePhones.join(', ')}`);
+                            deletionSuccess = false;
+                        }
+                    } else {
+                        console.log(`[FlowEngine] ℹ️ No phone numbers found to delete from sheets`);
+                    }
                 }
                 
-                console.log(`[FlowEngine] ✅ Successfully deleted appointment for user ${userId}`);
+                if (deletionSuccess) {
+                    console.log(`[FlowEngine] ✅ Successfully deleted all appointment data for user ${userId}`);
+                } else {
+                    console.warn(`[FlowEngine] ⚠️ Some appointment deletions failed for user ${userId}`);
+                }
                 
             } catch (error) {
                 console.error(`[FlowEngine] ❌ Error deleting appointment for user ${userId}:`, error);
@@ -240,61 +262,20 @@ class FlowEngine {
             delete session.meetingData;
         }
 
-        // Update lead with reset values
-        const updateData = {
-            current_step: session.currentStep,
-            data: session.data,
-            is_schedule: false,
-            meeting: null,
-            last_sent_message: 'bot',
-            relevant: true,
-            last_interaction: new Date().toLocaleString('he-IL')
-        };
+        // Clear date selection data from session
+        delete session.selectedDate;
+        delete session.selectedTime;
+        delete session.selectedWeek;
+        delete session.selectedMonth;
 
-        // If reset options allow unblocking, clear block status
-        if (resetConfig.options?.allow_unblock) {
-            updateData.blocked = false;
-            updateData.blocked_reason = null;
-            updateData.blocked_at = null;
-            updateData.allow_unblock = false;
-            updateData.unblock_keyword = null;
-        }
+        // Save the updated session
+        await this.saveSession(userId, session);
 
-        // If reset options allow unfreezing, clear freeze status
-        if (resetConfig.options?.unfreeze) {
-            updateData.frozenUntil = null;
-            updateData.lastFreezeReason = null;
-        }
-
-        await this.leadsManager.createOrUpdateLead(userId, updateData);
-
-        console.log(`[FlowEngine] ✅ Reset completed for user ${userId}, redirecting to ${session.currentStep}`);
-
-        // Load and return the target step message
-        const targetStep = this.flow.steps[session.currentStep];
-        let messages = [];
-        
-        if (targetStep.messageFile) {
-            const messageContent = await this.loadMessageFile(targetStep.messageFile);
-            if (messageContent) {
-                messages.push(this.replacePlaceholders(messageContent, session.data));
-            }
-        } else if (targetStep.message) {
-            messages.push(this.replacePlaceholders(targetStep.message, session.data));
-        }
-
-        return {
-            messages,
-            waitForUser: targetStep.userResponseWaiting !== false
-        };
+        return true;
     }
 
     async processStep(userId, userInput = null, isFirstMessage = false) {
-        console.log(`\n[FlowEngine] 🔄 Processing step for ${userId}`, {
-            userInput,
-            isFirstMessage,
-            timestamp: new Date().toLocaleString('he-IL')
-        });
+        console.log(`\n🔵 עיבוד שלב עבור ${userId} - הודעה: "${userInput}" ${isFirstMessage ? '(הודעה ראשונה)' : ''}`);
 
         if (!this.initialized) {
             throw new Error('FlowEngine not initialized');
@@ -303,12 +284,12 @@ class FlowEngine {
         // Check if user is blocked before processing
         const lead = await this.leadsManager.getLead(userId);
         if (lead && lead.blocked) {
-            console.log(`[FlowEngine] 🚫 User ${userId} is blocked, ignoring message`);
+            console.log(`🚫 משתמש חסום: ${userId}`);
             
             // Check if user sent unblock keyword
             if (lead.allow_unblock && lead.unblock_keyword && userInput && 
                 userInput.trim().toLowerCase() === lead.unblock_keyword.toLowerCase()) {
-                console.log(`[FlowEngine] 🔓 Unblocking user ${userId} with keyword: ${userInput}`);
+                console.log(`🔓 ביטול חסימה עם מילת מפתח: ${userInput}`);
                 await this.leadsManager.createOrUpdateLead(userId, {
                     blocked: false,
                     blocked_reason: null,
@@ -327,27 +308,18 @@ class FlowEngine {
         }
 
         const session = await this.getSession(userId);
-        console.log(`[FlowEngine] 📊 Current session state:`, {
-            currentStep: session.currentStep,
-            isFirstMessage: session.isFirstMessage,
-            isNewConversation: session.isNewConversation,
-            data: session.data
-        });
+        console.log(`📂 סשן: שלב=${session.currentStep}, נתונים=${JSON.stringify(session.data)}`);
         
         try {
             // Handle first message from user
             if (isFirstMessage || session.isFirstMessage) {
-                console.log(`[FlowEngine] 🌟 Handling first message - ignoring content: ${userInput}`);
+                console.log(`🌟 מטפל בהודעה ראשונה - מתעלם מתוכן: ${userInput}`);
                 session.isFirstMessage = false;
                 session.isNewConversation = true;
                 session.currentStep = this.flow.start;
-                session.data = {};
                 
-                console.log(`[FlowEngine] 🔄 Session updated for first message:`, {
-                    currentStep: session.currentStep,
-                    isFirstMessage: session.isFirstMessage,
-                    isNewConversation: session.isNewConversation
-                });
+                // Don't reset session.data - preserve existing data like display_name
+                // session.data = {}; // ⬅️ Removed this line to preserve display_name
                 
                 // Update the lead to track the client's message
                 await this.leadsManager.createOrUpdateLead(userId, {
@@ -362,7 +334,7 @@ class FlowEngine {
                 });
                 
                 // Process the intro step - it will automatically flow to main_menu
-                console.log(`[FlowEngine] 📝 Processing intro step`);
+                console.log(`📝 מעבד שלב הקדמה`);
                 const response = await this.processStepInternal(userId, null);
                 
                 // Update the lead after processing
@@ -379,6 +351,14 @@ class FlowEngine {
                 return response;
             }
 
+            // Check for admin action keywords first (higher priority)
+            if (userInput && !session.isFirstMessage) {
+                const adminActions = await this.checkAdminActionKeywords(userId, userInput);
+                if (adminActions.handled) {
+                    return adminActions.response;
+                }
+            }
+
             // Check for reset keyword
             const resetConfig = this.flow.configuration?.client_management?.reset;
             if (resetConfig?.enabled && 
@@ -386,12 +366,12 @@ class FlowEngine {
                 userInput && 
                 userInput.trim().toLowerCase() === resetConfig.keyword.toLowerCase() && 
                 !session.isFirstMessage) {
-                console.log(`[FlowEngine] 🔄 Processing reset keyword`);
+                console.log(`🔄 מעבד מילת מפתח איפוס`);
                 return await this.handleResetKeyword(userId);
             }
 
             // Normal message processing
-            console.log(`[FlowEngine] 📝 Processing normal message for step: ${session.currentStep}`);
+            console.log(`📝 עיבוד הודעה רגילה עבור שלב: ${session.currentStep}`);
             const response = await this.processStepInternal(userId, userInput);
             
             // Update last client message after processing
@@ -399,16 +379,12 @@ class FlowEngine {
                 await this.leadsManager.updateLastMessage(userId, 'client', userInput);
             }
             
-            console.log(`[FlowEngine] 📬 Final response for normal message:`, {
-                messageCount: response.messages?.length,
-                waitForUser: response.waitForUser,
-                currentStep: session.currentStep
-            });
+            console.log(`📬 תשובה סופית: ${response.messages?.length || 0} הודעות, המתנה=${response.waitForUser}`);
             
             return response;
             
         } catch (error) {
-            console.error('[FlowEngine] ❌ Error processing step:', error);
+            console.error('❌ שגיאה בעיבוד שלב:', error.message);
             return {
                 messages: ['מצטערים, אירעה שגיאה. אנא נסה שוב או כתוב "תפריט" להתחלה מחדש.']
             };
@@ -454,15 +430,29 @@ class FlowEngine {
                 const isAlreadyFrozen = currentLead?.frozenUntil && new Date(currentLead.frozenUntil) > now;
                 
                 if (isAlreadyFrozen) {
-                    console.log(`[FlowEngine] Client ${userId} is already frozen, only sending freeze message`);
-                    // Client is already frozen, only send the freeze explanation message
+                    console.log(`[FlowEngine] Client ${userId} is already frozen, checking if should send freeze message`);
+                    // Client is already frozen, check if we should send the freeze explanation message
                     const freezeConfig = this.getFreezConfig(step);
                     if (freezeConfig?.messaging?.send_explanation && freezeConfig.messaging.message) {
-                        const explanationText = freezeConfig.messaging.message.replace('{duration}', freezeConfig.duration || 60);
-                        return {
-                            messages: [explanationText],
-                            waitForUser: true
-                        };
+                        // Check if show_once is enabled and we already sent the message for this step
+                        const currentLead = await this.leadsManager.getLead(userId);
+                        const shouldSendMessage = !freezeConfig.messaging.show_once || 
+                                                !currentLead?.lastFreezeMessageSent ||
+                                                currentLead.lastFreezeReason !== step.id;
+                        
+                        if (shouldSendMessage) {
+                            const explanationText = freezeConfig.messaging.message.replace('{duration}', freezeConfig.duration || 60);
+                            return {
+                                messages: [explanationText],
+                                waitForUser: true
+                            };
+                        } else {
+                            console.log(`[FlowEngine] Freeze explanation message skipped for already frozen client ${userId} (show_once enabled)`);
+                            return {
+                                messages: [],
+                                waitForUser: true
+                            };
+                        }
                     } else {
                         // No freeze message configured, return empty
                         return {
@@ -479,7 +469,7 @@ class FlowEngine {
                     if (freezeConfig?.messaging?.send_explanation && freezeConfig.messaging.message) {
                         // The freeze message was already sent by freezeClient, so don't return it again
                         // Just return empty messages to avoid duplicate step messages
-                        return {
+                return {
                             messages: [],
                             waitForUser: true
                         };
@@ -487,8 +477,8 @@ class FlowEngine {
                         // No freeze message configured, return empty
                         return {
                             messages: [],
-                            waitForUser: true
-                        };
+                    waitForUser: true
+                };
                     }
                 }
             }
@@ -536,16 +526,39 @@ class FlowEngine {
                 console.log(`[FlowEngine] 📝 Step ${step.id} userResponseWaiting=${step.userResponseWaiting}, setting waitForUser=${result.waitForUser}`);
             }
 
-            // Handle auto-continuation for steps that don't wait for user (but not if we're about to block)
-            if (result.waitForUser === false && !session.ignoreNextInput && !step.block) {
-                console.log(`[FlowEngine] ⏭️ Auto-continuing from step ${step.id} (waitForUser=false)`);
-                // Continue to next step
+            // Handle nextStep from result (for condition steps and dynamic routing)
+            if (result.nextStep && this.flow.steps[result.nextStep]) {
+                console.log(`[FlowEngine] 🔀 Step ${step.id} specified nextStep: ${result.nextStep}`);
+                session.currentStep = result.nextStep;
                 const nextResult = await this.processStepInternal(userId, null);
+                
                 if (nextResult && nextResult.messages) {
                     result = {
                         messages: [...result.messages, ...nextResult.messages],
                         waitForUser: nextResult.waitForUser
                     };
+                }
+            }
+            // Handle auto-continuation for steps that don't wait for user (but not if we're about to block)
+            else if (result.waitForUser === false && !session.ignoreNextInput && !step.block) {
+                console.log(`[FlowEngine] ⏭️ Auto-continuing from step ${step.id} (waitForUser=false)`);
+                
+                // Check if the step has a next step defined
+                if (step.next && this.flow.steps[step.next]) {
+                    console.log(`[FlowEngine] 🔄 Moving to next step: ${step.next}`);
+                    session.currentStep = step.next;
+                    const nextResult = await this.processStepInternal(userId, null);
+                    
+                    if (nextResult && nextResult.messages) {
+                        result = {
+                            messages: [...result.messages, ...nextResult.messages],
+                            waitForUser: nextResult.waitForUser
+                        };
+                    }
+                } else {
+                    // No next step defined - this is a final step
+                    console.log(`[FlowEngine] ⏹️ Step ${step.id} is a final step (no next step defined)`);
+                    result.waitForUser = true; // Force wait to end the flow properly
                 }
             }
 
@@ -566,6 +579,11 @@ class FlowEngine {
             if (step.block && userInput === null) {
                 console.log(`[FlowEngine] 📝 Step ${step.id} has blocking - waiting for user input`);
                 result.waitForUser = true;
+            }
+
+            // Handle retry configuration if validation failed or user didn't respond appropriately
+            if (result.retry) {
+                await this.handleRetryLogic(userId, step, session, result);
             }
 
             return result;
@@ -640,6 +658,12 @@ class FlowEngine {
 
         // Send explanation message if enabled
         if (blockConfig.messaging?.send_explanation && blockConfig.messaging?.message) {
+            // Check if show_once is enabled and we already sent the message
+            const shouldSendMessage = !blockConfig.messaging.show_once || 
+                                    !currentLead?.last_block_message_sent ||
+                                    currentLead.blocked_reason !== stepId;
+            
+            if (shouldSendMessage) {
             const explanationText = blockConfig.messaging.message;
             
             try {
@@ -654,6 +678,9 @@ class FlowEngine {
                 console.log(`[FlowEngine] Block explanation message sent to ${userId}`);
             } catch (error) {
                 console.error(`[FlowEngine] Error sending block explanation to ${userId}:`, error);
+                }
+            } else {
+                console.log(`[FlowEngine] Block explanation message skipped for ${userId} (show_once enabled and already sent for this step)`);
             }
         }
 
@@ -731,6 +758,12 @@ class FlowEngine {
 
         // Send explanation message if enabled
         if (freezeConfig.messaging?.send_explanation && freezeConfig.messaging?.message) {
+            // Check if show_once is enabled and we already sent the message
+            const shouldSendMessage = !freezeConfig.messaging.show_once || 
+                                    !currentLead?.lastFreezeMessageSent ||
+                                    currentLead.lastFreezeReason !== stepId;
+            
+            if (shouldSendMessage) {
             const explanationText = freezeConfig.messaging.message.replace('{duration}', freezeDurationMinutes);
             
             try {
@@ -741,8 +774,13 @@ class FlowEngine {
                     lastFreezeMessageSent: new Date().toISOString(),
                     last_sent_message: 'bot'
                 });
+                    
+                    console.log(`[FlowEngine] Freeze explanation message sent to ${userId}`);
             } catch (error) {
                 console.error(`[FlowEngine] Error sending freeze explanation to ${userId}:`, error);
+                }
+            } else {
+                console.log(`[FlowEngine] Freeze explanation message skipped for ${userId} (show_once enabled and already sent for this step)`);
             }
         }
 
@@ -776,7 +814,20 @@ class FlowEngine {
                 if (integrationConfig.googleCalendar) {
                     try {
                         console.log(`[FlowEngine] 📅 Processing Google Calendar integration...`);
+                        // Check if step has specific calendar configuration
+                        const stepCalendarConfig = step.integration?.calendar;
+                        console.log(`[FlowEngine] 🔍 Step calendar config check:`, {
+                            stepId: step.id,
+                            hasIntegration: !!step.integration,
+                            hasCalendar: !!stepCalendarConfig,
+                            stepCalendarConfig: stepCalendarConfig
+                        });
+                        
+                        if (stepCalendarConfig) {
+                            await this.integrationManager.handleStepSpecificCalendarIntegration(meetingData, lead, stepCalendarConfig);
+                        } else {
                         await this.integrationManager.handleCalendarIntegration(meetingData, lead);
+                        }
                     } catch (error) {
                         console.error(`[FlowEngine] ❌ Google Calendar integration failed:`, error);
                     }
@@ -786,7 +837,15 @@ class FlowEngine {
                 if (integrationConfig.googleSheets) {
                     try {
                         console.log(`[FlowEngine] 📊 Processing Google Sheets integration...`);
-                        await this.integrationManager.handleSheetsIntegration(meetingData, lead);
+                        // Check if step has specific sheets configuration
+                        const stepSheetsConfig = step.integration?.sheets;
+                        console.log(`[FlowEngine] 🔍 Step sheets config check:`, {
+                            stepId: step.id,
+                            hasIntegration: !!step.integration,
+                            hasSheets: !!step.integration?.sheets,
+                            stepSheetsConfig
+                        });
+                        await this.integrationManager.handleSheetsIntegration(meetingData, lead, stepSheetsConfig);
                     } catch (error) {
                         console.error(`[FlowEngine] ❌ Google Sheets integration failed:`, error);
                     }
@@ -847,35 +906,275 @@ class FlowEngine {
         this.sessions.delete(userId);
     }
     
-    // Helper method to replace placeholders in text with values from data
-    replacePlaceholders(text, data) {
-        if (!text || !data) return text;
+    // Helper method to replace placeholders in text with values from data - שיפור יסודי
+    replacePlaceholders(text, data = {}, userId = null, leadData = null) {
+        if (!text || typeof text !== 'string') return text || '';
         
         let processedText = text;
-        for (const key in data) {
-            if (data.hasOwnProperty(key)) {
+        
+        // הכנת נתונים מורחבים
+        const allData = {
+            ...data,
+            ...(leadData?.data || {}),
+            // משתנים בסיסיים תמיד זמינים
+            phone: userId ? userId.split('@')[0] : '',
+            display_name: leadData?.data?.display_name || data.display_name || data.full_name || 'אורח',
+        };
+        
+        // החלפת כל המשתנים מהדטה
+        for (const key in allData) {
+            if (allData.hasOwnProperty(key) && allData[key] !== undefined && allData[key] !== null) {
                 const placeholder = `{${key}}`;
+                const value = String(allData[key]);
                 processedText = processedText.replace(
                     new RegExp(placeholder.replace(/[.*+?^${}()|[\\]]/g, '\\$&'), 'g'), 
-                    data[key]
+                    value
                 );
             }
         }
         
-        // Replace meeting-related placeholders if available
-        if (data.meeting) {
-            const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
-            const [day, month, year] = data.meeting.date.split('/');
-            const date = new Date(year, month - 1, day);
-            const dayName = dayNames[date.getDay()];
-            
-            processedText = processedText
-                .replace(/{dayName}/g, dayName)
-                .replace(/{selectedDate}/g, data.meeting.date)
-                .replace(/{selectedTime}/g, data.meeting.time);
+        // משתנים מיוחדים מחושבים
+        
+        // תאריך ושעה מפורמטים
+        if (processedText.includes('{date_formatted}') && data.selected_date) {
+            const formattedDate = this.formatDate(data.selected_date);
+            processedText = processedText.replace(/{date_formatted}/g, formattedDate);
+        }
+        
+        if (processedText.includes('{time_formatted}') && data.selected_time) {
+            const formattedTime = this.formatTime(data.selected_time);
+            processedText = processedText.replace(/{time_formatted}/g, formattedTime);
+        }
+        
+        if (processedText.includes('{day_name}') && data.selected_date) {
+            const dayName = this.getDayName(data.selected_date);
+            processedText = processedText.replace(/{day_name}/g, dayName);
+        }
+        
+        // תאריך ושעה ביחד
+        if (processedText.includes('{meeting_datetime}') && data.selected_date && data.selected_time) {
+            const datetime = `${this.formatDate(data.selected_date)} בשעה ${this.formatTime(data.selected_time)}`;
+            processedText = processedText.replace(/{meeting_datetime}/g, datetime);
+        }
+        
+        // סיכום פגישה
+        if (processedText.includes('{appointment_summary}') && allData.display_name && data.selected_date && data.selected_time) {
+            const summary = `${allData.display_name} - ${this.formatDate(data.selected_date)} בשעה ${this.formatTime(data.selected_time)}`;
+            processedText = processedText.replace(/{appointment_summary}/g, summary);
         }
         
         return processedText;
+    }
+    
+    // פונקציות עזר לפורמט תאריכים ושעות
+    formatDate(dateStr) {
+        if (!dateStr) return '';
+        try {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('he-IL');
+        } catch {
+            return dateStr; // Return original if can't format
+        }
+    }
+    
+    formatTime(timeStr) {
+        if (!timeStr) return '';
+        return timeStr; // Simple time format for now
+    }
+    
+    getDayName(dateStr) {
+        if (!dateStr) return '';
+        try {
+            const date = new Date(dateStr);
+            const dayNames = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+            return dayNames[date.getDay()];
+        } catch {
+            return '';
+        }
+    }
+
+    async handleRetryLogic(userId, step, session, result) {
+        try {
+            const retryConfig = step.retryConfig;
+            
+            if (!retryConfig || !retryConfig.enabled) {
+                return;
+            }
+
+            // Increment retry count
+            session.retryCount = (session.retryCount || 0) + 1;
+            console.log(`[FlowEngine] 🔄 Retry attempt ${session.retryCount}/${retryConfig.maxAttempts} for step ${step.id}`);
+
+            // Check if max attempts reached
+            if (session.retryCount >= retryConfig.maxAttempts) {
+                console.log(`[FlowEngine] ⚠️ Max retry attempts reached for step ${step.id}, executing retry actions`);
+                
+                // Execute all enabled actions
+                if (retryConfig.actions.deleteLead) {
+                    console.log(`[FlowEngine] 🗑️ Deleting client ${userId} due to max retries`);
+                    await this.leadsManager.deleteLead(userId);
+                    this.clearSession(userId);
+                }
+                
+                if (retryConfig.actions.stopSession) {
+                    console.log(`[FlowEngine] ⏹️ Stopping conversation for ${userId} due to max retries`);
+                    session.currentStep = null;
+                    await this.leadsManager.createOrUpdateLead(userId, {
+                        current_step: null,
+                        stopped_due_to_retries: true,
+                        stopped_at: new Date().toISOString()
+                    });
+                }
+                
+                if (retryConfig.actions.resetBot) {
+                    console.log(`[FlowEngine] 🔄 Resetting bot for ${userId} due to max retries`);
+                    const session = await this.getSession(userId);
+                    session.currentStep = this.flow.start || 'main_menu';
+                    session.isNewConversation = true;
+                    session.data = {}; // Complete reset of data
+                    session.retryCount = 0;
+                    
+                    await this.leadsManager.createOrUpdateLead(userId, {
+                        current_step: session.currentStep,
+                        data: {},
+                        reset_due_to_retries: true,
+                        reset_at: new Date().toISOString()
+                    });
+                }
+                
+                if (retryConfig.actions.showMessage?.enabled && retryConfig.actions.showMessage?.message) {
+                    console.log(`[FlowEngine] 📨 Sending retry message to ${userId}`);
+                    const message = this.replacePlaceholders(
+                        retryConfig.actions.showMessage.message, 
+                        session.data, 
+                        userId, 
+                        await this.leadsManager.getLead(userId)
+                    );
+                    
+                    try {
+                        await this.whatsappClient.sendMessage(`${userId.split('@')[0]}@c.us`, message);
+                        await this.leadsManager.updateLastMessage(userId, 'bot');
+                    } catch (error) {
+                        console.error(`[FlowEngine] Error sending retry message:`, error);
+                    }
+                }
+                
+                // Reset retry count after handling
+                session.retryCount = 0;
+            } else {
+                // Still within retry limit, send retry message if configured
+                if (retryConfig.retryMessage) {
+                    const message = this.replacePlaceholders(
+                        retryConfig.retryMessage, 
+                        session.data, 
+                        userId, 
+                        await this.leadsManager.getLead(userId)
+                    );
+                    
+                    try {
+                        await this.whatsappClient.sendMessage(`${userId.split('@')[0]}@c.us`, message);
+                        await this.leadsManager.updateLastMessage(userId, 'bot');
+                    } catch (error) {
+                        console.error(`[FlowEngine] Error sending retry message:`, error);
+                    }
+                }
+            }
+
+        } catch (error) {
+            console.error(`[FlowEngine] Error in handleRetryLogic:`, error);
+        }
+    }
+
+    async checkAdminActionKeywords(userId, userInput) {
+        try {
+            const inputLower = userInput.trim().toLowerCase();
+            const allSteps = Object.values(this.flow.steps);
+            
+            // Check all retry configurations for admin keywords
+            for (const step of allSteps) {
+                const retryConfig = step.retryConfig;
+                if (!retryConfig?.enabled || !retryConfig.actions) continue;
+
+                // Check delete keyword
+                if (retryConfig.actions.deleteLead && retryConfig.actions.deleteKeyword) {
+                    const keywords = retryConfig.actions.deleteKeyword.split(',').map(k => k.trim().toLowerCase());
+                    if (keywords.includes(inputLower)) {
+                        console.log(`[FlowEngine] 🗑️ Admin delete keyword detected: ${userInput}`);
+                        await this.leadsManager.deleteLead(userId);
+                        this.clearSession(userId);
+                        return {
+                            handled: true,
+                            response: {
+                                messages: ['לקוח נמחק מהמערכת.'],
+                                waitForUser: false
+                            }
+                        };
+                    }
+                }
+
+                // Check stop keyword
+                if (retryConfig.actions.stopSession && retryConfig.actions.stopKeyword) {
+                    const keywords = retryConfig.actions.stopKeyword.split(',').map(k => k.trim().toLowerCase());
+                    if (keywords.includes(inputLower)) {
+                        console.log(`[FlowEngine] ⏹️ Admin stop keyword detected: ${userInput}`);
+                        const session = await this.getSession(userId);
+                        session.currentStep = null;
+                        await this.leadsManager.createOrUpdateLead(userId, {
+                            current_step: null,
+                            stopped_by_admin: true,
+                            stopped_at: new Date().toISOString()
+                        });
+                        return {
+                            handled: true,
+                            response: {
+                                messages: ['השיחה הופסקה על ידי מנהל.'],
+                                waitForUser: false
+                            }
+                        };
+                    }
+                }
+
+                // Check reset keyword
+                if (retryConfig.actions.resetBot && retryConfig.actions.resetKeyword) {
+                    const keywords = retryConfig.actions.resetKeyword.split(',').map(k => k.trim().toLowerCase());
+                    if (keywords.includes(inputLower)) {
+                        console.log(`[FlowEngine] 🔄 Admin reset keyword detected: ${userInput}`);
+                        return {
+                            handled: true,
+                            response: await this.handleResetKeyword(userId)
+                        };
+                    }
+                }
+
+                // Check menu keyword (always available)
+                if (retryConfig.actions.menuKeyword) {
+                    const keywords = retryConfig.actions.menuKeyword.split(',').map(k => k.trim().toLowerCase());
+                    if (keywords.includes(inputLower)) {
+                        console.log(`[FlowEngine] 📋 Menu keyword detected: ${userInput}`);
+                        const session = await this.getSession(userId);
+                        session.currentStep = this.flow.start || 'main_menu';
+                        session.isNewConversation = true;
+                        session.data = { ...session.data }; // Keep existing data but restart flow
+                        
+                        await this.leadsManager.createOrUpdateLead(userId, {
+                            current_step: session.currentStep,
+                            returned_to_menu: true,
+                            menu_return_time: new Date().toISOString()
+                        });
+
+                        return {
+                            handled: true,
+                            response: await this.processStepInternal(userId, null)
+                        };
+                    }
+                }
+            }
+
+            return { handled: false };
+        } catch (error) {
+            console.error(`[FlowEngine] Error in checkAdminActionKeywords:`, error);
+            return { handled: false };
+        }
     }
 }
 

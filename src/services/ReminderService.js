@@ -393,13 +393,18 @@ class ReminderService {
                 return;
             }
 
+            // Ensure lead has ID property for WhatsApp messaging
+            if (!lead.id) {
+                lead.id = leadId;
+            }
+
             // Process notifications
             if (stepData.integrations.notifications && stepData.integration?.notifications) {
                 await this._processStepNotifications(lead, stepData);
             }
 
-            // Process reminders
-            if (stepData.integrations.reminders && stepData.reminders?.enabled) {
+            // Process reminders - check if specific reminder config is enabled, regardless of global setting
+            if (stepData.integration?.reminders?.enabled) {
                 await this._processStepRemindersConfig(lead, stepData);
             }
 
@@ -450,7 +455,7 @@ class ReminderService {
 
     async _processStepRemindersConfig(lead, stepData) {
         try {
-            const remindersConfig = stepData.reminders;
+            const remindersConfig = stepData.integration.reminders;
             if (!remindersConfig.reminders || !Array.isArray(remindersConfig.reminders)) {
                 return;
             }
@@ -482,7 +487,14 @@ class ReminderService {
                     if (!lead.meeting.reminders_sent) lead.meeting.reminders_sent = [];
                     
                     if (!lead.meeting.reminders_sent.includes(reminderKey)) {
-                        const message = this._formatMessage(reminder.message, lead);
+                        // Create a message with additional reminder-specific variables
+                        let message = reminder.message;
+                        
+                        // Replace {hours} with the actual reminder hours
+                        message = message.replace(/\{hours\}/g, reminder.hours);
+                        
+                        // Format other variables using the existing function
+                        message = this._formatMessage(message, lead);
                         
                         try {
                             await this.whatsappClient.sendMessage(lead.id, message);
@@ -517,8 +529,8 @@ class ReminderService {
             }
 
             const eventData = {
-                summary: calendarConfig.message || 'פגישה',
-                description: this._formatMessage(calendarConfig.message || '', lead),
+                summary: this._formatMessage(calendarConfig.title || 'פגישה עם {full_name}', lead),
+                description: this._formatMessage(calendarConfig.title || 'פגישה', lead),
                 start: {
                     dateTime: `${meetingDate}T${meetingTime}:00`,
                     timeZone: 'Asia/Jerusalem'
@@ -544,23 +556,111 @@ class ReminderService {
 
     async _processStepGoogleSheets(lead, stepData) {
         try {
+            console.log('ReminderService: Starting Google Sheets processing', {
+                leadId: lead.id,
+                hasIntegrationManager: !!this.integrationManager,
+                hasSheetsService: !!this.integrationManager?.services?.sheets,
+                sheetsConfig: stepData.integration?.sheets
+            });
+
             if (!this.integrationManager?.services?.sheets) {
                 console.warn('ReminderService: Google Sheets service not available');
                 return;
             }
 
             const sheetsConfig = stepData.integration.sheets;
-            const data = {
-                timestamp: new Date().toISOString(),
-                name: lead.data?.full_name || '',
+            
+            // Validate required configuration
+            if (!sheetsConfig?.sheetId) {
+                console.error('ReminderService: Google Sheets sheetId not configured for this step');
+                return;
+            }
+
+            if (!sheetsConfig?.columns || !Array.isArray(sheetsConfig.columns)) {
+                console.error('ReminderService: Google Sheets columns not configured for this step');
+                return;
+            }
+
+            // Create a dynamic sheets service for this specific step with its own configuration
+            const GoogleSheetsService = require('./google/sheets');
+            
+            // Map array-based columns to object-based format expected by GoogleSheetsService
+            const columnsMapping = {};
+            const leadData = lead.data || {};
+            
+            // Build data from lead using variables
+            const variableData = {
+                full_name: leadData.full_name || '',
                 phone: lead.id.replace('@c.us', ''),
-                meeting_date: lead.data?.meeting_date || '',
-                meeting_time: lead.data?.meeting_time || '',
-                message: this._formatMessage(sheetsConfig.message || '', lead)
+                meeting_date: leadData.meeting_date || '',
+                meeting_time: leadData.meeting_time || '',
+                city_name: leadData.city_name || '',
+                mobility: leadData.mobility || '',
+                display_name: leadData.display_name || leadData.full_name || '',
+                timestamp: new Date().toISOString()
             };
 
-            await this.integrationManager.services.sheets.appendRow(data);
-            console.log(`ReminderService: Added data to Google Sheets for ${lead.id}`);
+            // Map columns configuration (columns array contains values for A, B, C...)
+            const columnData = [];
+            sheetsConfig.columns.forEach((columnValue, index) => {
+                if (columnValue && columnValue.trim()) {
+                    // Replace variables in column value
+                    const processedValue = this._formatMessage(columnValue, lead);
+                    columnData[index] = processedValue;
+                    // Create mapping for GoogleSheetsService compatibility
+                    columnsMapping[`col_${index}`] = index + 1;
+                }
+            });
+
+            // Create temporary config for this step's sheets integration
+            const stepSheetsConfig = {
+                enabled: true,
+                sheetId: sheetsConfig.sheetId,
+                columns: columnsMapping,
+                worksheetName: sheetsConfig.worksheetName || 'Sheet1',
+                credentialsPath: sheetsConfig.credentialsPath || path.join(__dirname, 'credentials', 'google-sheets-credentials.json'),
+                preventDuplicates: sheetsConfig.preventDuplicates || false,
+                updateExistingRows: sheetsConfig.updateExistingRows || false,
+                insertToNextRow: sheetsConfig.insertToNextRow !== false, // Default to true
+                enableSorting: sheetsConfig.enableSorting || false,
+                sortColumn: sheetsConfig.sortColumn || 1,
+                sortType: sheetsConfig.sortType || 'date',
+                sortDirection: sheetsConfig.sortDirection || 'asc'
+            };
+
+            console.log('ReminderService: Creating Google Sheets service with config:', {
+                sheetId: stepSheetsConfig.sheetId,
+                columnsCount: Object.keys(stepSheetsConfig.columns).length,
+                worksheetName: stepSheetsConfig.worksheetName,
+                dataPreview: columnData.slice(0, 3)
+            });
+
+            // Create and initialize sheets service for this step
+            const stepSheetsService = new GoogleSheetsService(stepSheetsConfig);
+            const initialized = await stepSheetsService.initialize();
+            
+            if (!initialized) {
+                console.error('ReminderService: Failed to initialize step-specific Google Sheets service');
+                return;
+            }
+
+            // Prepare data for sheets service
+            const dataForSheets = {};
+            columnData.forEach((value, index) => {
+                if (value !== undefined) {
+                    dataForSheets[`col_${index}`] = value;
+                }
+            });
+
+            console.log('ReminderService: Adding row to Google Sheets:', dataForSheets);
+
+            const result = await stepSheetsService.addRow(dataForSheets);
+            if (result) {
+                console.log(`ReminderService: Successfully added data to Google Sheets for ${lead.id}`);
+            } else {
+                console.error(`ReminderService: Failed to add data to Google Sheets for ${lead.id}`);
+            }
+
         } catch (error) {
             console.error('ReminderService: Error processing Google Sheets integration:', error);
         }
@@ -591,7 +691,7 @@ class ReminderService {
         for (const [leadId, lead] of Object.entries(leads)) {
             if (!lead.is_schedule || !lead.data.meeting_date || !lead.data.meeting_time) {
                 continue;
-            }
+        }
 
             // Get the flow configuration to check for step reminders
             try {

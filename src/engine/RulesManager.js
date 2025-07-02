@@ -2,11 +2,10 @@ class RulesManager {
     constructor(flow = {}, integrationManager = null) {
         this.rules = flow;
         this.integrationManager = integrationManager;
-        console.log('[RulesManager] Initialized with rules:', JSON.stringify(flow?.configuration || {}, null, 2));
+        console.log('⚙️ RulesManager הותקן עם כללים');
     }
 
     async shouldProcessMessage(message, client) {
-        console.log(`\n[RulesManager] 🔍 Processing message from ${message.from}:`, message.body);
         try {
             // Block status@broadcast and invalid user IDs immediately and silently
             if (!message.from || 
@@ -14,14 +13,12 @@ class RulesManager {
                 message.from === 'undefined' || 
                 message.from.trim() === '' ||
                 !message.from.includes('@')) {
-                console.log('[RulesManager] ❌ Invalid message source, blocking');
                 return false;
             }
 
             // Get blocked sources rules first
             const blockedSourcesRules = this.rules?.configuration?.rules?.blockedSources;
             if (!blockedSourcesRules) {
-                console.log('[RulesManager] ⚠️ No blocked sources rules found, blocking for safety');
                 return false;
             }
 
@@ -30,20 +27,14 @@ class RulesManager {
 
             // 1. Block groups if ignoreGroups is true
             if (message.from.includes('@g.us') && blockedSourcesRules.ignoreGroups === true) {
-                console.log(`[RulesManager] 👥 Blocking message from group: ${message.from} (ignoreGroups: true)`);
                 await this.blockAndRecord(message.from, 'is_group');
                 return false;
-            } else if (message.from.includes('@g.us')) {
-                console.log(`[RulesManager] 👥 Allowing message from group: ${message.from} (ignoreGroups not true)`);
             }
 
             // 2. Block status messages if ignoreStatus is true
             if (message.from === 'status@broadcast' && blockedSourcesRules.ignoreStatus === true) {
-                console.log(`[RulesManager] 📢 Blocking status broadcast message (ignoreStatus: true)`);
                 await this.blockAndRecord(message.from, 'is_status');
                 return false;
-            } else if (message.from === 'status@broadcast') {
-                console.log(`[RulesManager] 📢 Allowing status broadcast message (ignoreStatus not true)`);
             }
 
             // 3. Block contacts if ignoreContacts is true
@@ -51,17 +42,14 @@ class RulesManager {
                 try {
                     const contact = await message.getContact();
                     if (contact && contact.isMyContact) {
-                        console.log(`[RulesManager] 📱 Blocking message from contact: ${message.from} (ignoreContacts: true)`);
                         await this.blockAndRecord(message.from, 'is_contact');
                         return false;
                     }
                 } catch (error) {
-                    console.error('[RulesManager] Error checking contact:', error);
+                    console.error('❌ שגיאה בבדיקת איש קשר:', error.message);
                     await this.blockAndRecord(message.from, 'contact_check_failed');
                     return false;
                 }
-            } else {
-                console.log(`[RulesManager] 📞 Processing contact message from: ${message.from} (ignoreContacts not true)`);
             }
 
             // 4. Block archived chats if ignoreArchived is true
@@ -69,17 +57,14 @@ class RulesManager {
                 try {
                     const chat = await message.getChat();
                     if (chat && chat.archived) {
-                        console.log(`[RulesManager] 📁 Blocking message from archived chat: ${message.from} (ignoreArchived: true)`);
                         await this.blockAndRecord(message.from, 'is_archived');
                         return false;
                     }
                 } catch (error) {
-                    console.error('[RulesManager] Error checking archived status:', error);
+                    console.error('❌ שגיאה בבדיקת ארכיון:', error.message);
                     await this.blockAndRecord(message.from, 'archive_check_failed');
                     return false;
                 }
-            } else {
-                console.log(`[RulesManager] 📁 Processing archived chat message from: ${message.from} (ignoreArchived not true)`);
             }
 
             // Only after passing ALL conversation checks, proceed with other checks
@@ -87,19 +72,15 @@ class RulesManager {
             // Get current lead status
             const lead = this.integrationManager?.flowEngine?.leadsManager ? 
                 await this.integrationManager.flowEngine.leadsManager.getLead(message.from) : null;
-            console.log(`[RulesManager] 📊 Lead status for ${message.from}:`, lead ? 
-                `current_step=${lead.current_step}, blocked=${lead.blocked}, frozen=${!!lead.frozenUntil}` : 'New client');
 
             // Check if the lead is already blocked
             if (lead?.blocked) {
-                console.log(`[RulesManager] 🚫 Blocked client ${message.from} (reason: ${lead.blocked_reason}) tried to send a message`);
-                
                 // Check if unblock is allowed and the message matches the unblock keyword
                 if (lead.allow_unblock && 
                     lead.unblock_keyword && 
                     message.body && 
                     message.body.trim().toLowerCase() === lead.unblock_keyword.toLowerCase()) {
-                    console.log(`[RulesManager] 🔓 Unblock keyword detected from ${message.from}: "${message.body}"`);
+                    console.log(`🔓 ביטול חסימה עבור ${message.from}`);
                     
                     // Unblock the client
                     await this.integrationManager.flowEngine.leadsManager.createOrUpdateLead(message.from, {
@@ -108,7 +89,6 @@ class RulesManager {
                         unblocked_reason: 'unblock_keyword'
                     });
                     
-                    console.log(`[RulesManager] ✅ Client ${message.from} has been unblocked via keyword`);
                     return true;
                 }
                 
@@ -118,7 +98,7 @@ class RulesManager {
                     const now = new Date();
                     
                     if (now > unblockTime) {
-                        console.log(`[RulesManager] ⏰ Block duration expired for ${message.from}, unblocking`);
+                        console.log(`⏰ תפוגת חסימה עבור ${message.from}`);
                         
                         // Unblock the client
                         await this.integrationManager.flowEngine.leadsManager.createOrUpdateLead(message.from, {
@@ -127,7 +107,6 @@ class RulesManager {
                             unblocked_reason: 'time_expired'
                         });
                         
-                        console.log(`[RulesManager] ✅ Client ${message.from} has been unblocked due to time expiration`);
                         return true;
                     }
                 }
@@ -140,7 +119,7 @@ class RulesManager {
             if (blockScheduledConfig?.enabled) {
                 const shouldBlock = await this.checkScheduledAppointments(message.from, blockScheduledConfig);
                 if (shouldBlock) {
-                    console.log(`[RulesManager] 📅 Client ${message.from} has scheduled appointments, blocking according to rules`);
+                    console.log(`📅 חסימה בגלל פגישות מתוכננות`);
                     return false;
                 }
             }
@@ -154,7 +133,7 @@ class RulesManager {
                 
                 if (needsActivation) {
                     if (!this.hasActivationKeywords(message.body)) {
-                        console.log(`[RulesManager] 🔑 Message does not contain activation keywords: ${message.body}`);
+                        console.log(`🔑 אין מילות מפתח להפעלה: ${message.body}`);
                         return false;
                     } else {
                         // If activation successful, update the last activation time
@@ -163,7 +142,7 @@ class RulesManager {
                                 last_activation_time: new Date().toISOString()
                             });
                         }
-                        console.log(`[RulesManager] 🔓 Activation successful for ${message.from}`);
+                        console.log(`🔓 הפעלה מוצלחת`);
                     }
                 }
             }
@@ -179,7 +158,7 @@ class RulesManager {
                     message.body.trim().toLowerCase() === resetKeyword.toLowerCase();
 
                 if (isResetKeyword && resetConfig?.enabled) {
-                    console.log(`[RulesManager] 🔄 Reset keyword detected from ${message.from}: "${message.body}"`);
+                    console.log(`🔄 מילת מפתח איפוס זוהתה`);
                     return true;
                 }
             }
@@ -187,21 +166,20 @@ class RulesManager {
             // Check if client is frozen
             const isFrozen = await this.isClientFrozen(message.from);
             if (isFrozen) {
-                console.log(`[RulesManager] ❄️ Client ${message.from} is frozen, ignoring message`);
+                console.log(`❄️ משתמש קפוא`);
                 return false;
             }
 
-            console.log(`[RulesManager] ✅ Message from ${message.from} passed all rules`);
+            console.log(`✅ הודעה עברה את כל הכללים`);
             return true;
         } catch (error) {
-            console.error('[RulesManager] ❌ Error in shouldProcessMessage:', error);
+            console.error('❌ שגיאה בעיבוד כללים:', error.message);
             return false;
         }
     }
 
     async checkScheduledAppointments(userId, config) {
         if (!this.integrationManager?.sheetsService) {
-            console.log('[RulesManager] No Sheets service available for checking appointments');
             return false;
         }
 
@@ -218,7 +196,6 @@ class RulesManager {
                         'past'
                     );
                     if (hasPastAppointment) {
-                        console.log(`[RulesManager] Client ${userId} has past appointments and can't reschedule`);
                         return true; // Block if has past appointment
                     }
                 }
@@ -239,13 +216,12 @@ class RulesManager {
             );
 
             if (hasAppointment) {
-                console.log(`[RulesManager] Client ${userId} has ${checkType} appointments`);
                 return true; // Block if has appointment
             }
 
             return false; // No appointments found
         } catch (error) {
-            console.error('[RulesManager] Error checking scheduled appointments:', error);
+            console.error('❌ שגיאה בבדיקת פגישות:', error.message);
             return false;
         }
     }
@@ -265,7 +241,6 @@ class RulesManager {
         const frozenUntil = new Date(lead.frozenUntil);
         
         if (now < frozenUntil) {
-            console.log(`[RulesManager] Client ${userId} is frozen until ${frozenUntil.toLocaleString('he-IL')}`);
             return true;
         } else {
             await this.integrationManager.flowEngine.leadsManager.createOrUpdateLead(userId, {
@@ -273,7 +248,7 @@ class RulesManager {
                 lastUnfrozenAt: now.toISOString()
             });
             
-            console.log(`[RulesManager] Client ${userId} unfrozen automatically`);
+            console.log(`❄️➡️ הפשרה אוטומטית`);
             return false;
         }
     }

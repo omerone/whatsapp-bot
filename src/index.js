@@ -7,21 +7,33 @@ async function main() {
         const now = new Date();
         console.log(`[${now.toLocaleString('he-IL')}] מפעיל את הבוט...`);
 
-        // 1. Create WhatsAppManager instance - it creates the client object internally.
-        // Pass null for flowEngine initially; it will be set later.
-        const whatsappManager = new WhatsAppManager(null);
+        // Check if we should skip WhatsApp (for development)
+        const skipWhatsApp = process.env.SKIP_WHATSAPP === 'true';
+        if (skipWhatsApp) {
+            console.log('🔧 מצב פיתוח: דולג על WhatsApp, טוען רק FlowEngine...');
+        }
+
+        let whatsappManager = null;
+        
+        if (!skipWhatsApp) {
+            // 1. Create WhatsAppManager instance - it creates the client object internally.
+            // Pass null for flowEngine initially; it will be set later.
+            whatsappManager = new WhatsAppManager(null);
+        }
 
         // 2. Create FlowEngine instance, passing whatsappManager.client to its constructor.
         const flowEngine = new FlowEngine(
             path.join(__dirname, '../data/flow.json'),
             path.join(__dirname, '../data/messages'),
             path.join(__dirname, '../data/leads.json'),
-            whatsappManager.client // Pass the actual client instance
+            whatsappManager?.client || null // Pass the actual client instance or null
         );
 
-        // 3. Set the created flowEngine instance on whatsappManager.
-        // This requires adding a setFlowEngine method to WhatsAppManager.
-        whatsappManager.setFlowEngine(flowEngine);
+        if (whatsappManager) {
+            // 3. Set the created flowEngine instance on whatsappManager.
+            // This requires adding a setFlowEngine method to WhatsAppManager.
+            whatsappManager.setFlowEngine(flowEngine);
+        }
 
         // 4. Initialize FlowEngine.
         // It will use the whatsappClient (passed in constructor) to initialize IntegrationManager.
@@ -30,29 +42,33 @@ async function main() {
             throw new Error('אתחול ה-FlowEngine נכשל');
         }
 
-        // 4b. Initialize RulesManager in WhatsAppManager now that flowEngine is fully initialized.
-        whatsappManager.initializeRulesManager();
+        if (whatsappManager) {
+            // 4b. Initialize RulesManager in WhatsAppManager now that flowEngine is fully initialized.
+            whatsappManager.initializeRulesManager();
 
-        // 5. Initialize WhatsAppManager.
-        // It needs flowEngine to be initialized for its own readiness checks and message handling.
-        const whatsappInitialized = await whatsappManager.initialize();
-        if (!whatsappInitialized) {
-            throw new Error('אתחול ה-WhatsApp נכשל');
+            // 5. Initialize WhatsAppManager.
+            // It needs flowEngine to be initialized for its own readiness checks and message handling.
+            const whatsappInitialized = await whatsappManager.initialize();
+            if (!whatsappInitialized) {
+                throw new Error('אתחול ה-WhatsApp נכשל');
+            }
+
+            // קריאה לאחזור קבוצות לאחר שהכל מוכן
+            if (flowEngine && flowEngine.integrationManager) {
+                await flowEngine.integrationManager.fetchGroupsAfterClientReady();
+            }
         }
 
-        // קריאה לאחזור קבוצות לאחר שהכל מוכן
-        if (flowEngine && flowEngine.integrationManager) {
-            await flowEngine.integrationManager.fetchGroupsAfterClientReady();
-        }
-
-        console.log(`[${new Date().toLocaleString('he-IL')}] הבוט מאותחל ומוכן לקבלת הודעות.`);
+        console.log(`[${new Date().toLocaleString('he-IL')}] הבוט מאותחל ומוכן${skipWhatsApp ? ' (ללא WhatsApp)' : ' לקבלת הודעות'}.`);
 
         // Handle process termination
         process.on('SIGTERM', async () => {
             const now = new Date();
             console.log(`[${now.toLocaleString('he-IL')}] מכבה את הבוט...`);
             try {
-                await whatsappManager.client.destroy();
+                if (whatsappManager?.client) {
+                    await whatsappManager.client.destroy();
+                }
             } catch (error) {}
             process.exit(0);
         });
@@ -61,7 +77,9 @@ async function main() {
             const now = new Date();
             console.log(`[${now.toLocaleString('he-IL')}] מכבה את הבוט...`);
             try {
-                await whatsappManager.client.destroy();
+                if (whatsappManager?.client) {
+                    await whatsappManager.client.destroy();
+                }
             } catch (error) {}
             process.exit(0);
         });
@@ -71,7 +89,9 @@ async function main() {
             const now = new Date();
             console.log(`[${now.toLocaleString('he-IL')}] שגיאה קריטית. מכבה את הבוט...`);
             try {
-                await whatsappManager.client.destroy();
+                if (whatsappManager?.client) {
+                    await whatsappManager.client.destroy();
+                }
             } catch (cleanupError) {}
             process.exit(1);
         });
@@ -81,7 +101,9 @@ async function main() {
             const now = new Date();
             console.log(`[${now.toLocaleString('he-IL')}] שגיאה לא מטופלת. מכבה את הבוט...`);
             try {
-                await whatsappManager.client.destroy();
+                if (whatsappManager?.client) {
+                    await whatsappManager.client.destroy();
+                }
             } catch (cleanupError) {}
             process.exit(1);
         });

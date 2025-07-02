@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Box, Button, Dialog, Typography, AppBar, Toolbar, Container, IconButton } from '@mui/material';
-import FlowEditor from '../../components/FlowEditor';
+import FlowEditor, { FlowEditorHandle } from '../../components/FlowEditor';
 import SaveIcon from '@mui/icons-material/Save';
 import SettingsIcon from '@mui/icons-material/Settings';
 import CodeIcon from '@mui/icons-material/Code';
 import FileOpenIcon from '@mui/icons-material/FileOpen';
 import AddIcon from '@mui/icons-material/Add';
 import PreviewIcon from '@mui/icons-material/Preview';
-import JsonPreview from '../../components/JsonPreview';
+// import JsonPreview from '../../components/JsonPreview'; // Component doesn't exist
 import MetadataEditor from '../../components/MetadataEditor';
 import { useFlow } from '../../context/FlowContext';
 
@@ -17,7 +17,7 @@ const EditorPage: React.FC = () => {
   const { exportFlow, flow } = useFlow();
   const [currentFlowName, setCurrentFlowName] = useState<string>('');
   const [saveFileName, setSaveFileName] = useState<string>('');
-  const flowEditorRef = useRef<any>(null);
+  const flowEditorRef = useRef<FlowEditorHandle>(null);
 
   // פונקציה לעדכון שם התסריט כאשר שם החברה משתנה
   const handleCompanyNameChange = useCallback((newName: string) => {
@@ -48,7 +48,7 @@ const EditorPage: React.FC = () => {
   
   // פונקציית שמירה שמשתמשת ב-FlowEditor לשמירה בפועל
   const handleSaveFlow = async () => {
-    if (flowEditorRef.current && flowEditorRef.current.handleSaveFlow) {
+    if (flowEditorRef.current?.handleSaveFlow) {
       return flowEditorRef.current.handleSaveFlow();
     } else {
       // שמירה ישירה דרך ה-API אם אין גישה לפונקציית FlowEditor
@@ -103,7 +103,7 @@ const EditorPage: React.FC = () => {
       </AppBar>
       
       <Box sx={{ flexGrow: 1, position: 'relative' }}>
-        <FlowEditor ref={flowEditorRef} />
+        <FlowEditor />
       </Box>
       
       {/* דיאלוג תצוגת JSON */}
@@ -122,8 +122,18 @@ const EditorPage: React.FC = () => {
             </Button>
           </Toolbar>
         </AppBar>
-        <Container maxWidth="xl">
-          <JsonPreview json={exportFlow()} />
+        <Container maxWidth="xl" sx={{ mt: 2 }}>
+          <pre style={{ 
+            whiteSpace: 'pre-wrap', 
+            overflow: 'auto', 
+            maxHeight: '80vh',
+            backgroundColor: '#f5f5f5',
+            padding: '16px',
+            borderRadius: '4px',
+            fontSize: '12px'
+          }}>
+            {exportFlow()}
+          </pre>
         </Container>
       </Dialog>
       

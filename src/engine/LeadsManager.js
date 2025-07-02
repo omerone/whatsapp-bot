@@ -102,11 +102,15 @@ class LeadsManager {
                     }
                 }
 
+                // Ensure is_schedule is in data
+                const data = lead.data || {};
+                if (lead.is_schedule !== undefined) {
+                    data.is_schedule = lead.is_schedule;
+                }
+
                 leadsToSave[phoneNumber] = {
                     current_step: lead.current_step,
-                    data: lead.data || {},
-                    is_schedule: lead.is_schedule || false,
-                    meeting: lead.meeting,
+                    data: data,
                     last_sent_message: lastSentMessage,
                     last_client_message: lead.last_client_message || "",
                     relevant: lead.relevant !== false, // Default to true if undefined
@@ -114,6 +118,7 @@ class LeadsManager {
                     date_and_time_conversation_started: lead.date_and_time_conversation_started,
                     blocked: lead.blocked || false,
                     blocked_reason: lead.blocked_reason,
+              
                     // Add freeze-related fields with formatted dates
                     frozenUntil: formattedFrozenUntil,
                     lastFreezeReason: lead.lastFreezeReason,
@@ -121,7 +126,7 @@ class LeadsManager {
                     // Spread any remaining properties from the lead object
                     ...Object.fromEntries(
                         Object.entries(lead).filter(([key]) => 
-                            !['frozenUntil', 'lastFreezeReason', 'lastFrozenAt', 'lastFreezeMessageSent', 'last_sent_message'].includes(key)
+                            !['frozenUntil', 'lastFreezeReason', 'lastFrozenAt', 'lastFreezeMessageSent', 'last_sent_message', 'data', 'is_schedule', 'meeting'].includes(key)
                         )
                     )
                 };
@@ -148,11 +153,25 @@ class LeadsManager {
 
         // For new leads
         if (!this.leads[phoneNumber]) {
+            const leadData = data.data || {};
+            
+            // Always initialize display_name if not provided
+            if (!leadData.hasOwnProperty('display_name')) {
+                leadData.display_name = null; // Explicitly set to null for condition checking
+            }
+            
+            // Always initialize is_schedule if not provided
+            if (!leadData.hasOwnProperty('is_schedule')) {
+                leadData.is_schedule = false;
+            }
+            
+            if (data.is_schedule !== undefined) {
+                leadData.is_schedule = data.is_schedule;
+            }
+            
             this.leads[phoneNumber] = {
                 current_step: null,
-                data: {},
-                is_schedule: false,
-                meeting: null,
+                data: leadData,
                 last_sent_message: "none",
                 last_client_message: "",
                 relevant: true,
@@ -160,15 +179,29 @@ class LeadsManager {
                 date_and_time_conversation_started: this.formatDate(now),
                 blocked: false,
                 blocked_reason: null,
-                ...data
+        
+                ...Object.fromEntries(
+                    Object.entries(data).filter(([key]) => 
+                        !['data', 'is_schedule', 'meeting'].includes(key)
+                    )
+                )
             };
         } else {
             // Update existing lead
             if (isReset) {
                 // For reset operations, force the reset values
+                const resetData = { ...data };
+                delete resetData.is_schedule;
+                delete resetData.meeting;
+                
+                if (data.is_schedule !== undefined) {
+                    this.leads[phoneNumber].data = this.leads[phoneNumber].data || {};
+                    this.leads[phoneNumber].data.is_schedule = data.is_schedule;
+                }
+                
                 this.leads[phoneNumber] = {
                     ...this.leads[phoneNumber],
-                    ...data,
+                    ...resetData,
                     blocked: false,
                     blocked_reason: null
                 };
@@ -183,9 +216,19 @@ class LeadsManager {
                     data.blocked_reason = this.leads[phoneNumber].blocked_reason;
                 }
 
+                // Handle is_schedule and meeting separately
+                const updateData = { ...data };
+                delete updateData.is_schedule;
+                delete updateData.meeting;
+                
+                if (data.is_schedule !== undefined) {
+                    this.leads[phoneNumber].data = this.leads[phoneNumber].data || {};
+                    this.leads[phoneNumber].data.is_schedule = data.is_schedule;
+                }
+
                 this.leads[phoneNumber] = {
                     ...this.leads[phoneNumber],
-                    ...data
+                    ...updateData
                 };
             }
         }
@@ -322,6 +365,53 @@ class LeadsManager {
         delete this.leads[phoneNumber];
         await this.saveLeads();
         return true;
+    }
+
+    async getAllLeads() {
+        if (!this.initialized) {
+            throw new Error('LeadsManager not initialized');
+        }
+        return Object.entries(this.leads).map(([phoneNumber, leadData]) => ({
+            id: phoneNumber,
+            ...leadData
+        }));
+    }
+
+    async updateLead(phoneNumber, leadData) {
+        if (!this.initialized) {
+            throw new Error('LeadsManager not initialized');
+        }
+
+        if (!this.isValidPhoneNumber(phoneNumber)) {
+            console.log(`[LeadsManager] ❌ Invalid phone number for update: ${phoneNumber}`);
+            return null;
+        }
+
+        if (this.leads[phoneNumber]) {
+            this.leads[phoneNumber] = { ...this.leads[phoneNumber], ...leadData };
+            await this.saveLeads();
+            return this.leads[phoneNumber];
+        }
+        return null;
+    }
+
+    async updateSavedName(phoneNumber, savedName) {
+        if (!this.initialized) {
+            throw new Error('LeadsManager not initialized');
+        }
+
+        if (!this.leads[phoneNumber]) {
+            console.log(`[LeadsManager] ⚠️ Lead not found for ${phoneNumber}`);
+            return null;
+        }
+
+        if (!this.leads[phoneNumber].data) {
+            this.leads[phoneNumber].data = {};
+        }
+        this.leads[phoneNumber].data.display_name = savedName;
+        await this.saveLeads();
+        console.log(`[LeadsManager] 📝 Updated display_name for ${phoneNumber}: ${savedName}`);
+        return this.leads[phoneNumber];
     }
 }
 

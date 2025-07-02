@@ -49,8 +49,8 @@
       "footerMessage": "",
       "userResponseWaiting": true,
       "position": {
-        "x": 100,
-        "y": 100
+        "x": 0,
+        "y": 150
       },
       "options": {
         "לא || 2": "5",
@@ -70,11 +70,12 @@
       "footerMessage": "",
       "userResponseWaiting": true,
       "position": {
-        "x": -200,
-        "y": 600
+        "x": -337,
+        "y": 550
       },
       "resolution": "days",
-      "next": "3"
+      "next": "3",
+      "limit": 10
     },
     "3": {
       "id": "3",
@@ -86,10 +87,11 @@
       "userResponseWaiting": true,
       "position": {
         "x": 0,
-        "y": 900
+        "y": 950
       },
       "resolution": "hours",
-      "next": "4"
+      "next": "4",
+      "limit": 10
     },
     "4": {
       "id": "4",
@@ -101,7 +103,7 @@
       "userResponseWaiting": true,
       "position": {
         "x": 0,
-        "y": 1200
+        "y": 1350
       },
       "freeze": {
         "enabled": true,
@@ -129,8 +131,8 @@
       "footerMessage": "",
       "userResponseWaiting": true,
       "position": {
-        "x": 200,
-        "y": 600
+        "x": 338,
+        "y": 550
       },
       "freeze": true
     }
@@ -144,8 +146,8 @@
         "calendarId": "6c1877e19bcec67cf66fc0235c0420790d1534e7abea9b1dd64bd44d0a440dae@group.calendar.google.com",
         "eventDurationMinutes": 60,
         "timeZone": "Asia/Jerusalem",
-        "eventTitle": "תספורת עם {full_name}",
-        "eventDescription": "תספורת עם {full_name}\nטלפון: {phone}\nעיר: {city_name}",
+        "eventTitle": "תספורת - {phone}",
+        "eventDescription": "תספורת\nטלפון: {phone}\nתאריך: {meeting_date}\nשעה: {meeting_time}",
         "maxParticipantsPerSlot": 3,
         "preventDuplicates": true
       }
@@ -156,7 +158,7 @@
         {
           "id": "reminder_1h_before",
           "offset": "-1h",
-          "messageFile": "reminder_1h_before.txt",
+          "messageTemplate": "⏰ תזכורת לתספורת! ✂️\n\nשלום {display_name},\n\nיש לך תור לתספורת עוד שעה!\n\n📅 תאריך: {meeting_date}\n⏰ שעה: {meeting_time}\n\nנתראה בספר! 👋",
           "source": "google_sheet",
           "enabled": false
         }

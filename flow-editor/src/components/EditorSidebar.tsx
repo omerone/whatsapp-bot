@@ -5,6 +5,7 @@ import MessageIcon from '@mui/icons-material/Message';
 import HelpIcon from '@mui/icons-material/Help';
 import ListIcon from '@mui/icons-material/List';
 import EventIcon from '@mui/icons-material/Event';
+import CallSplitIcon from '@mui/icons-material/CallSplit';
 
 const stepTypes: { 
   type: StepType; 
@@ -50,6 +51,15 @@ const stepTypes: {
     color: '#f59e0b',
     bgColor: '#fffbeb',
     IconComponent: EventIcon
+  },
+  {
+    type: 'condition',
+    label: 'תנאי',
+    description: 'בדיקת תנאים והפניה לשלבים שונים',
+    icon: '🔀',
+    color: '#e11d48',
+    bgColor: '#fef2f2',
+    IconComponent: CallSplitIcon
   }
 ];
 
@@ -61,6 +71,78 @@ const EditorSidebar: React.FC = () => {
     
     event.dataTransfer.setData('text/plain', nodeType);
     event.dataTransfer.effectAllowed = 'move';
+    
+    // שמירה על הצבע המקורי במהלך הגרירה - שיפור משמעותי
+    const target = event.currentTarget as HTMLElement;
+    const stepData = stepTypes.find(step => step.type === nodeType);
+    
+    if (stepData && target) {
+      // יצירת drag preview מותאם אישית
+      const dragPreview = document.createElement('div');
+      dragPreview.style.cssText = `
+        position: absolute;
+        top: -1000px;
+        left: -1000px;
+        width: 260px;
+        height: 80px;
+        background-color: ${stepData.bgColor};
+        border: 2px solid ${stepData.color};
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        padding: 12px;
+        gap: 12px;
+        opacity: 0.9;
+        font-family: 'Roboto', sans-serif;
+        box-shadow: 0 8px 25px -8px ${stepData.color}40;
+        z-index: 1000;
+      `;
+      
+      // יצירת האייקון
+      const iconDiv = document.createElement('div');
+      iconDiv.style.cssText = `
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 48px;
+        height: 48px;
+        border-radius: 8px;
+        background-color: ${stepData.color}20;
+        color: ${stepData.color};
+        font-size: 1.5rem;
+        flex-shrink: 0;
+      `;
+      iconDiv.textContent = stepData.icon;
+      
+      // יצירת הטקסט
+      const textDiv = document.createElement('div');
+      textDiv.style.cssText = `
+        flex: 1;
+        min-width: 0;
+      `;
+      textDiv.innerHTML = `
+        <div style="font-weight: 600; color: #1f2937; margin-bottom: 4px;">
+          ${stepData.label}
+        </div>
+        <div style="font-size: 0.875rem; color: #6b7280; line-height: 1.3;">
+          ${stepData.description}
+        </div>
+      `;
+      
+      dragPreview.appendChild(iconDiv);
+      dragPreview.appendChild(textDiv);
+      document.body.appendChild(dragPreview);
+      
+      // הגדרת הdrag image
+      event.dataTransfer.setDragImage(dragPreview, 130, 40);
+      
+      // הסרת הelement הזמני
+      setTimeout(() => {
+        if (document.body.contains(dragPreview)) {
+          document.body.removeChild(dragPreview);
+        }
+      }, 0);
+    }
   };
 
   return (

@@ -25,6 +25,7 @@ interface FlowContextType {
   createNewFlow: () => void;
   updateStepId: (oldId: string, newId: string) => void;
   setFlow: (newFlow: Flow) => void;
+  setStartStep: (stepId: string) => void;
 }
 
 const FlowContext = createContext<FlowContextType | undefined>(undefined);
@@ -83,10 +84,9 @@ export const FlowProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // וידוא שיש כל השדות הנדרשים
     const stepToAdd: Step = {
       ...step,
-      // רק מוסיפים enabled אם הוא מוגדר במפורש (כלומר false)
-      ...(step.enabled !== undefined && { enabled: step.enabled }),
-      userResponseWaiting: step.userResponseWaiting !== undefined ? step.userResponseWaiting : step.type !== 'message',
-    };
+      enabled: step.enabled !== undefined ? step.enabled : true,
+      ...(step.type === 'message' && { userResponseWaiting: step.userResponseWaiting !== undefined ? step.userResponseWaiting : false }),
+    } as Step;
     
     const newFlow = {
       ...flow,
@@ -96,9 +96,10 @@ export const FlowProvider: React.FC<{ children: React.ReactNode }> = ({ children
       },
     };
     
-    // אם אין צעד התחלה, הגדר את הצעד הנוכחי כצעד התחלה
-    if (!flow.start) {
+    // אם אין צעד התחלה, הגדר את הצעד הנוכחי כצעד התחלה רק אם זה הצעד הראשון
+    if (!flow.start && Object.keys(flow.steps).length === 0) {
       newFlow.start = step.id;
+      console.log('Setting first step as start:', step.id);
     }
     
     console.log('Updated flow with new step:', newFlow);
@@ -112,13 +113,20 @@ export const FlowProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
+    let updatedChanges = { ...changes };
+    
+    // הסר את שדה options אם קיים - הבקנד עובד עם branches בלבד
+    if (updatedChanges.options) {
+      delete updatedChanges.options;
+    }
+    
     const newFlow = {
       ...flow,
       steps: {
         ...flow.steps,
         [id]: {
           ...flow.steps[id],
-          ...changes,
+          ...updatedChanges,
         },
       },
     };
@@ -241,6 +249,22 @@ export const FlowProvider: React.FC<{ children: React.ReactNode }> = ({ children
       id,
     }));
   }, [flow]);
+
+  const setStartStep = useCallback((stepId: string) => {
+    console.log('Setting start step to:', stepId);
+    if (!flow.steps[stepId]) {
+      console.error('Step not found:', stepId);
+      return;
+    }
+    
+    const newFlow = {
+      ...flow,
+      start: stepId,
+    };
+    
+    console.log('Flow after start step update:', newFlow);
+    updateFlow(newFlow);
+  }, [flow, updateFlow]);
 
   const importFlow = useCallback((json: string) => {
     try {
@@ -379,6 +403,7 @@ export const FlowProvider: React.FC<{ children: React.ReactNode }> = ({ children
     createNewFlow,
     updateStepId,
     setFlow,
+    setStartStep,
   };
 
   return <FlowContext.Provider value={value}>{children}</FlowContext.Provider>;

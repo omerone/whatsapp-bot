@@ -51,7 +51,7 @@ export interface FlowConfiguration {
   };
 }
 
-export type StepType = 'message' | 'question' | 'options' | 'date';
+export type StepType = 'message' | 'question' | 'options' | 'date' | 'condition';
 
 export interface ValidationRule {
   type: string;
@@ -80,6 +80,7 @@ export interface FreezeConfig {
   messaging: {
     send_explanation: boolean;
     message: string;
+    show_once?: boolean;
   };
 }
 
@@ -88,9 +89,40 @@ export interface BlockConfig {
   messaging: {
     send_explanation: boolean;
     message: string;
+    show_once?: boolean;
   };
   allow_unblock: boolean;
   unblock_keyword: string;
+}
+
+export interface ConditionRule {
+  variable: string;
+  operator: 'exists' | 'notExists';
+  value?: string;
+  next: string;
+}
+
+export interface RetryConfig {
+  enabled: boolean;
+  maxAttempts: number;
+  actions: {
+    deleteLead?: boolean;
+    stopSession?: boolean;
+    resetBot?: boolean;
+    showMessage?: {
+      enabled: boolean;
+      message: string;
+      options?: {
+        restart?: string;
+        stop?: string;
+      };
+    };
+    // מילות מפתח למנהל
+    deleteKeyword?: string;
+    stopKeyword?: string;
+    resetKeyword?: string;
+    menuKeyword?: string;
+  };
 }
 
 export interface IntegrationConfig {
@@ -109,6 +141,7 @@ export interface StepData {
   key?: string;
   messageHeader?: string;
   message?: string;
+  messageFile?: string;
   footerMessage?: string;
   next?: string;
   branches?: Record<string, string>;
@@ -127,6 +160,13 @@ export interface StepData {
   resolution?: string;
   limit?: number;
   startFromToday?: boolean;
+  
+  // תמיכה בתנאים
+  conditions?: ConditionRule[];
+  defaultNext?: string; // השלב הבא אם אף תנאי לא התקיים
+  
+  // תמיכה בטיפול בנסיונות כושלים
+  retryConfig?: RetryConfig;
 }
 
 export interface Step extends StepData {

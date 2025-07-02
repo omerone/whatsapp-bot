@@ -1,0 +1,318 @@
+{
+  "metadata": {
+    "company_name": "תספורות עומר מקצועיות",
+    "version": "2.0.0",
+    "last_updated": "2025-06-23T15:00:00Z"
+  },
+  "configuration": {
+    "rules": {
+      "blockedSources": {
+        "ignoreContacts": false,
+        "ignoreArchived": true,
+        "ignoreGroups": true,
+        "ignoreStatus": true
+      },
+      "activation": {
+        "enabled": true,
+        "keywords": [
+          "תספורת"
+        ],
+        "resetAfterHours": 24
+      },
+      "session_timeout": 1800,
+      "max_retries": 3
+    },
+    "client_management": {
+      "freeze": {
+        "enabled": true,
+        "duration": 60,
+        "messaging": {
+          "send_explanation": true,
+          "message": "תחזור אלינו בעוד 60 דקות. תודה על הסבלנות! 🙏"
+        }
+      },
+      "reset": {
+        "enabled": true,
+        "keyword": "התחל מחדש",
+        "target_step": "welcome",
+        "options": {
+          "unfreeze": true,
+          "delete_appointment": false,
+          "allow_unblock": true
+        }
+      },
+      "blockScheduledClients": {
+        "enabled": false,
+        "blockPastAndPresent": false,
+        "blockFutureAndPresent": false,
+        "allowRescheduling": true,
+        "rescheduleOnlyFuture": true
+      }
+    }
+  },
+  "integrations": {
+    "enabled": true,
+    "googleWorkspace": {
+      "enabled": true,
+      "sheets": {
+        "enabled": true,
+        "sheetId": "1fVUvM0Zaj-G1oIzW0NHBOxktssEto_OZFn1JPZ44Nf0",
+        "columns": {
+          "meeting_date": 1,
+          "meeting_time": 2,
+          "full_name": 3,
+          "city_name": 4,
+          "phone": 5,
+          "mobility": 6
+        },
+        "filterByDateTime": true,
+        "preventDuplicates": true,
+        "updateExistingRows": true
+      },
+      "calendar": {
+        "enabled": true,
+        "calendarId": "6c1877e19bcec67cf66fc0235c0420790d1534e7abea9b1dd64bd44d0a440dae@group.calendar.google.com",
+        "eventDurationMinutes": 60,
+        "timeZone": "Asia/Jerusalem",
+        "eventTitle": "פגישה עם {full_name}",
+        "eventDescription": "פגישה עם {full_name}\nטלפון: {phone}\nעיר: {city_name}\nניידות: {mobility}",
+        "maxParticipantsPerSlot": 3,
+        "preventDuplicates": true
+      }
+    },
+    "notifications": {
+      "enabled": true,
+      "meetingScheduled": {
+        "enabled": true,
+        "recipients": [
+          "120363419789724883@g.us"
+        ],
+        "messageTemplateFile": "meeting_scheduled_notification.txt"
+      }
+    },
+    "reminders": {
+      "enabled": false,
+      "configurations": [
+        {
+          "id": "reminder_12h_before",
+          "offset": "-12h",
+          "timeOfDay": "19:00",
+          "messageTemplate": "🔔 תזכורת: יש לך פגישה מחר!\n\nשלום {display_name},\n\nרק להזכיר לך שיש לך פגישה מחר:\n📅 תאריך: {meeting_date}\n⏰ שעה: {meeting_time}\n\nנתראה מחר! 👋",
+          "source": "google_sheet",
+          "enabled": false
+        },
+        {
+          "id": "reminder_1h_before",
+          "offset": "-1h",
+          "messageTemplate": "⏰ תזכורת לפגישה!\n\nשלום {display_name},\n\nיש לך פגישה עוד שעה!\n📅 תאריך: {meeting_date}\n⏰ שעה: {meeting_time}\n\nנתראה בקרוב! 👋",
+          "source": "google_sheet",
+          "enabled": true
+        }
+      ]
+    },
+    "iPlan": {
+      "enabled": false,
+      "apiUrl": "",
+      "apiKey": "",
+      "companyId": "",
+      "syncMeetings": true,
+      "syncContacts": false,
+      "syncTasks": false
+    }
+  },
+  "start": "welcome",
+  "steps": {
+    "1": {
+      "id": "1",
+      "type": "date",
+      "label": "1",
+      "position": {
+        "x": 97.63184730085558,
+        "y": 1750
+      },
+      "enabled": true,
+      "resolution": "hours",
+      "limit": 10,
+      "next": "final_confirmation"
+    },
+    "welcome": {
+      "id": "welcome",
+      "type": "message",
+      "message": "🔥 שלום וברוכים הבאים לתספורות עומר מקצועיות! 💇‍♂️✨\n\nאנחנו כאן לתת לכם את התספורת המושלמת שתגרום לכם להרגיש ביטחון ויופי! 🌟\n\nהתהליך פשוט וקצר - בואו נתחיל! 🚀",
+      "next": "check_saved_name",
+      "enabled": true,
+      "userResponseWaiting": false,
+      "position": {
+        "x": -39.890712726052584,
+        "y": 138.99566545488204
+      }
+    },
+    "check_saved_name": {
+      "id": "check_saved_name",
+      "type": "condition",
+      "conditions": [
+        {
+          "variable": "display_name",
+          "operator": "exists",
+          "next": "welcome_with_name"
+        }
+      ],
+      "defaultNext": "ask_name",
+      "enabled": true,
+      "position": {
+        "x": 0,
+        "y": 550
+      },
+      "label": "check_saved_name"
+    },
+    "welcome_with_name": {
+      "id": "welcome_with_name",
+      "type": "message",
+      "message": "מה קורה {display_name}! 😊\n\nבואו נקבע לך תור למתי שנוח לך:",
+      "next": "ask_date",
+      "enabled": true,
+      "userResponseWaiting": false,
+      "position": {
+        "x": -337,
+        "y": 950
+      },
+      "label": "welcome_with_name"
+    },
+    "ask_name": {
+      "id": "ask_name",
+      "type": "question",
+      "message": "כדי שנוכל לתת לך שירות מקצועי ואישי, איך קוראים לך? 😊\n\n(שם פרטי ושם משפחה)",
+      "key": "full_name",
+      "validation": {
+        "type": "Name",
+        "errorMessages": {
+          "empty": "אנא הכנס שם",
+          "tooShort": "השם קצר מדי, אנא הכנס שם מלא (לפחות 4 תווים)",
+          "notEnoughWords": "אנא הכנס שם מלא (שם פרטי ושם משפחה לפחות). לדוגמה: \"ישראל ישראלי\"",
+          "tooManyWords": "נראה ששלחת יותר מדי מילים. אנא הכנס עד 4 מילים בשמך",
+          "invalidCharacters": "השם יכול להכיל רק אותיות בעברית ובאנגלית. אנא הסר מספרים או תווים מיוחדים",
+          "duplicateWords": "נראה שחזרת על אותה מילה בשמך. אנא בדוק שוב",
+          "cityName": "נראה שהזנת שם של עיר במקום שמך. אנא הכנס את שמך המלא"
+        }
+      },
+      "next": "confirm_name",
+      "enabled": true,
+      "userResponseWaiting": true,
+      "position": {
+        "x": 338,
+        "y": 950
+      }
+    },
+    "confirm_name": {
+      "id": "confirm_name",
+      "type": "options",
+      "message": "נהדר {full_name}! 🎯\n\nהאם השם נכון?\n\n1️⃣ כן, בואו נמשיך\n2️⃣ לא, אני רוצה לתקן",
+      "branches": {
+        "1 || כן || נכון || בסדר || אישור || נמשיך": "ask_date",
+        "2 || לא || לא נכון || תיקון || שגוי || לתקן": "ask_name"
+      },
+      "noMatchMessage": "אנא בחר '1' אם השם נכון או '2' כדי לתקן 😊",
+      "enabled": true,
+      "userResponseWaiting": true,
+      "position": {
+        "x": 338,
+        "y": 1350
+      }
+    },
+    "ask_date": {
+      "id": "ask_date",
+      "type": "date",
+      "message": "מתי תרצה להגיע? 📅\n\nבחר תאריך מהרשימה:",
+      "key": "meeting_date",
+      "limit": 7,
+      "startFromToday": true,
+      "next": "1",
+      "enabled": true,
+      "userResponseWaiting": true,
+      "position": {
+        "x": -337,
+        "y": 1350
+      },
+      "label": "ask_date"
+    },
+    "final_confirmation": {
+      "id": "final_confirmation",
+      "type": "options",
+      "message": "מושלם! 🎊\n\n📋 סיכום התור:\n👤 שם: {display_name}\n📅 תאריך: {meeting_date}\n⏰ שעה: {meeting_time}\n\n✅ לאשר את התור\n🔄 לשנות פרטים\n❌ לבטל",
+      "branches": {
+        "✅ || אישור || אשר || כן || נכון || בסדר": "appointment_confirmed",
+        "🔄 || שנה || שינוי || עדכן || תקן": "ask_date",
+        "❌ || ביטול || בטל || לא || תודה": "cancel_appointment"
+      },
+      "noMatchMessage": "אנא בחר:\n✅ לאישור\n🔄 לשינוי\n❌ לביטול",
+      "enabled": true,
+      "userResponseWaiting": true,
+      "integrations": {
+        "enabled": true,
+        "googleCalendar": true,
+        "googleSheets": true,
+        "notifications": true,
+        "reminders": true
+      },
+      "integration": {
+        "calendar": {
+          "title": "תספורת - {display_name}",
+          "duration": 30
+        },
+        "sheets": {
+          "message": "תור חדש נקבע עבור {display_name} ב-{meeting_date} ב-{meeting_time}"
+        },
+        "notifications": {
+          "recipients": "972503533373",
+          "message": "barber_appointment_notification.txt"
+        },
+        "reminders": {
+          "reminders": [
+            {
+              "hours": 1,
+              "message": "barber_reminder_1h.txt"
+            }
+          ]
+        }
+      },
+      "position": {
+        "x": 0,
+        "y": 2150
+      }
+    },
+    "appointment_confirmed": {
+      "id": "appointment_confirmed",
+      "type": "message",
+      "message": "🎉 התור נקבע בהצלחה!\n\n📋 פרטי התור:\n👤 {display_name}\n📅 {meeting_date}\n⏰ {meeting_time}\n📍 כתובת: רחוב הראשי 123, תל אביב\n📞 טלפון: 03-1234567\n\n💡 תקבל תזכורת שעה לפני התור\n\n🔄 לשינוי או ביטול תור, כתוב \"שנה תור\"\n📞 לשאלות, התקשר אלינו\n📱 או כתוב \"תפריט\" לעוד אפשרויות\n\nמחכים לראות אותך! ✨",
+      "enabled": true,
+      "userResponseWaiting": false,
+      "position": {
+        "x": -337,
+        "y": 2550
+      },
+      "retryConfig": {
+        "enabled": true,
+        "maxAttempts": 2,
+        "actions": {
+          "resetAndDelete": true,
+          "showMessage": {
+            "enabled": true,
+            "message": "איפוס, רענון, התחלה מחדש - לאפס את הבוט ולחזור לצט רגיל "
+          }
+        }
+      },
+      "label": "appointment_confirmed"
+    },
+    "cancel_appointment": {
+      "id": "cancel_appointment",
+      "type": "message",
+      "message": "😊 אין בעיה!\n\nהתור לא נקבע. אם תרצה לקבוע תור בעתיד, פשוט כתוב \"תור חדש\" ואנחנו כאן!\n\n📱 לעוד מידע כתוב \"תפריט\"\n📞 או התקשר אלינו ישירות\n\nתודה ויום נעים! 🌟",
+      "enabled": true,
+      "userResponseWaiting": false,
+      "position": {
+        "x": 338,
+        "y": 2550
+      }
+    }
+  }
+}
