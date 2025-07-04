@@ -91,18 +91,22 @@ class GoogleSheetsService {
 
             // Check for existing appointment with same phone number if prevent duplicates is enabled
             if (this.config.preventDuplicates) {
-            const existingRowIndex = await this._findExistingPhoneRow(formattedData.phone);
-            
-            if (existingRowIndex !== -1) {
+                const existingRowIndex = await this._findExistingPhoneRow(formattedData.phone);
+                
+                if (existingRowIndex !== -1) {
+                    console.log(`📋 Google Sheets: נמצאה שורה קיימת עבור מספר טלפון ${formattedData.phone} בשורה ${existingRowIndex + 1}`);
+                    
                     if (this.config.updateExistingRows) {
-                console.log(`📋 Google Sheets: עדכון שורה קיימת עבור מספר טלפון ${formattedData.phone}`);
-                return await this._updateExistingRow(existingRowIndex, formattedData);
+                        console.log(`📋 Google Sheets: עדכון שורה קיימת עבור מספר טלפון ${formattedData.phone}`);
+                        return await this._updateExistingRow(existingRowIndex, formattedData);
                     } else {
-                        console.log(`📋 Google Sheets: שורה קיימת למספר טלפון ${formattedData.phone}, מדלג על הוספה`);
+                        console.log(`📋 Google Sheets: מניעת כפילויות פעילה - עוצר הוספת שורה עבור מספר טלפון ${formattedData.phone}`);
                         return true; // Consider it successful but don't add duplicate
                     }
                 }
             }
+
+            console.log(`📋 Google Sheets: מוסיף שורה חדשה עבור מספר טלפון ${formattedData.phone}`);
 
             const values = [];
             const row = new Array(Math.max(...Object.values(this.config.columns))).fill('');

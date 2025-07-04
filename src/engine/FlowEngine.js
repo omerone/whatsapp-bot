@@ -208,8 +208,8 @@ class FlowEngine {
                     }
                 }
                 
-                // Delete from Google Sheets if integration is available
-                if (this.integrationManager) {
+                // Delete from Google Sheets - create temporary service for deletion
+                try {
                     // Try multiple identifiers to find and delete the sheet row
                     const possiblePhones = [
                         currentLead?.meeting?.sheet_row_phone,
@@ -220,12 +220,59 @@ class FlowEngine {
 
                     if (possiblePhones.length > 0) {
                         let sheetsDeleted = false;
-                        for (const phoneToDelete of possiblePhones) {
-                            console.log(`[FlowEngine] 📊 Attempting to delete sheet appointment for phone: ${phoneToDelete}`);
-                            const sheetResult = await this.integrationManager.deleteSheetAppointment(phoneToDelete);
-                            if (sheetResult) {
-                                sheetsDeleted = true;
-                                break; // Successfully deleted, no need to try other phone numbers
+                        
+                        // Create a temporary Google Sheets service for deletion
+                        const GoogleSheetsService = require('../services/google/sheets');
+                        
+                        // Get the sheets configuration from the final_confirmation step
+                        let sheetsConfig = null;
+                        const finalConfirmationStep = this.flow.steps['final_confirmation'];
+                        if (finalConfirmationStep?.integration?.sheets) {
+                            sheetsConfig = finalConfirmationStep.integration.sheets;
+                        }
+                        
+                        if (!sheetsConfig) {
+                            console.log(`[FlowEngine] ❌ No sheets configuration found in final_confirmation step`);
+                        } else {
+                            // Convert the columns array to the format expected by GoogleSheetsService
+                            const convertedConfig = {
+                                ...sheetsConfig,
+                                enabled: true // Ensure service is enabled
+                            };
+                            
+                            // Convert columns array to object mapping if it's an array
+                            if (Array.isArray(sheetsConfig.columns)) {
+                                convertedConfig.columns = {};
+                                sheetsConfig.columns.forEach((column, index) => {
+                                    if (typeof column === 'string') {
+                                        // Extract field name from placeholder like "{meeting_date}" -> "meeting_date"
+                                        const fieldMatch = column.match(/\{([^}]+)\}/);
+                                        if (fieldMatch) {
+                                            convertedConfig.columns[fieldMatch[1]] = index + 1;
+                                        }
+                                    } else if (typeof column === 'object' && column.value) {
+                                        // Handle objects with value property like {value: "{meeting_date}", backgroundColor: "#36b044"}
+                                        const fieldMatch = column.value.match(/\{([^}]+)\}/);
+                                        if (fieldMatch) {
+                                            convertedConfig.columns[fieldMatch[1]] = index + 1;
+                                        }
+                                    }
+                                });
+                            }
+                            
+                            console.log(`[FlowEngine] 📊 Creating temporary sheets service with config:`, convertedConfig);
+                            const tempSheetsService = new GoogleSheetsService(convertedConfig);
+                            await tempSheetsService.initialize();
+                            
+                            for (const phoneToDelete of possiblePhones) {
+                                console.log(`[FlowEngine] 📊 Attempting to delete sheet appointment for phone: ${phoneToDelete}`);
+                                const sheetResult = await tempSheetsService.deleteAppointment(phoneToDelete);
+                                console.log(`[FlowEngine] 📊 Delete result for ${phoneToDelete}: ${sheetResult}`);
+                                if (sheetResult) {
+                                    sheetsDeleted = true;
+                                    console.log(`[FlowEngine] ✅ Successfully deleted sheet appointment for phone: ${phoneToDelete}`);
+                                    break; // Successfully deleted, no need to try other phone numbers
+                                }
                             }
                         }
                         
@@ -236,6 +283,9 @@ class FlowEngine {
                     } else {
                         console.log(`[FlowEngine] ℹ️ No phone numbers found to delete from sheets`);
                     }
+                } catch (sheetsError) {
+                    console.error(`[FlowEngine] ❌ Error creating temporary sheets service for deletion:`, sheetsError);
+                    deletionSuccess = false;
                 }
                 
                 if (deletionSuccess) {
@@ -267,11 +317,13 @@ class FlowEngine {
         delete session.selectedTime;
         delete session.selectedWeek;
         delete session.selectedMonth;
-
+        
         // Save the updated session
         await this.saveSession(userId, session);
 
-        return true;
+        // Process the target step and return the response
+        console.log(`[FlowEngine] 🔄 Reset complete, processing target step: ${session.currentStep}`);
+        return await this.processStepInternal(userId, null);
     }
 
     async processStep(userId, userInput = null, isFirstMessage = false) {
@@ -367,7 +419,9 @@ class FlowEngine {
                 userInput.trim().toLowerCase() === resetConfig.keyword.toLowerCase() && 
                 !session.isFirstMessage) {
                 console.log(`🔄 מעבד מילת מפתח איפוס`);
-                return await this.handleResetKeyword(userId);
+                const resetResponse = await this.handleResetKeyword(userId);
+                console.log(`[FlowEngine] ✅ Reset completed, returning response with ${resetResponse.messages?.length || 0} messages`);
+                return resetResponse;
             }
 
             // Normal message processing
@@ -386,7 +440,8 @@ class FlowEngine {
         } catch (error) {
             console.error('❌ שגיאה בעיבוד שלב:', error.message);
             return {
-                messages: ['מצטערים, אירעה שגיאה. אנא נסה שוב או כתוב "תפריט" להתחלה מחדש.']
+                messages: ['מצטערים, אירעה שגיאה. אנא נסה שוב או כתוב "תפריט" להתחלה מחדש.'],
+                waitForUser: true
             };
         }
     }
@@ -563,8 +618,13 @@ class FlowEngine {
             }
 
             // Handle integrations if present - both old system and new system
-            if (step.integrations?.enabled) {
+            if (step.integrations?.enabled && (session.pendingIntegrations || !step.userResponseWaiting || userInput === null)) {
                 console.log(`[FlowEngine] 🔗 Processing integrations for step ${step.id}`);
+                
+                // Clear the pending integrations flag after processing
+                if (session.pendingIntegrations) {
+                    delete session.pendingIntegrations;
+                }
                 
                 // New system: step-level integrations via ReminderService
                 if (step.type === 'message' && this.integrationManager?.reminderService) {
@@ -788,104 +848,187 @@ class FlowEngine {
     }
 
     async handleStepIntegrations(userId, step, session) {
+        if (!step.integration && !step.integrations?.enabled) {
+            console.log(`[FlowEngine] No integrations configured for step ${step.id}`);
+            return;
+        }
+
+        const meetingData = {
+            full_name: session.data.full_name || session.data.name || '',
+            city_name: session.data.city_name || session.data.city || '',
+            phone: userId,
+            mobility: session.data.mobility || '',
+            meeting_date: session.data.meeting_date || session.selectedDate || '',
+            meeting_time: session.data.meeting_time || session.selectedTime || '',
+            display_name: session.data.display_name || session.data.full_name || session.data.name || ''
+        };
+
+        console.log(`[FlowEngine] 🔗 Processing step-level integrations for ${userId} with data:`, meetingData);
+
         try {
-            // Check if we have meeting data to process
-            if (!session.meetingData) {
-                console.log(`[FlowEngine] No meeting data available for integrations in step ${step.id}`);
-                return;
+            // Update the current lead with meeting information for future reference
+            const currentLead = await this.leadsManager.getLead(userId);
+            if (currentLead) {
+                const meetingInfo = {
+                    phone: userId,
+                    sheet_row_phone: userId, // Store phone for sheet deletion
+                    meeting_date: meetingData.meeting_date,
+                    meeting_time: meetingData.meeting_time,
+                    full_name: meetingData.full_name,
+                    city_name: meetingData.city_name,
+                    mobility: meetingData.mobility
+                };
+                
+                await this.leadsManager.createOrUpdateLead(userId, {
+                    meeting: meetingInfo,
+                    is_schedule: true
+                });
+                
+                console.log(`[FlowEngine] 📝 Updated lead with meeting info for ${userId}`);
             }
 
-            const integrationConfig = step.integrations;
-            const meetingData = session.meetingData;
-            const lead = await this.leadsManager.getLead(userId);
+            const results = {
+                calendar: false,
+                sheets: false,
+                notifications: false,
+                reminders: false
+            };
 
-            console.log(`[FlowEngine] 🔗 Processing integrations:`, {
-                stepId: step.id,
-                googleCalendar: integrationConfig.googleCalendar,
-                googleSheets: integrationConfig.googleSheets,
-                notifications: integrationConfig.notifications,
-                reminders: integrationConfig.reminders,
-                iPlan: integrationConfig.iPlan
-            });
+            // Process Google Sheets integration
+            if (step.integrations?.googleSheets && step.integration?.sheets?.enabled) {
+                console.log(`[FlowEngine] 📊 Processing Google Sheets integration...`);
+                try {
+                    const sheetsConfig = step.integration.sheets;
+                    
+                    // Initialize Google Sheets service for this step
+                    const GoogleSheetsService = require('../services/google/sheets');
+                    const stepSheetsService = new GoogleSheetsService({
+                        enabled: true,
+                        sheetId: sheetsConfig.sheetId,
+                        columns: {
+                            'meeting_date': 1,
+                            'meeting_time': 2,
+                            'full_name': 3,
+                            'city_name': 4,
+                            'phone': 5,
+                            'mobility': 6
+                        },
+                        worksheetName: sheetsConfig.worksheetName || 'Sheet1',
+                        credentialsPath: sheetsConfig.credentialsPath,
+                        preventDuplicates: sheetsConfig.preventDuplicates || false,
+                        updateExistingRows: sheetsConfig.updateExistingRows || false,
+                        insertToNextRow: sheetsConfig.insertToNextRow !== false,
+                        enableSorting: sheetsConfig.enableSorting || false,
+                        sortColumn: sheetsConfig.sortColumn || 1,
+                        sortType: sheetsConfig.sortType || 'date',
+                        sortDirection: sheetsConfig.sortDirection || 'asc'
+                    });
 
-            // Handle individual integrations based on configuration
-            if (this.integrationManager) {
-                // Google Calendar
-                if (integrationConfig.googleCalendar) {
-                    try {
-                        console.log(`[FlowEngine] 📅 Processing Google Calendar integration...`);
-                        // Check if step has specific calendar configuration
-                        const stepCalendarConfig = step.integration?.calendar;
-                        console.log(`[FlowEngine] 🔍 Step calendar config check:`, {
-                            stepId: step.id,
-                            hasIntegration: !!step.integration,
-                            hasCalendar: !!stepCalendarConfig,
-                            stepCalendarConfig: stepCalendarConfig
-                        });
-                        
-                        if (stepCalendarConfig) {
-                            await this.integrationManager.handleStepSpecificCalendarIntegration(meetingData, lead, stepCalendarConfig);
-                        } else {
-                        await this.integrationManager.handleCalendarIntegration(meetingData, lead);
+                    const initialized = await stepSheetsService.initialize();
+                    if (initialized) {
+                        // Prepare column colors if configured
+                        const columnColors = [];
+                        if (sheetsConfig.columns && Array.isArray(sheetsConfig.columns)) {
+                            sheetsConfig.columns.forEach((col, index) => {
+                                if (typeof col === 'object' && col.backgroundColor) {
+                                    columnColors[index] = col.backgroundColor;
+                                }
+                            });
                         }
-                    } catch (error) {
-                        console.error(`[FlowEngine] ❌ Google Calendar integration failed:`, error);
-                    }
-                }
 
-                // Google Sheets
-                if (integrationConfig.googleSheets) {
-                    try {
-                        console.log(`[FlowEngine] 📊 Processing Google Sheets integration...`);
-                        // Check if step has specific sheets configuration
-                        const stepSheetsConfig = step.integration?.sheets;
-                        console.log(`[FlowEngine] 🔍 Step sheets config check:`, {
-                            stepId: step.id,
-                            hasIntegration: !!step.integration,
-                            hasSheets: !!step.integration?.sheets,
-                            stepSheetsConfig
-                        });
-                        await this.integrationManager.handleSheetsIntegration(meetingData, lead, stepSheetsConfig);
-                    } catch (error) {
-                        console.error(`[FlowEngine] ❌ Google Sheets integration failed:`, error);
+                        const sheetsResult = await stepSheetsService.addRow(meetingData, columnColors);
+                        results.sheets = sheetsResult;
+                        
+                        if (sheetsResult) {
+                            console.log(`[FlowEngine] ✅ Google Sheets integration successful`);
+                        } else {
+                            console.log(`[FlowEngine] ❌ Google Sheets integration failed`);
+                        }
+                    } else {
+                        console.log(`[FlowEngine] ❌ Failed to initialize Google Sheets service`);
                     }
-                }
-
-                // Notifications
-                if (integrationConfig.notifications) {
-                    try {
-                        console.log(`[FlowEngine] 📢 Processing notifications integration...`);
-                        await this.integrationManager._sendMeetingNotifications(meetingData, lead);
-                    } catch (error) {
-                        console.error(`[FlowEngine] ❌ Notifications integration failed:`, error);
-                    }
-                }
-
-                // Reminders
-                if (integrationConfig.reminders) {
-                    try {
-                        console.log(`[FlowEngine] ⏰ Processing reminders integration...`);
-                        await this.integrationManager.handleRemindersIntegration(meetingData, lead);
-                    } catch (error) {
-                        console.error(`[FlowEngine] ❌ Reminders integration failed:`, error);
-                    }
-                }
-
-                // iPlan
-                if (integrationConfig.iPlan) {
-                    try {
-                        console.log(`[FlowEngine] 📋 Processing iPlan integration...`);
-                        await this.integrationManager.handleIPlanIntegration(meetingData, lead);
-                    } catch (error) {
-                        console.error(`[FlowEngine] ❌ iPlan integration failed:`, error);
-                    }
+                } catch (error) {
+                    console.error(`[FlowEngine] ❌ Google Sheets integration error:`, error);
                 }
             }
 
-            console.log(`[FlowEngine] ✅ Completed processing integrations for step ${step.id}`);
+            // Process Google Calendar integration
+            if (step.integrations?.googleCalendar && step.integration?.calendar?.enabled) {
+                console.log(`[FlowEngine] 📅 Processing Google Calendar integration...`);
+                try {
+                    if (this.integrationManager) {
+                        const calendarResult = await this.integrationManager.handleStepSpecificCalendarIntegration(
+                            meetingData, 
+                            currentLead, 
+                            step.integration.calendar
+                        );
+                        results.calendar = calendarResult?.success || false;
+                        
+                        if (results.calendar) {
+                            console.log(`[FlowEngine] ✅ Google Calendar integration successful`);
+                        } else {
+                            console.log(`[FlowEngine] ❌ Google Calendar integration failed`);
+                        }
+                    }
+                } catch (error) {
+                    console.error(`[FlowEngine] ❌ Google Calendar integration error:`, error);
+                }
+            }
 
+            // Process Notifications
+            if (step.integrations?.notifications && step.integration?.notifications?.enabled) {
+                console.log(`[FlowEngine] 📢 Processing notifications integration...`);
+                try {
+                    if (this.integrationManager) {
+                        const notificationResult = await this.integrationManager.sendStepNotification(
+                            meetingData,
+                            step.integration.notifications
+                        );
+                        results.notifications = notificationResult || false;
+                        
+                        if (results.notifications) {
+                            console.log(`[FlowEngine] ✅ Notifications integration successful`);
+                        } else {
+                            console.log(`[FlowEngine] ❌ Notifications integration failed`);
+                        }
+                    }
+                } catch (error) {
+                    console.error(`[FlowEngine] ❌ Notifications integration error:`, error);
+                }
+            }
+
+            // Process Reminders
+            if (step.integrations?.reminders && step.integration?.reminders?.enabled) {
+                console.log(`[FlowEngine] ⏰ Processing reminders integration...`);
+                try {
+                    if (this.integrationManager && this.integrationManager.reminderService) {
+                        const reminderResult = await this.integrationManager.reminderService.scheduleStepReminders(
+                            userId,
+                            meetingData,
+                            step.integration.reminders
+                        );
+                        results.reminders = reminderResult || false;
+                        
+                        if (results.reminders) {
+                            console.log(`[FlowEngine] ✅ Reminders integration successful`);
+                        } else {
+                            console.log(`[FlowEngine] ❌ Reminders integration failed`);
+                        }
+                    }
+                } catch (error) {
+                    console.error(`[FlowEngine] ❌ Reminders integration error:`, error);
+                }
+            }
+
+            console.log(`[FlowEngine] 📊 Step integrations results:`, {
+                calendar: results.calendar ? '✅' : '❌',
+                sheets: results.sheets ? '✅' : '❌',
+                notifications: results.notifications ? '✅' : '❌',
+                reminders: results.reminders ? '✅' : '❌'
+            });
+            
         } catch (error) {
-            console.error(`[FlowEngine] ❌ Error in handleStepIntegrations:`, error);
+            console.error(`[FlowEngine] ❌ Error in step integrations for ${userId}:`, error);
         }
     }
 
@@ -904,6 +1047,21 @@ class FlowEngine {
 
     clearSession(userId) {
         this.sessions.delete(userId);
+    }
+
+    // Add missing saveSession method
+    async saveSession(userId, session) {
+        // Update the in-memory session
+        this.sessions.set(userId, session);
+        
+        // Update the lead with the session data
+        await this.leadsManager.createOrUpdateLead(userId, {
+            current_step: session.currentStep,
+            data: session.data,
+            last_interaction: new Date().toLocaleString('he-IL')
+        });
+        
+        console.log(`[FlowEngine] 💾 Session saved for user ${userId}, step: ${session.currentStep}`);
     }
     
     // Helper method to replace placeholders in text with values from data - שיפור יסודי

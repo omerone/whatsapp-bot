@@ -1,0 +1,8 @@
+נקבעה פגישה חדשה! 📅
+
+שם: {full_name}
+עיר: {city_name}
+ניידות: {mobility}
+תאריך: {meeting_date}
+שעה: {meeting_time}
+טלפון: {phone} 

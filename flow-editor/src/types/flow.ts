@@ -134,6 +134,15 @@ export interface IntegrationConfig {
   iPlan?: boolean;
 }
 
+export interface IntegrationRemovalConfig {
+  enabled: boolean;
+  removeCalendar?: boolean;
+  removeSheets?: boolean;
+  removeNotifications?: boolean;
+  removeReminders?: boolean;
+  confirmationMessage?: string;
+}
+
 export interface StepData {
   id: string;
   type: StepType;
@@ -153,6 +162,7 @@ export interface StepData {
   freeze?: boolean | FreezeConfig;
   integrations?: IntegrationConfig;
   integration?: Record<string, any>;
+  integrationRemoval?: IntegrationRemovalConfig;
   reminders?: Record<string, any>;
   skipIfDisabled?: string;
   position?: Position;

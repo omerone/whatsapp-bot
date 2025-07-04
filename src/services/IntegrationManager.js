@@ -209,160 +209,7 @@ class IntegrationManager {
         return false;
     }
 
-    async handleMeetingScheduled(data, currentLead) {
-        console.log('\n[IntegrationManager] 📅 Processing new meeting scheduling:', {
-            name: data.full_name,
-            date: data.meeting_date,
-            time: data.meeting_time,
-            city: data.city_name,
-            mobility: data.mobility
-        });
 
-        // Log calendar service status
-        console.log('[IntegrationManager] 🔍 Calendar service status:', {
-            exists: !!this.services.calendar,
-            initialized: this.services.calendar?.initialized
-        });
-
-        try {
-            // Initialize results object
-            const results = {
-                calendar: { success: false, error: null },
-                sheets: { success: false, error: null },
-                notifications: { success: false, error: null },
-                iplan: { success: false, error: null }
-            };
-
-            // Initialize meeting details object to track IDs
-            const meetingDetails = {
-                ...data,
-                calendar_event_id: null,
-                sheet_row_id: null,
-                iplan_meeting_id: null
-            };
-
-            // Google Calendar Integration
-            if (this.services.calendar && this.services.calendar.initialized) {
-                console.log('[IntegrationManager] 🔄 Creating Google Calendar event...');
-                try {
-                    const calendarResult = await this.services.calendar.createEvent(data);
-                    results.calendar = calendarResult;
-                    
-                    if (calendarResult.success) {
-                        console.log('[IntegrationManager] ✅ Calendar event created successfully:', {
-                            eventId: calendarResult.eventId,
-                            eventLink: calendarResult.eventLink,
-                            wasExisting: calendarResult.wasExisting
-                        });
-                        
-                        // Store calendar event ID for potential deletion
-                        meetingDetails.calendar_event_id = calendarResult.eventId;
-                        meetingDetails.calendar_event_link = calendarResult.eventLink;
-                    } else {
-                        console.error('[IntegrationManager] ❌ Failed to create calendar event:', calendarResult.error);
-                    }
-                } catch (error) {
-                    console.error('[IntegrationManager] ❌ Error in calendar integration:', error.message);
-                    results.calendar.error = error.message;
-                }
-            } else {
-                console.log('[IntegrationManager] ℹ️ Google Calendar integration not initialized or disabled');
-            }
-
-            // Google Sheets Integration
-            if (this.services.sheets && this.services.sheets.initialized) {
-                console.log('[IntegrationManager] 🔄 Adding meeting to Google Sheets...');
-                try {
-                    const sheetsResult = await this.services.sheets.addRow(data);
-                    results.sheets.success = sheetsResult.success;
-                    if (sheetsResult.success) {
-                        console.log('[IntegrationManager] ✅ Meeting added to sheets successfully');
-                        // Store sheet row ID - we'll need to get this from the sheets service
-                        // For now, we'll use the phone number to identify the row later
-                        meetingDetails.sheet_row_phone = data.phone;
-                    } else {
-                        console.error('[IntegrationManager] ❌ Failed to add to sheets:', sheetsResult.error);
-                        results.sheets.error = sheetsResult.error;
-                    }
-                } catch (error) {
-                    console.error('[IntegrationManager] ❌ Error in sheets integration:', error.message);
-                    results.sheets.error = error.message;
-                }
-            } else {
-                console.log('[IntegrationManager] ℹ️ Google Sheets integration not initialized or disabled');
-            }
-
-            // iPlan Integration
-            if (this.services.iPlan && this.services.iPlan.initialized) {
-                console.log('[IntegrationManager] 🔄 Creating iPlan meeting...');
-                try {
-                    const iPlanResult = await this.services.iPlan.createMeeting(data);
-                    results.iplan.success = iPlanResult.success;
-                    if (iPlanResult.success) {
-                        console.log('[IntegrationManager] ✅ iPlan meeting created successfully');
-                    } else {
-                        console.error('[IntegrationManager] ❌ Failed to create iPlan meeting:', iPlanResult.error);
-                        results.iplan.error = iPlanResult.error;
-                    }
-                } catch (error) {
-                    console.error('[IntegrationManager] ❌ Error in iPlan integration:', error.message);
-                    results.iplan.error = error.message;
-                }
-            } else {
-                console.log('[IntegrationManager] ℹ️ iPlan integration not initialized or disabled');
-            }
-
-            // Send notifications - check if notifications are enabled
-            console.log('[IntegrationManager] 🔍 Checking notification requirements:', {
-                hasRemindersService: !!this.services.reminders,
-                hasWhatsappClient: !!this.whatsappClient,
-                clientType: this.whatsappClient ? this.whatsappClient.constructor.name : 'none'
-            });
-            
-            if (this.whatsappClient) {
-                console.log('[IntegrationManager] 🔄 Sending meeting notifications...');
-                try {
-                    const notificationResults = await this._sendMeetingNotifications(data, currentLead);
-                    results.notifications = notificationResults;
-                    if (notificationResults.success) {
-                        console.log('[IntegrationManager] ✅ Meeting notifications sent successfully');
-                    } else {
-                        console.error('[IntegrationManager] ❌ Failed to send notifications:', notificationResults.error);
-                    }
-                } catch (error) {
-                    console.error('[IntegrationManager] ❌ Error sending notifications:', error.message);
-                    results.notifications.error = error.message;
-                }
-            } else {
-                console.log('[IntegrationManager] ℹ️ WhatsApp client not available for notifications');
-                results.notifications = { success: false, error: 'WhatsApp client not available' };
-            }
-
-            // Update lead with meeting details for potential deletion
-            if (this.flowEngine && this.flowEngine.leadsManager && data.phone) {
-                try {
-                    await this.flowEngine.leadsManager.markLeadScheduled(data.phone, meetingDetails);
-                    console.log('[IntegrationManager] ✅ Lead updated with meeting details for deletion capability');
-                } catch (error) {
-                    console.error('[IntegrationManager] ❌ Failed to update lead with meeting details:', error);
-                }
-            }
-
-            // Log final results
-            console.log('[IntegrationManager] 📊 Meeting scheduling results:', {
-                calendar: results.calendar.success ? '✅' : '❌',
-                sheets: results.sheets.success ? '✅' : '❌',
-                notifications: results.notifications.success ? '✅' : '❌',
-                iplan: results.iplan.success ? '✅' : '❌'
-            });
-
-            return results;
-
-        } catch (error) {
-            console.error('[IntegrationManager] ❌ Error in handleMeetingScheduled:', error);
-            throw error;
-        }
-    }
 
     async handleCalendarIntegration(meetingData, currentLead) {
         try {
@@ -908,6 +755,44 @@ class IntegrationManager {
             if (!this.dataPath) {
                 console.warn('IntegrationManager: Cannot fetch groups, dataPath not available.');
             }
+        }
+    }
+
+    async sendStepNotification(meetingData, notificationConfig) {
+        if (!notificationConfig || !notificationConfig.enabled) {
+            console.log('[IntegrationManager] Step notifications not enabled');
+            return false;
+        }
+
+        try {
+            console.log('[IntegrationManager] 📢 Sending step-level notification...');
+            
+            const recipients = notificationConfig.recipients;
+            let message = notificationConfig.message;
+
+            // Replace placeholders in the message
+            if (message) {
+                for (const [key, value] of Object.entries(meetingData)) {
+                    const placeholder = `{${key}}`;
+                    message = message.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&'), 'g'), value || '');
+                }
+            }
+
+            if (this.whatsappClient && recipients && message) {
+                console.log(`[IntegrationManager] Sending notification to: ${recipients}`);
+                console.log(`[IntegrationManager] Notification message: ${message}`);
+                
+                await this.whatsappClient.sendMessage(recipients, message);
+                console.log('[IntegrationManager] ✅ Step notification sent successfully');
+                return true;
+            } else {
+                console.log('[IntegrationManager] ❌ Missing WhatsApp client, recipients, or message for step notification');
+                return false;
+            }
+
+        } catch (error) {
+            console.error('[IntegrationManager] ❌ Error sending step notification:', error);
+            return false;
         }
     }
 }

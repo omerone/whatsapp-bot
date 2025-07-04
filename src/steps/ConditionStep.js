@@ -151,6 +151,20 @@ class ConditionStep {
                 const numValue4 = parseFloat(value);
                 return !isNaN(numValue3) && !isNaN(numValue4) && numValue3 < numValue4;
                 
+            case 'cityGroupMotorcycleEnabled':
+                return await ConditionStep.checkCityGroupMotorcycle(lead);
+                
+            case 'cityGroupMotorcycleDisabled':
+                return !(await ConditionStep.checkCityGroupMotorcycle(lead));
+                
+            case 'mobilityEquals':
+                const mobilityValue = lead.data?.mobility;
+                return String(mobilityValue) === String(value);
+                
+            case 'mobilityNotEquals':
+                const mobilityValue2 = lead.data?.mobility;
+                return String(mobilityValue2) !== String(value);
+                
             default:
                 console.warn(`[ConditionStep] ⚠️ Unknown operator: ${operator}`);
                 return false;
@@ -196,6 +210,47 @@ class ConditionStep {
                 
                 console.log(`[ConditionStep] ⚠️ Variable not found: ${variable}`);
                 return null;
+        }
+    }
+
+    static async checkCityGroupMotorcycle(lead) {
+        try {
+            const fs = require('fs').promises;
+            const path = require('path');
+            
+            // Read city-groups.json
+            const cityGroupsPath = path.join(__dirname, '..', '..', 'data', 'city-groups.json');
+            const cityGroupsData = JSON.parse(await fs.readFile(cityGroupsPath, 'utf8'));
+            
+            const userCity = lead.data?.city_name;
+            if (!userCity) {
+                console.log(`[ConditionStep] ⚠️ No city found for user`);
+                return false;
+            }
+            
+            console.log(`[ConditionStep] 🏙️ Checking motorcycle availability for city: ${userCity}`);
+            
+            // Check each group to see if the city is included and if motorcycle is enabled
+            for (const [groupName, groupData] of Object.entries(cityGroupsData.groups)) {
+                if (groupData.cities && Array.isArray(groupData.cities)) {
+                    // Check if user's city is in this group (case insensitive and trimmed)
+                    const cityFound = groupData.cities.some(city => 
+                        city.trim().toLowerCase() === userCity.trim().toLowerCase()
+                    );
+                    
+                    if (cityFound) {
+                        console.log(`[ConditionStep] 🏙️ City ${userCity} found in group: ${groupName}, motoEnabled: ${groupData.motoEnabled}`);
+                        return groupData.motoEnabled === true;
+                    }
+                }
+            }
+            
+            console.log(`[ConditionStep] ⚠️ City ${userCity} not found in any group`);
+            return false;
+            
+        } catch (error) {
+            console.error(`[ConditionStep] ❌ Error checking city group motorcycle:`, error);
+            return false;
         }
     }
 }

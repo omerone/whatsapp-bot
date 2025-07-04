@@ -834,18 +834,40 @@ const StepEditor: React.FC<StepEditorProps> = ({ stepId, onClose }) => {
                   <MenuItem value="notContains">לא מכיל</MenuItem>
                   <MenuItem value="greaterThan">גדול מ</MenuItem>
                   <MenuItem value="lessThan">קטן מ</MenuItem>
+                  <MenuItem value="mobilityEquals">🚗 ניידות שווה ל</MenuItem>
+                  <MenuItem value="mobilityNotEquals">🚗 ניידות לא שווה ל</MenuItem>
+                  <MenuItem value="cityGroupMotorcycleEnabled">🏍️ אופנוע מותר באזור</MenuItem>
+                  <MenuItem value="cityGroupMotorcycleDisabled">🚫 אופנוע לא מותר באזור</MenuItem>
                 </Select>
               </FormControl>
               
-              {!['exists', 'notExists'].includes(condition.operator) && (
-                <TextField
-                  fullWidth
-                  label="ערך להשוואה"
-                  value={condition.value || ''}
-                  onChange={(e) => updateCondition(index, 'value', e.target.value)}
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                  placeholder="הזן ערך..."
-                />
+              {!['exists', 'notExists', 'cityGroupMotorcycleEnabled', 'cityGroupMotorcycleDisabled'].includes(condition.operator) && (
+                <>
+                  {['mobilityEquals', 'mobilityNotEquals'].includes(condition.operator) ? (
+                    <FormControl fullWidth>
+                      <InputLabel>ניידות</InputLabel>
+                      <Select
+                        value={condition.value || ''}
+                        label="ניידות"
+                        onChange={(e) => updateCondition(index, 'value', e.target.value)}
+                        sx={{ borderRadius: 2 }}
+                      >
+                        <MenuItem value="רכב">🚗 רכב</MenuItem>
+                        <MenuItem value="אופנוע">🏍️ אופנוע</MenuItem>
+                        <MenuItem value="לא נייד">🚫 לא נייד</MenuItem>
+                      </Select>
+                    </FormControl>
+                  ) : (
+                    <TextField
+                      fullWidth
+                      label="ערך להשוואה"
+                      value={condition.value || ''}
+                      onChange={(e) => updateCondition(index, 'value', e.target.value)}
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                      placeholder="הזן ערך..."
+                    />
+                  )}
+                </>
               )}
               
               <FormControl fullWidth>
@@ -2291,7 +2313,7 @@ const StepEditor: React.FC<StepEditorProps> = ({ stepId, onClose }) => {
                             const columns = editedStep.integration?.sheets?.columns || [];
                             
                             // Function to generate column letters (A, B, C... Z, AA, AB, AC...)
-                            const getColumnLetter = (index) => {
+                            const getColumnLetter = (index: number) => {
                               let result = '';
                               while (index >= 0) {
                                 result = String.fromCharCode(65 + (index % 26)) + result;
@@ -2411,7 +2433,7 @@ const StepEditor: React.FC<StepEditorProps> = ({ stepId, onClose }) => {
                                     onClick={() => {
                                       const integration = editedStep.integration || {};
                                       const currentColumns = integration.sheets?.columns || [];
-                                      const newColumns = currentColumns.filter((_, i) => i !== index);
+                                      const newColumns = currentColumns.filter((_: any, i: number) => i !== index);
                                       
                                       handleChange('integration', {
                                         ...integration,
@@ -2851,6 +2873,127 @@ const StepEditor: React.FC<StepEditorProps> = ({ stepId, onClose }) => {
                       helperText={`מידע שיישלח ל-iPlan. ניתן להשתמש במשתנים: ${getAllAvailableVariables().map(v => `{${v}}`).join(', ')}`}
                       sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                     />
+                  )}
+                </Paper>
+                
+                {/* Integration Removal Settings */}
+                <Paper elevation={0} sx={{ p: 2, backgroundColor: '#ffebee', borderRadius: 2, border: '1px solid #f44336' }}>
+                  <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600, color: '#d32f2f', display: 'flex', alignItems: 'center', gap: 1 }}>
+                    🗑️ הסרת אינטגרציות
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={editedStep.integrationRemoval?.enabled || false}
+                          onChange={(e) => {
+                            const config = editedStep.integrationRemoval || {};
+                            handleChange('integrationRemoval', {
+                              ...config,
+                              enabled: e.target.checked,
+                              removeCalendar: (config as any).removeCalendar || false,
+                              removeSheets: (config as any).removeSheets || false,
+                              removeNotifications: (config as any).removeNotifications || false,
+                              removeReminders: (config as any).removeReminders || false
+                            });
+                          }}
+                        />
+                      }
+                      label="🔧 הפעל הסרת אינטגרציות"
+                      sx={{ mb: 1 }}
+                    />
+                    <Tooltip title="אפשר להסיר נתונים מיומן גוגל, גיליונות או לבטל התראות ותזכורות כאשר המשתמש מגיע לשלב זה">
+                      <IconButton size="small" sx={{ ml: 1, mb: 1 }}>
+                        <InfoIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+
+                  {editedStep.integrationRemoval?.enabled && (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={editedStep.integrationRemoval?.removeCalendar || false}
+                            onChange={(e) => {
+                              const config = editedStep.integrationRemoval || { enabled: true };
+                              handleChange('integrationRemoval', {
+                                ...config,
+                                removeCalendar: e.target.checked
+                              });
+                            }}
+                          />
+                        }
+                        label="🗓️ מחק אירועים מיומן גוגל"
+                      />
+                      
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={editedStep.integrationRemoval?.removeSheets || false}
+                            onChange={(e) => {
+                              const config = editedStep.integrationRemoval || { enabled: true };
+                              handleChange('integrationRemoval', {
+                                ...config,
+                                removeSheets: e.target.checked
+                              });
+                            }}
+                          />
+                        }
+                        label="📊 מחק שורות מגיליונות גוגל"
+                      />
+                      
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={editedStep.integrationRemoval?.removeNotifications || false}
+                            onChange={(e) => {
+                              const config = editedStep.integrationRemoval || { enabled: true };
+                              handleChange('integrationRemoval', {
+                                ...config,
+                                removeNotifications: e.target.checked
+                              });
+                            }}
+                          />
+                        }
+                        label="📢 בטל התראות"
+                      />
+                      
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={editedStep.integrationRemoval?.removeReminders || false}
+                            onChange={(e) => {
+                              const config = editedStep.integrationRemoval || { enabled: true };
+                              handleChange('integrationRemoval', {
+                                ...config,
+                                removeReminders: e.target.checked
+                              });
+                            }}
+                          />
+                        }
+                        label="⏰ בטל תזכורות"
+                      />
+                      
+                      {/* Optional: Add confirmation message */}
+                      <TextField
+                        fullWidth
+                        multiline
+                        minRows={2}
+                        maxRows={4}
+                        label="הודעת אישור (אופציונלי)"
+                        value={editedStep.integrationRemoval?.confirmationMessage || ''}
+                        onChange={(e) => {
+                          const config = editedStep.integrationRemoval || { enabled: true };
+                          handleChange('integrationRemoval', {
+                            ...config,
+                            confirmationMessage: e.target.value
+                          });
+                        }}
+                        helperText="הודעה שתישלח למשתמש לאחר הסרת האינטגרציות (אופציונלי)"
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                      />
+                    </Box>
                   )}
                 </Paper>
                 </Box>

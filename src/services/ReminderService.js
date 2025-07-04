@@ -713,6 +713,70 @@ class ReminderService {
             }
         }
     }
+
+    async scheduleStepReminders(userId, meetingData, reminderConfig) {
+        if (!reminderConfig || !reminderConfig.enabled || !reminderConfig.reminders) {
+            console.log('ReminderService: Step reminders not enabled or configured');
+            return false;
+        }
+
+        try {
+            console.log(`ReminderService: Scheduling step reminders for ${userId}`);
+            
+            const leadData = {
+                id: userId,
+                phone: userId,
+                data: meetingData,
+                meeting_date: meetingData.meeting_date,
+                meeting_time: meetingData.meeting_time,
+                full_name: meetingData.full_name,
+                city_name: meetingData.city_name,
+                mobility: meetingData.mobility
+            };
+
+            for (const reminder of reminderConfig.reminders) {
+                if (reminder.enabled !== false) { // Default to enabled if not specified
+                    console.log(`ReminderService: Scheduling reminder ${reminder.id} for ${reminder.hours} hours before`);
+                    await this.scheduleReminder(leadData, reminder.hours, reminder.message);
+                }
+            }
+
+            console.log(`ReminderService: ✅ Successfully scheduled ${reminderConfig.reminders.length} reminders for ${userId}`);
+            return true;
+
+        } catch (error) {
+            console.error('ReminderService: Error scheduling step reminders:', error);
+            return false;
+        }
+    }
+
+    async cancelReminders(userId) {
+        try {
+            console.log(`ReminderService: Canceling reminders for user: ${userId}`);
+            
+            // Get the lead
+            const lead = await this.leadsManager.getLead(userId);
+            if (!lead) {
+                console.log(`ReminderService: Lead not found for user: ${userId}`);
+                return false;
+            }
+
+            // Clear reminders from the lead
+            await this.leadsManager.createOrUpdateLead(userId, {
+                step_reminders: null,
+                reminder_config: null,
+                reminders_canceled: true,
+                reminders_canceled_at: new Date().toISOString()
+            });
+
+            console.log(`ReminderService: ✅ Canceled reminders for user: ${userId}`);
+            return true;
+
+        } catch (error) {
+            console.error(`ReminderService: ❌ Error canceling reminders for user ${userId}:`, error);
+            return false;
+        }
+    }
 }
 
 module.exports = ReminderService; 
