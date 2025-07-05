@@ -182,6 +182,10 @@ app.get('/city-groups.json', (req, res) => {
   res.sendFile(path.join(__dirname, '../../data/city-groups.json'));
 });
 
+app.get('/cities-israel-with-coordinates.json', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../data/cities-israel-with-coordinates.json'));
+});
+
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'editor.html'));
 });

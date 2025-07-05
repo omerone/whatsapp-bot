@@ -54,6 +54,9 @@ class QuestionStep {
                             if (validationResult.motoEnabled !== undefined) {
                                 session.motoEnabled = validationResult.motoEnabled;
                             }
+                            if (validationResult.carEnabled !== undefined) {
+                                session.carEnabled = validationResult.carEnabled;
+                            }
                             session.currentStep = step.next;
                             return flowEngine.processStepInternal(session.userId);
 
@@ -116,6 +119,9 @@ class QuestionStep {
                     // Pass any additional data from validation result
                     if (validationResult.motoEnabled !== undefined) {
                         session.motoEnabled = validationResult.motoEnabled;
+                    }
+                    if (validationResult.carEnabled !== undefined) {
+                        session.carEnabled = validationResult.carEnabled;
                     }
                     
                     session.currentStep = step.next;

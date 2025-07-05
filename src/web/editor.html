@@ -1194,24 +1194,7 @@
       newGroupBtn.innerHTML = '<i class="bi bi-plus-circle-fill me-2"></i>צור אזור חדש';
       newGroupBtn.className = 'btn btn-outline-primary mt-2 mb-1 d-block mx-auto'; // Centered, with some margin
       newGroupBtn.onclick = () => {
-        const groupName = prompt('הזן שם אזור חדש (באנגלית, לדוגמה: "קרית גת")');
-        
-        // If user clicks Cancel on the prompt, groupName will be null.
-        if (groupName === null) {
-          return; // Do nothing if Cancel is pressed, no alert.
-        }
-
-        // If groupName is an empty string (user clicked OK without typing) or group already exists
-        // Also ensure the name is trimmed to prevent names with only spaces.
-        if (!groupName.trim() || cityGroups[groupName.trim()]) {
-          alert('שם לא חוקי, ריק, או שכבר קיים. השם חייב להיות ייחודי ולא להכיל רק רווחים.');
-          return;
-        }
-
-        // Use the trimmed name for consistency
-        const trimmedGroupName = groupName.trim();
-        cityGroups[trimmedGroupName] = { cities: [], motoEnabled: false, selected: false };
-        renderAreaGroups();
+        openCreateNewAreaModal();
       };
       modalHeaderSection.appendChild(newGroupBtn);
       box.appendChild(modalHeaderSection);
@@ -1541,14 +1524,20 @@
               if (newGroupName !== group) {
                 delete cityGroups[group];
               }
-              // Preserve motoEnabled if already exists
+              // Preserve carEnabled and motoEnabled if already exists
+              let carEnabled = false;
               let motoEnabled = false;
               // Make sure to check cityGroups[group] first, then cityGroups[newGroupName] if group name changed
               const originalGroupData = cityGroups[group] || (cityGroups[newGroupName] && newGroupName === group ? cityGroups[newGroupName] : null) ;
-              if (originalGroupData && typeof originalGroupData === 'object' && 'motoEnabled' in originalGroupData) {
-                motoEnabled = originalGroupData.motoEnabled;
+              if (originalGroupData && typeof originalGroupData === 'object') {
+                if ('carEnabled' in originalGroupData) {
+                  carEnabled = originalGroupData.carEnabled;
+                }
+                if ('motoEnabled' in originalGroupData) {
+                  motoEnabled = originalGroupData.motoEnabled;
+                }
               }
-              cityGroups[newGroupName] = { cities: checked, motoEnabled, selected: cityGroups[group]?.selected || false }; // Preserve selected state
+              cityGroups[newGroupName] = { cities: checked, carEnabled, motoEnabled, selected: cityGroups[group]?.selected || false }; // Preserve selected state
               document.body.removeChild(modal);
               document.removeEventListener('keydown', escHandler);
               renderAreaGroups();
@@ -1627,6 +1616,19 @@
             });
           };
 
+          // רכב רלוונטי לאזור
+          const carLabel = document.createElement('label');
+          carLabel.style.display = 'flex';
+          carLabel.style.alignItems = 'center';
+          carLabel.style.gap = '6px';
+          carLabel.style.margin = 0;
+          const carCheckbox = document.createElement('input');
+          carCheckbox.type = 'checkbox';
+          carCheckbox.checked = cityGroups[group].carEnabled || false;
+          carCheckbox.className = 'form-check-input';
+          carLabel.appendChild(carCheckbox);
+          carLabel.append(' 🚗');
+
           // אופנוע רלוונטי לאזור
           const motoLabel = document.createElement('label');
           motoLabel.style.display = 'flex';
@@ -1661,9 +1663,10 @@
           areaTitleGroup.appendChild(areaName);
           topRow.appendChild(areaTitleGroup);
 
-          // שורת כפתורי עריכה, מחיקה ואופנוע - עכשיו בתוך area-controls
+          // שורת כפתורי עריכה, מחיקה, רכב ואופנוע - עכשיו בתוך area-controls
           const areaControls = document.createElement('div');
           areaControls.className = 'area-controls';
+          areaControls.appendChild(carLabel);
           areaControls.appendChild(motoLabel);
           areaControls.appendChild(toggleBtn);
           areaControls.appendChild(editBtn);
@@ -1710,9 +1713,10 @@
                 return input && input.value === groupKey;
             });
             if (currentAreaBox) {
-              const motoCheckbox = currentAreaBox.querySelector('.area-controls input[type="checkbox"]');
-              if (motoCheckbox && cityGroups[groupKey]) { // Ensure cityGroups[groupKey] exists
-                cityGroups[groupKey].motoEnabled = motoCheckbox.checked;
+              const checkboxes = currentAreaBox.querySelectorAll('.area-controls input[type="checkbox"]');
+              if (checkboxes.length >= 2 && cityGroups[groupKey]) { // Ensure cityGroups[groupKey] exists
+                cityGroups[groupKey].carEnabled = checkboxes[0].checked; // First checkbox is car
+                cityGroups[groupKey].motoEnabled = checkboxes[1].checked; // Second checkbox is moto
               }
             }
           });
@@ -1753,6 +1757,229 @@
         }
       };
       document.addEventListener('keydown', escHandlerAreaModal);
+    }
+
+    // פונקציה ליצירת אזור חדש עם תמיכה ברדיוסים
+    async function openCreateNewAreaModal() {
+      // טעינת רשימת הערים עם קורדינטות
+      let citiesWithCoords = [];
+      try {
+        const res = await fetch('/cities-israel-with-coordinates.json');
+        if (res.ok) {
+          citiesWithCoords = await res.json();
+        } else {
+          console.warn('לא נמצא קובץ הערים עם קורדינטות');
+        }
+      } catch (err) {
+        console.warn('שגיאה בטעינת קובץ הערים:', err);
+      }
+
+      const overlay = document.createElement('div');
+      overlay.style.position = 'fixed';
+      overlay.style.top = 0;
+      overlay.style.left = 0;
+      overlay.style.width = '100vw';
+      overlay.style.height = '100vh';
+      overlay.style.background = 'rgba(0,0,0,0.5)';
+      overlay.style.display = 'flex';
+      overlay.style.alignItems = 'center';
+      overlay.style.justifyContent = 'center';
+      overlay.style.zIndex = 10000;
+
+      const box = document.createElement('div');
+      box.className = 'bg-white shadow-lg rounded p-4';
+      box.style.width = '500px';
+      box.style.maxHeight = '80vh';
+      box.style.overflowY = 'auto';
+
+      const title = document.createElement('h3');
+      title.textContent = 'יצירת אזור חדש';
+      title.className = 'mb-3 text-primary text-center';
+      box.appendChild(title);
+
+      // שם האזור
+      const nameDiv = document.createElement('div');
+      nameDiv.className = 'mb-3';
+      const nameLabel = document.createElement('label');
+      nameLabel.textContent = 'שם האזור:';
+      nameLabel.className = 'form-label';
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.className = 'form-control';
+      nameInput.placeholder = 'לדוגמה: "תל אביב והסביבה"';
+      nameDiv.appendChild(nameLabel);
+      nameDiv.appendChild(nameInput);
+      box.appendChild(nameDiv);
+
+      // אופציות רכב ואופנוע
+      const vehicleDiv = document.createElement('div');
+      vehicleDiv.className = 'mb-3';
+      const vehicleLabel = document.createElement('label');
+      vehicleLabel.textContent = 'סוגי רכב רלוונטיים:';
+      vehicleLabel.className = 'form-label';
+      
+      const carCheck = document.createElement('label');
+      carCheck.className = 'form-check d-block mb-2';
+      const carInput = document.createElement('input');
+      carInput.type = 'checkbox';
+      carInput.className = 'form-check-input';
+      carCheck.appendChild(carInput);
+      carCheck.appendChild(document.createTextNode(' 🚗 רכב'));
+
+      const motoCheck = document.createElement('label');
+      motoCheck.className = 'form-check d-block mb-2';
+      const motoInput = document.createElement('input');
+      motoInput.type = 'checkbox';
+      motoInput.className = 'form-check-input';
+      motoCheck.appendChild(motoInput);
+      motoCheck.appendChild(document.createTextNode(' 🛵 אופנוע'));
+
+      vehicleDiv.appendChild(vehicleLabel);
+      vehicleDiv.appendChild(carCheck);
+      vehicleDiv.appendChild(motoCheck);
+      box.appendChild(vehicleDiv);
+
+      // אופציות רדיוס
+      const radiusDiv = document.createElement('div');
+      radiusDiv.className = 'mb-3';
+      const radiusLabel = document.createElement('label');
+      radiusLabel.textContent = 'הגדרת רדיוס:';
+      radiusLabel.className = 'form-label';
+      radiusDiv.appendChild(radiusLabel);
+
+      // רשימת רדיוסים
+      const radiusContainer = document.createElement('div');
+      radiusContainer.id = 'radiusContainer';
+      radiusDiv.appendChild(radiusContainer);
+
+      const addRadiusBtn = document.createElement('button');
+      addRadiusBtn.textContent = '+ הוסף רדיוס';
+      addRadiusBtn.className = 'btn btn-outline-secondary btn-sm mt-2';
+      addRadiusBtn.onclick = () => addRadiusRow(radiusContainer, citiesWithCoords);
+      radiusDiv.appendChild(addRadiusBtn);
+      box.appendChild(radiusDiv);
+
+      // כפתורי שמירה וביטול
+      const btnDiv = document.createElement('div');
+      btnDiv.className = 'd-flex justify-content-end gap-2 mt-3';
+      
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = 'ביטול';
+      cancelBtn.className = 'btn btn-secondary';
+      cancelBtn.onclick = () => {
+        overlay.remove();
+      };
+
+      const saveBtn = document.createElement('button');
+      saveBtn.textContent = 'צור אזור';
+      saveBtn.className = 'btn btn-primary';
+      saveBtn.onclick = () => {
+        const groupName = nameInput.value.trim();
+        if (!groupName) {
+          alert('נא להזין שם אזור');
+          return;
+        }
+        if (Object.keys(cityGroups).includes(groupName)) {
+          alert('שם האזור כבר קיים');
+          return;
+        }
+
+        // איסוף הערים מכל הרדיוסים
+        const allCities = new Set();
+        const radiusRows = radiusContainer.querySelectorAll('.radius-row');
+        radiusRows.forEach(row => {
+          const citySelect = row.querySelector('.center-city-select');
+          const radiusInput = row.querySelector('.radius-input');
+          if (citySelect.value && radiusInput.value) {
+            const centerCity = citiesWithCoords.find(c => c.name === citySelect.value);
+            if (centerCity) {
+              const radius = parseFloat(radiusInput.value);
+              const citiesInRadius = getCitiesWithinRadius(centerCity, radius, citiesWithCoords);
+              citiesInRadius.forEach(city => allCities.add(city));
+            }
+          }
+        });
+
+        cityGroups[groupName] = {
+          cities: Array.from(allCities),
+          carEnabled: carInput.checked,
+          motoEnabled: motoInput.checked,
+          selected: false
+        };
+
+        overlay.remove();
+        renderAreaGroups();
+      };
+
+      btnDiv.appendChild(cancelBtn);
+      btnDiv.appendChild(saveBtn);
+      box.appendChild(btnDiv);
+
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+    }
+
+    // פונקציה להוספת שורת רדיוס
+    function addRadiusRow(container, citiesWithCoords) {
+      const row = document.createElement('div');
+      row.className = 'radius-row d-flex gap-2 mb-2 align-items-center';
+
+      const citySelect = document.createElement('select');
+      citySelect.className = 'form-select center-city-select';
+      citySelect.style.flex = '1';
+      const defaultOption = document.createElement('option');
+      defaultOption.value = '';
+      defaultOption.textContent = 'בחר עיר מרכזית';
+      citySelect.appendChild(defaultOption);
+
+      citiesWithCoords.forEach(city => {
+        const option = document.createElement('option');
+        option.value = city.name;
+        option.textContent = city.name;
+        citySelect.appendChild(option);
+      });
+
+      const radiusInput = document.createElement('input');
+      radiusInput.type = 'number';
+      radiusInput.className = 'form-control radius-input';
+      radiusInput.placeholder = 'רדיוס (ק"מ)';
+      radiusInput.style.width = '120px';
+      radiusInput.min = '1';
+      radiusInput.max = '50';
+
+      const removeBtn = document.createElement('button');
+      removeBtn.innerHTML = '🗑️';
+      removeBtn.className = 'btn btn-outline-danger btn-sm';
+      removeBtn.onclick = () => row.remove();
+
+      row.appendChild(citySelect);
+      row.appendChild(radiusInput);
+      row.appendChild(removeBtn);
+      container.appendChild(row);
+    }
+
+    // פונקציה לחישוב מרחק בין שתי נקודות (פורמולת Haversine)
+    function calculateDistance(lat1, lng1, lat2, lng2) {
+      const R = 6371; // רדיוס כדור הארץ בק"מ
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLng/2) * Math.sin(dLng/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
+
+    // פונקציה למציאת ערים ברדיוס נתון
+    function getCitiesWithinRadius(centerCity, radius, allCities) {
+      const result = [];
+      allCities.forEach(city => {
+        const distance = calculateDistance(centerCity.lat, centerCity.lng, city.lat, city.lng);
+        if (distance <= radius) {
+          result.push(city.name);
+        }
+      });
+      return result;
     }
 
     // Function to apply appDefaultHours to all weekdays (Sun-Thu) of the currently viewed month, skipping holidays

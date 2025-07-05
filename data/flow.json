@@ -284,8 +284,8 @@
       "message": "*מה רמת הניידות שלך?*\n1 - רכב\n2 - אופנוע\n3 - לא נייד",
       "key": "mobility",
       "branches": {
-        "1 || גם וגם || רכב || אוטו": "show_available_days::רכב",
-        "2 || אופנוע": "show_available_days::אופנוע",
+        "1 || גם וגם || רכב || אוטו": "check_car_availability",
+        "2 || אופנוע": "check_moto_availability",
         "3 || לא נייד || ללא || אין": "not_suitable::לא נייד"
       },
       "noMatchMessage": "בחירה לא תקינה, אנא בחר מהאפשרויות הבאות: 1,2,3",
@@ -294,6 +294,74 @@
         "y": 2150
       },
       "label": "ask_vehicle"
+    },
+    "check_car_availability": {
+      "id": "check_car_availability",
+      "type": "condition",
+      "conditions": [
+        {
+          "variable": "city_name",
+          "operator": "cityGroupCarEnabled",
+          "next": "show_available_days"
+        }
+      ],
+      "defaultNext": "not_suitable_car",
+      "position": {
+        "x": -200,
+        "y": 2400
+      }
+    },
+    "check_moto_availability": {
+      "id": "check_moto_availability",
+      "type": "condition",
+      "conditions": [
+        {
+          "variable": "city_name",
+          "operator": "cityGroupMotorcycleEnabled",
+          "next": "show_available_days"
+        }
+      ],
+      "defaultNext": "not_suitable_moto",
+      "position": {
+        "x": 200,
+        "y": 2400
+      }
+    },
+    "not_suitable_car": {
+      "id": "not_suitable_car",
+      "type": "message",
+      "userResponseWaiting": true,
+      "message": "😔 מצטערים {full_name}\n\nלצערנו שירותי הרכב אינם זמינים בעיר שלך כרגע.\n\nאנא נסה שוב בעתיד או צור קשר עם הנציג שלנו.\n\nתודה על הפנייה! 🙏",
+      "freeze": {
+        "enabled": true,
+        "duration": 60,
+        "messaging": {
+          "send_explanation": true,
+          "message": "תחזור אלינו בעוד {duration} דקות. תודה על הסבלנות! 🙏"
+        }
+      },
+      "position": {
+        "x": -200,
+        "y": 2700
+      }
+    },
+    "not_suitable_moto": {
+      "id": "not_suitable_moto",
+      "type": "message",
+      "userResponseWaiting": true,
+      "message": "😔 מצטערים {full_name}\n\nלצערנו שירותי האופנוע אינם זמינים בעיר שלך כרגע.\n\nאנא נסה שוב בעתיד או צור קשר עם הנציג שלנו.\n\nתודה על הפנייה! 🙏",
+      "freeze": {
+        "enabled": true,
+        "duration": 60,
+        "messaging": {
+          "send_explanation": true,
+          "message": "תחזור אלינו בעוד {duration} דקות. תודה על הסבלנות! 🙏"
+        }
+      },
+      "position": {
+        "x": 200,
+        "y": 2700
+      }
     },
     "show_available_days": {
       "id": "show_available_days",

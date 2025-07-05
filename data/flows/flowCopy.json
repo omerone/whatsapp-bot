@@ -104,7 +104,7 @@
         "x": 13.518756939162472,
         "y": -611.5566409061514
       },
-      "messageHeader": "ברוכים הבאים לחברת משאבים! זהו מענה אוטומטי, נתחיל בפרטי המשרה ונתקדם הלאה 😊\n\n🛠️ *הסבר על המשרה:*\n\nהעבודה מתבצעת בשטח – התקנות ושירותים בבתי לקוחות פרטיים 🏠  \nהטכנאים הם שכירים עם רכב/אופנוע וכלי עבודה משלהם.\n\n📡 *מה כולל התפקיד?*  \nהתקנות ותיקונים עבור ציוד תקשורת (סיבים, טריפלים, ממירים, ראוטרים, טלוויזיות וכו׳)\n\n📈 *מודל תגמול:*  \nהתשלום הוא לפי קריאות בפועל, לפי מחירון מסודר של החברה.  \nממוצע קריאות ביום: 5–10  \nשכר יומי ממוצע: 800₪–1000₪ 💸  \nשכר חודשי ממוצע: 15,000₪–20,000₪ (פוטנציאלי ליותר)\n\n🕒 *שעות העבודה:*  \n- ימים א'–ה' (שישי לסירוגין)  \n- תחילת יום: 08:00–10:00  \n- סיום יום: 16:00–18:00\n\n📋 *הכשרה מלאה על חשבון החברה (חודש)*  \nמענק סיום הכשרה – 3500₪  \n\n📄 *תלוש חודשי ופנסיה לפי החוק*\n\n",
+      "messageHeader": "ברוכים הבאים לחברת משאבים! זהו מענה אוטומטי, נתחיל בפרטי המשרה ונתקדם הלאה 😊\n\n🛠️ *הסבר על המשרה:*\n\nהעבודה מתבצעת בשטח – התקנות ושירותים בבתי לקוחות פרטיים 🏠  \nהטכנאים הם שכירים עם רכב/אופנוע וכלי עבודה משלהם.\n\n📡 *מה כולל התפקיד?*  \nהתקנות ותיקונים עבור ציוד תקשורת (סיבים, טריפלים, ממירים, ראוטרים, טלוויזיות וכו׳)\n\n📈 *מודל תגמול:*  \nהתשלום הוא לפי קריאות בפועל, לפי מחירון מסודר של החברה.  \nממוצע קריאות ביום: 5–10  \nשכר יומי ממוצע: 800₪–1000₪ 💸  \nשכר חודשי ממוצע: 15,000₪–20,000₪ (פוטנציאלי ליותר)\n\n🕒 *שעות העבודה:*  \n- ימים א'–ה' (שישי לסירוגין)  \n- תחילת יום: 08:00–10:00  \n- סיום יום: 16:00–18:00\n\n📋 *הכשרה מלאה על חשבון החברה (חודש)*  \nמענק סיום הכשרה – 3500₪  \n\n📄 *תלוש חודשי ופנסיה לפי החוק*",
       "label": "main_menu"
     },
     "start_booking_flow": {
@@ -186,7 +186,22 @@
         "x": 1013,
         "y": 550
       },
-      "label": "remove_candidate"
+      "label": "remove_candidate",
+      "integrations": {
+        "enabled": true,
+        "googleCalendar": false,
+        "googleSheets": false,
+        "notifications": false,
+        "reminders": false,
+        "iPlan": false
+      },
+      "integrationRemoval": {
+        "enabled": true,
+        "removeCalendar": false,
+        "removeSheets": true,
+        "removeNotifications": true,
+        "removeReminders": true
+      }
     },
     "ask_name": {
       "id": "ask_name",
@@ -269,8 +284,8 @@
       "message": "*מה רמת הניידות שלך?*\n1 - רכב\n2 - אופנוע\n3 - לא נייד",
       "key": "mobility",
       "branches": {
-        "1 || גם וגם || רכב || אוטו": "show_available_days::רכב",
-        "2 || אופנוע": "show_available_days::אופנוע",
+        "1 || גם וגם || רכב || אוטו": "check_car_availability",
+        "2 || אופנוע": "check_moto_availability",
         "3 || לא נייד || ללא || אין": "not_suitable::לא נייד"
       },
       "noMatchMessage": "בחירה לא תקינה, אנא בחר מהאפשרויות הבאות: 1,2,3",
@@ -279,6 +294,74 @@
         "y": 2150
       },
       "label": "ask_vehicle"
+    },
+    "check_car_availability": {
+      "id": "check_car_availability",
+      "type": "condition",
+      "conditions": [
+        {
+          "variable": "city_name",
+          "operator": "cityGroupCarEnabled",
+          "next": "show_available_days"
+        }
+      ],
+      "defaultNext": "not_suitable_car",
+      "position": {
+        "x": -200,
+        "y": 2400
+      }
+    },
+    "check_moto_availability": {
+      "id": "check_moto_availability",
+      "type": "condition",
+      "conditions": [
+        {
+          "variable": "city_name",
+          "operator": "cityGroupMotorcycleEnabled",
+          "next": "show_available_days"
+        }
+      ],
+      "defaultNext": "not_suitable_moto",
+      "position": {
+        "x": 200,
+        "y": 2400
+      }
+    },
+    "not_suitable_car": {
+      "id": "not_suitable_car",
+      "type": "message",
+      "userResponseWaiting": true,
+      "message": "😔 מצטערים {full_name}\n\nלצערנו שירותי הרכב אינם זמינים בעיר שלך כרגע.\n\nאנא נסה שוב בעתיד או צור קשר עם הנציג שלנו.\n\nתודה על הפנייה! 🙏",
+      "freeze": {
+        "enabled": true,
+        "duration": 60,
+        "messaging": {
+          "send_explanation": true,
+          "message": "תחזור אלינו בעוד {duration} דקות. תודה על הסבלנות! 🙏"
+        }
+      },
+      "position": {
+        "x": -200,
+        "y": 2700
+      }
+    },
+    "not_suitable_moto": {
+      "id": "not_suitable_moto",
+      "type": "message",
+      "userResponseWaiting": true,
+      "message": "😔 מצטערים {full_name}\n\nלצערנו שירותי האופנוע אינם זמינים בעיר שלך כרגע.\n\nאנא נסה שוב בעתיד או צור קשר עם הנציג שלנו.\n\nתודה על הפנייה! 🙏",
+      "freeze": {
+        "enabled": true,
+        "duration": 60,
+        "messaging": {
+          "send_explanation": true,
+          "message": "תחזור אלינו בעוד {duration} דקות. תודה על הסבלנות! 🙏"
+        }
+      },
+      "position": {
+        "x": 200,
+        "y": 2700
+      }
     },
     "show_available_days": {
       "id": "show_available_days",
@@ -328,7 +411,7 @@
         "iPlan": false
       },
       "position": {
-        "x": 0,
+        "x": 2.6207868077167404,
         "y": 3350
       },
       "next": "afterConfirmation",

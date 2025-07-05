@@ -157,6 +157,12 @@ class ConditionStep {
             case 'cityGroupMotorcycleDisabled':
                 return !(await ConditionStep.checkCityGroupMotorcycle(lead));
                 
+            case 'cityGroupCarEnabled':
+                return await ConditionStep.checkCityGroupCar(lead);
+                
+            case 'cityGroupCarDisabled':
+                return !(await ConditionStep.checkCityGroupCar(lead));
+                
             case 'mobilityEquals':
                 const mobilityValue = lead.data?.mobility;
                 return String(mobilityValue) === String(value);
@@ -250,6 +256,47 @@ class ConditionStep {
             
         } catch (error) {
             console.error(`[ConditionStep] ❌ Error checking city group motorcycle:`, error);
+            return false;
+        }
+    }
+
+    static async checkCityGroupCar(lead) {
+        try {
+            const fs = require('fs').promises;
+            const path = require('path');
+            
+            // Read city-groups.json
+            const cityGroupsPath = path.join(__dirname, '..', '..', 'data', 'city-groups.json');
+            const cityGroupsData = JSON.parse(await fs.readFile(cityGroupsPath, 'utf8'));
+            
+            const userCity = lead.data?.city_name;
+            if (!userCity) {
+                console.log(`[ConditionStep] ⚠️ No city found for user`);
+                return false;
+            }
+            
+            console.log(`[ConditionStep] 🏙️ Checking car availability for city: ${userCity}`);
+            
+            // Check each group to see if the city is included and if car is enabled
+            for (const [groupName, groupData] of Object.entries(cityGroupsData.groups)) {
+                if (groupData.cities && Array.isArray(groupData.cities)) {
+                    // Check if user's city is in this group (case insensitive and trimmed)
+                    const cityFound = groupData.cities.some(city => 
+                        city.trim().toLowerCase() === userCity.trim().toLowerCase()
+                    );
+                    
+                    if (cityFound) {
+                        console.log(`[ConditionStep] 🏙️ City ${userCity} found in group: ${groupName}, carEnabled: ${groupData.carEnabled}`);
+                        return groupData.carEnabled === true;
+                    }
+                }
+            }
+            
+            console.log(`[ConditionStep] ⚠️ City ${userCity} not found in any group`);
+            return false;
+            
+        } catch (error) {
+            console.error(`[ConditionStep] ❌ Error checking city group car:`, error);
             return false;
         }
     }

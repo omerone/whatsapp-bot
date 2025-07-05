@@ -174,6 +174,35 @@ class LocationValidator extends BaseValidator {
     }
 
     /**
+     * בדיקה אם עיר מאפשרת שירותי רכב
+     * @param {string} cityName - שם העיר
+     * @returns {boolean} - האם רכב מאופשר
+     */
+    static isCarEnabled(cityName) {
+        this._initialize();
+        
+        const canonicalCity = this._getCanonicalCity(cityName);
+        if (!this._serviceableCities.has(canonicalCity)) {
+            return false;
+        }
+
+        if (!cityGroups?.groups) return false;
+
+        for (const groupName in cityGroups.groups) {
+            const group = cityGroups.groups[groupName];
+            if (group.selected && group.cities && Array.isArray(group.cities)) {
+                if (group.cities.some(cityInGroup => 
+                    this._getCanonicalCity(cityInGroup) === canonicalCity)) {
+                    // If carEnabled is not defined, default to true for backward compatibility
+                    return group.carEnabled !== undefined ? group.carEnabled : true;
+                }
+            }
+        }
+        
+        return false;
+    }
+
+    /**
      * ולידציה פשוטה - בדיקה אם עיר נמצאת באזור שירות
      * @param {string} input - הקלט מהמשתמש
      * @returns {Object} - תוצאת ולידציה
@@ -191,7 +220,8 @@ class LocationValidator extends BaseValidator {
 
             if (this._serviceableCities.has(canonicalCity)) {
                 return this.createResponse(true, canonicalCity, null, {
-                    motoEnabled: this.isMotoEnabled(canonicalCity)
+                    motoEnabled: this.isMotoEnabled(canonicalCity),
+                    carEnabled: this.isCarEnabled(canonicalCity)
                 });
             }
 
@@ -229,7 +259,8 @@ class LocationValidator extends BaseValidator {
                 return { 
                     status: 'CONFIRMED_VALID_SUGGESTION', 
                     value: pendingSuggestion, 
-                    motoEnabled: this.isMotoEnabled(pendingSuggestion) 
+                    motoEnabled: this.isMotoEnabled(pendingSuggestion),
+                    carEnabled: this.isCarEnabled(pendingSuggestion)
                 };
             } else {
                 return { 
@@ -246,7 +277,8 @@ class LocationValidator extends BaseValidator {
             return { 
                 status: 'VALID', 
                 value: inputCanonical, 
-                motoEnabled: this.isMotoEnabled(inputCanonical) 
+                motoEnabled: this.isMotoEnabled(inputCanonical),
+                carEnabled: this.isCarEnabled(inputCanonical)
             };
         }
 
@@ -303,12 +335,14 @@ class LocationValidator extends BaseValidator {
         switch (result.status) {
             case 'VALID':
                 return this.createResponse(true, result.value, null, { 
-                    motoEnabled: result.motoEnabled 
+                    motoEnabled: result.motoEnabled,
+                    carEnabled: result.carEnabled
                 });
                 
             case 'CONFIRMED_VALID_SUGGESTION':
                 return this.createResponse(true, result.value, null, { 
-                    motoEnabled: result.motoEnabled 
+                    motoEnabled: result.motoEnabled,
+                    carEnabled: result.carEnabled
                 });
                 
             case 'SUGGESTION_SERVICEABLE':
